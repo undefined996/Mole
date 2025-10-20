@@ -676,9 +676,12 @@ perform_cleanup() {
     safe_clean ~/.cache/electron/* "Electron cache"
     safe_clean ~/.cache/node-gyp/* "node-gyp cache"
     safe_clean ~/.node-gyp/* "node-gyp build cache"
-    safe_clean ~/.turbo/* "Turbo cache"
-    safe_clean ~/.next/* "Next.js cache"
-    safe_clean ~/.vite/* "Vite cache"
+    # Note: ~/.turbo and ~/.vite may contain important configuration
+    # Only clean cache subdirectories if they exist
+    safe_clean ~/.turbo/cache/* "Turbo cache"
+    # Note: Next.js cache is per-project (.next/cache), not in home directory
+    # safe_clean ~/.next/* "Next.js cache"  # REMOVED: Not a standard cache location
+    safe_clean ~/.vite/cache/* "Vite cache"
     safe_clean ~/.cache/vite/* "Vite global cache"
     safe_clean ~/.cache/webpack/* "Webpack cache"
     safe_clean ~/.parcel-cache/* "Parcel cache"
