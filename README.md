@@ -70,6 +70,9 @@ Install Raycast integration with one command:
 curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/integrations/setup-raycast.sh | bash
 ```
 
+After installation, open Raycast, search for `Reload Script Directories`, then look for `clean mac`.
+If nothing shows up, open `Raycast Settings → Extensions → Script Commands`, click `Add Directories`, and point it to `~/Documents/Raycast/Scripts`.
+
 For Alfred and macOS Shortcuts, see [integrations/README.md](integrations/README.md).
 
 ## Features in Detail

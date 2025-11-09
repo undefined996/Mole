@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-RAYCAST_DIR="$HOME/Library/Application Support/Raycast/script-commands"
+RAYCAST_DIR="$HOME/Documents/Raycast/Scripts"
 BASE_URL="https://raw.githubusercontent.com/tw93/Mole/main/integrations/raycast"
 
 # Check Raycast
@@ -26,6 +26,6 @@ for script in mole-clean.sh mole-clean-dry-run.sh mole-uninstall.sh; do
     chmod +x "$RAYCAST_DIR/$script"
 done
 
-echo -e "${GREEN}✓${NC} Installed! Open Raycast and search: 'Reload Script Commands'"
+echo -e "${GREEN}✓${NC} Installed! Open Raycast and search: 'Reload Script Directories'"
 echo ""
 echo "Then search for: 'Clean Mac'"
