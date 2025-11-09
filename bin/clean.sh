@@ -251,13 +251,15 @@ safe_clean() {
 
     # Show progress indicator for potentially slow operations
     if [[ ${#existing_paths[@]} -gt 3 ]]; then
-        if [[ -t 1 ]]; then MOLE_SPINNER_PREFIX="  " start_inline_spinner "Checking items with whitelist safety..."; fi
+        local total_paths=${#existing_paths[@]}
+        if [[ -t 1 ]]; then MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning $total_paths items..."; fi
         local temp_dir
         temp_dir=$(create_temp_dir)
 
         # Parallel processing (bash 3.2 compatible)
         local -a pids=()
         local idx=0
+        local completed=0
         for path in "${existing_paths[@]}"; do
             (
                 local size
@@ -275,11 +277,18 @@ safe_clean() {
             if ((${#pids[@]} >= MAX_PARALLEL_JOBS)); then
                 wait "${pids[0]}" 2> /dev/null || true
                 pids=("${pids[@]:1}")
+                ((completed++))
+                # Update progress every 10 items for smoother display
+                if [[ -t 1 ]] && ((completed % 10 == 0)); then
+                    stop_inline_spinner
+                    MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning items ($completed/$total_paths)..."
+                fi
             fi
         done
 
         for pid in "${pids[@]}"; do
             wait "$pid" 2> /dev/null || true
+            ((completed++))
         done
 
         # Read results using same index
@@ -303,7 +312,8 @@ safe_clean() {
         # Temp dir will be auto-cleaned by cleanup_temp_files
     else
         # Show progress for small batches too (simpler jobs)
-        if [[ -t 1 ]]; then MOLE_SPINNER_PREFIX="  " start_inline_spinner "Checking items with whitelist safety..."; fi
+        local total_paths=${#existing_paths[@]}
+        if [[ -t 1 ]]; then MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning $total_paths items..."; fi
 
         for path in "${existing_paths[@]}"; do
             local size_bytes
@@ -658,7 +668,25 @@ perform_cleanup() {
     safe_clean /usr/local/var/homebrew/locks/* "Homebrew lock files (Intel)"
     if command -v brew > /dev/null 2>&1; then
         if [[ "$DRY_RUN" != "true" ]]; then
-            MOLE_CMD_TIMEOUT=300 clean_tool_cache "Homebrew cleanup" brew cleanup -s --prune=all
+            if [[ -t 1 ]]; then MOLE_SPINNER_PREFIX="  " start_inline_spinner "Homebrew cleanup..."; fi
+            # Run brew cleanup and capture output
+            local brew_output
+            brew_output=$(brew cleanup -s --prune=all 2>&1)
+            if [[ -t 1 ]]; then stop_inline_spinner; fi
+
+            # Show summary of what was cleaned
+            local removed_count=$(echo "$brew_output" | grep -c "Removing:" || echo "0")
+            local freed_space=$(echo "$brew_output" | grep -o "[0-9.]*[KMGT]B freed" | tail -1 || echo "")
+
+            if [[ $removed_count -gt 0 ]] || [[ -n "$freed_space" ]]; then
+                if [[ -n "$freed_space" ]]; then
+                    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Homebrew cleanup ${GREEN}($freed_space)${NC}"
+                else
+                    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Homebrew cleanup (${removed_count} items)"
+                fi
+            else
+                echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Homebrew cleanup"
+            fi
         else
             echo -e "  ${YELLOW}→${NC} Homebrew (would cleanup)"
         fi
