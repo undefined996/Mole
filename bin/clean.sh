@@ -696,7 +696,7 @@ perform_cleanup() {
     # Nix package manager
     if command -v nix-collect-garbage > /dev/null 2>&1; then
         if [[ "$DRY_RUN" != "true" ]]; then
-            clean_tool_cache "Nix garbage collection" nix-collect-garbage -d
+            clean_tool_cache "Nix garbage collection" nix-collect-garbage --delete-older-than 30d
         else
             echo -e "  ${YELLOW}→${NC} Nix garbage collection (would clean)"
         fi
