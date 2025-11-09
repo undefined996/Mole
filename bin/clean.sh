@@ -458,7 +458,6 @@ clean_service_worker_cache() {
 
     [[ ! -d "$cache_path" ]] && return 0
 
-    local total_size=0
     local cleaned_size=0
     local protected_count=0
 
@@ -469,7 +468,6 @@ clean_service_worker_cache() {
         # Extract domain from path
         local domain=$(basename "$cache_dir" | grep -oE '[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}' | head -1 || echo "")
         local size=$(du -sk "$cache_dir" 2>/dev/null | awk '{print $1}')
-        total_size=$((total_size + size))
 
         # Check if domain is protected
         local is_protected=false
@@ -643,11 +641,20 @@ perform_cleanup() {
     safe_clean ~/Library/Caches/zen/* "Zen cache"
     safe_clean ~/Library/Application\ Support/Firefox/Profiles/*/cache2/* "Firefox profile cache"
 
-    # Service Worker CacheStorage
-    clean_service_worker_cache "Chrome" "$HOME/Library/Application Support/Google/Chrome/Default/Service Worker/CacheStorage"
-    clean_service_worker_cache "Edge" "$HOME/Library/Application Support/Microsoft Edge/Default/Service Worker/CacheStorage"
-    clean_service_worker_cache "Brave" "$HOME/Library/Application Support/BraveSoftware/Brave-Browser/Default/Service Worker/CacheStorage"
-    clean_service_worker_cache "Arc" "$HOME/Library/Application Support/Arc/User Data/Default/Service Worker/CacheStorage"
+    # Service Worker CacheStorage (all profiles)
+    while IFS= read -r sw_path; do
+        local profile_name=$(basename "$(dirname "$(dirname "$sw_path")")")
+        local browser_name="Chrome"
+        [[ "$sw_path" == *"Microsoft Edge"* ]] && browser_name="Edge"
+        [[ "$sw_path" == *"Brave"* ]] && browser_name="Brave"
+        [[ "$sw_path" == *"Arc"* ]] && browser_name="Arc"
+        [[ "$profile_name" != "Default" ]] && browser_name="$browser_name ($profile_name)"
+        clean_service_worker_cache "$browser_name" "$sw_path"
+    done < <(find "$HOME/Library/Application Support/Google/Chrome" \
+                  "$HOME/Library/Application Support/Microsoft Edge" \
+                  "$HOME/Library/Application Support/BraveSoftware/Brave-Browser" \
+                  "$HOME/Library/Application Support/Arc/User Data" \
+                  -type d -name "CacheStorage" -path "*/Service Worker/*" 2>/dev/null)
     end_section
 
     # ===== 6. Cloud Storage =====
