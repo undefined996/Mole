@@ -12,7 +12,7 @@ RAYCAST_DIR="$HOME/Library/Application Support/Raycast/script-commands"
 BASE_URL="https://raw.githubusercontent.com/tw93/Mole/main/integrations/raycast"
 
 # Check Raycast
-if [[ ! -d "$HOME/Library/Application Support/Raycast" ]]; then
+if [[ ! -d "/Applications/Raycast.app" ]]; then
     echo -e "${YELLOW}Raycast not found. Install from: https://raycast.com${NC}"
     exit 1
 fi
