@@ -12,7 +12,8 @@ This command:
 
 - Adds two Raycast Script Commands (`clean`, `uninstall`) to the usual Raycast directories and opens the Script Commands panel so you can reload immediately.
 - Creates two Alfred workflows with keywords `clean` and `uninstall` so you can type and run Mole in Alfred.
-Both launchers call your locally installed `mo`/`mole` binary directly—no extra prompts or AppleScript permissions needed.
+Both launchers call your locally installed `mo`/`mole` binary directly—no extra prompts or AppleScript permissions needed.  
+Raycast scripts automatically pick the first terminal they find (Warp → Ghostty → Alacritty → Kitty → WezTerm → WindTerm → Hyper → iTerm2 → Terminal). Export `MO_LAUNCHER_APP=<name>` to override.
 
 ## Alfred
 

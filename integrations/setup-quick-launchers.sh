@@ -35,8 +35,8 @@ write_raycast_script() {
     local title="$2"
     local mo_bin="$3"
     local subcommand="$4"
-    local cmd="${mo_bin} ${subcommand}"
-    local cmd_escaped="${cmd//\\/\\\\}"
+    local raw_cmd="\"${mo_bin}\" ${subcommand}"
+    local cmd_escaped="${raw_cmd//\\/\\\\}"
     cmd_escaped="${cmd_escaped//\"/\\\"}"
     cat > "$target" <<EOF
 #!/bin/bash
@@ -54,24 +54,168 @@ set -euo pipefail
 
 echo "🐹 Running ${title}..."
 echo ""
+CMD="${raw_cmd}"
+CMD_ESCAPED="${cmd_escaped}"
+
+has_app() {
+    local name="\$1"
+    [[ -d "/Applications/\${name}.app" || -d "\$HOME/Applications/\${name}.app" ]]
+}
+
+has_bin() {
+    command -v "\$1" >/dev/null 2>&1
+}
+
+launcher_available() {
+    local app="\$1"
+    case "\$app" in
+        Terminal) return 0 ;;
+        iTerm|iTerm2) has_app "iTerm" || has_app "iTerm2" ;;
+        Alacritty) has_app "Alacritty" ;;
+        Kitty) has_bin "kitty" || has_app "kitty" ;;
+        WezTerm) has_bin "wezterm" || has_app "WezTerm" ;;
+        Ghostty) has_bin "ghostty" || has_app "Ghostty" ;;
+        Hyper) has_app "Hyper" ;;
+        WindTerm) has_app "WindTerm" ;;
+        Warp) has_app "Warp" ;;
+        *)
+            return 1 ;;
+    esac
+}
+
+detect_launcher_app() {
+    if [[ -n "\${MO_LAUNCHER_APP:-}" ]]; then
+        echo "\${MO_LAUNCHER_APP}"
+        return
+    fi
+    local candidates=(Warp Ghostty Alacritty Kitty WezTerm WindTerm Hyper iTerm2 iTerm Terminal)
+    local app
+    for app in "\${candidates[@]}"; do
+        if launcher_available "\$app"; then
+            echo "\$app"
+            return
+        fi
+    done
+    echo "Terminal"
+}
+
+launch_with_app() {
+    local app="\$1"
+    case "\$app" in
+        Terminal)
+            if command -v osascript >/dev/null 2>&1; then
+                osascript <<'APPLESCRIPT'
+set targetCommand to "${cmd_escaped}"
+tell application "Terminal"
+    activate
+    do script targetCommand
+end tell
+APPLESCRIPT
+                return 0
+            fi
+            ;;
+        iTerm|iTerm2)
+            if command -v osascript >/dev/null 2>&1; then
+                osascript <<'APPLESCRIPT'
+set targetCommand to "${cmd_escaped}"
+tell application "iTerm2"
+    activate
+    try
+        tell current window
+            tell current session
+                write text targetCommand
+            end tell
+        end tell
+    on error
+        create window with default profile
+        tell current window
+            tell current session
+                write text targetCommand
+            end tell
+        end tell
+    end try
+end tell
+APPLESCRIPT
+                return 0
+            fi
+            ;;
+        Alacritty)
+            if launcher_available "Alacritty" && command -v open >/dev/null 2>&1; then
+                open -na "Alacritty" --args -e /bin/zsh -lc "${raw_cmd}"
+                return \$?
+            fi
+            ;;
+        Kitty)
+            if has_bin "kitty"; then
+                kitty --hold /bin/zsh -lc "${raw_cmd}"
+                return \$?
+            elif [[ -x "/Applications/kitty.app/Contents/MacOS/kitty" ]]; then
+                "/Applications/kitty.app/Contents/MacOS/kitty" --hold /bin/zsh -lc "${raw_cmd}"
+                return \$?
+            fi
+            ;;
+        WezTerm)
+            if has_bin "wezterm"; then
+                wezterm start -- /bin/zsh -lc "${raw_cmd}"
+                return \$?
+            elif [[ -x "/Applications/WezTerm.app/Contents/MacOS/wezterm" ]]; then
+                "/Applications/WezTerm.app/Contents/MacOS/wezterm" start -- /bin/zsh -lc "${raw_cmd}"
+                return \$?
+            fi
+            ;;
+        Ghostty)
+            if has_bin "ghostty"; then
+                ghostty --command "/bin/zsh" -- -lc "${raw_cmd}"
+                return \$?
+            elif [[ -x "/Applications/Ghostty.app/Contents/MacOS/ghostty" ]]; then
+                "/Applications/Ghostty.app/Contents/MacOS/ghostty" --command "/bin/zsh" -- -lc "${raw_cmd}"
+                return \$?
+            fi
+            ;;
+        Hyper)
+            if launcher_available "Hyper" && command -v open >/dev/null 2>&1; then
+                open -na "Hyper" --args /bin/zsh -lc "${raw_cmd}"
+                return \$?
+            fi
+            ;;
+        WindTerm)
+            if launcher_available "WindTerm" && command -v open >/dev/null 2>&1; then
+                open -na "WindTerm" --args /bin/zsh -lc "${raw_cmd}"
+                return \$?
+            fi
+            ;;
+        Warp)
+            if launcher_available "Warp" && command -v open >/dev/null 2>&1; then
+                open -na "Warp" --args /bin/zsh -lc "${raw_cmd}"
+                return \$?
+            fi
+            ;;
+    esac
+    return 1
+}
 
 if [[ -n "\${TERM:-}" && "\${TERM}" != "dumb" ]]; then
     "${mo_bin}" ${subcommand}
     exit \$?
 fi
 
-if command -v osascript >/dev/null 2>&1; then
-    osascript <<'APPLESCRIPT'
-tell application "Terminal"
-    activate
-    do script "${cmd_escaped}"
-end tell
-APPLESCRIPT
-else
-    echo "TERM environment variable not set. Run this manually:"
-    echo "    ${cmd}"
-    exit 1
+TERM_APP="\$(detect_launcher_app)"
+
+if launch_with_app "\$TERM_APP"; then
+    exit 0
 fi
+
+if [[ "\$TERM_APP" != "Terminal" ]]; then
+    echo "Could not control \$TERM_APP, falling back to Terminal..."
+    if launch_with_app "Terminal"; then
+        exit 0
+    fi
+fi
+
+echo "TERM environment variable not set and no launcher succeeded."
+echo "Run this manually:"
+echo "    ${raw_cmd}"
+exit 1
 EOF
     chmod +x "$target"
 }
