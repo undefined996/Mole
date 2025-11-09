@@ -2,22 +2,17 @@
 
 Quick launcher integrations for Mole.
 
-## Shortcut Apps (Spotlight & Shortcuts)
-
-Generate ready-to-use launcher apps (Clean / Dry Run / Uninstall):
+## Raycast + Alfred (clean & uninstall)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/tw93/Mole/main/integrations/setup-shortcut-apps.sh | bash
+curl -fsSL https://raw.githubusercontent.com/tw93/Mole/main/integrations/setup-quick-launchers.sh | bash
 ```
 
-This drops them into `~/Applications`, so you can trigger Mole via Spotlight, Dock, or Shortcuts (“Open App” action).  
-Prefer to craft your own shortcut? Add “Run Shell Script”:
+This command:
 
-```bash
-mo clean
-```
-
-Dry run: `mo clean --dry-run` • Uninstall: `mo uninstall`
+- Adds two Raycast Script Commands (`Clean Mac`, `Uninstall Apps`) to the usual Raycast directories and opens the Script Commands panel so you can reload immediately.
+- Creates two Alfred workflows with keywords `mclean` and `muninstall` so you can type and run Mole in Alfred.
+Both launchers call your locally installed `mo`/`mole` binary directly—no extra prompts or AppleScript permissions needed.
 
 ## Alfred
 
@@ -34,9 +29,8 @@ For uninstall: `mo uninstall`
 ## Uninstall
 
 ```bash
-rm -rf ~/Applications/Mole\ Clean*.app
-rm -rf ~/Applications/Mole\ Uninstall\ Apps.app
-# Legacy Raycast script commands (if you installed them before switching)
 rm -rf ~/Documents/Raycast/Scripts/mole-*.sh
 rm -rf ~/Library/Application\ Support/Raycast/script-commands/mole-*.sh
+# Alfred workflows live in:
+# ~/Library/Application Support/Alfred/Alfred.alfredpreferences/workflows/user.workflow.*
 ```

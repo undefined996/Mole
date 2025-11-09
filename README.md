@@ -64,14 +64,14 @@ mo --version            # Show installed version
 
 ## Quick Launchers
 
-Generate Spotlight / Shortcuts launchers with one command:
+One command sets up Raycast + Alfred shortcuts for `mo clean` and `mo uninstall`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/integrations/setup-shortcut-apps.sh | bash
+curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/integrations/setup-quick-launchers.sh | bash
 ```
 
-This drops tiny apps such as “Mole Clean” into `~/Applications` so you can trigger them from Spotlight, Dock, or the Shortcuts app.  
-For Alfred, Shortcuts details, and more, see [integrations/README.md](integrations/README.md).
+Done! Raycast gets “Clean Mac / Uninstall Apps”, Alfred gets `mclean / muninstall`.  
+Details and manual options live in [integrations/README.md](integrations/README.md).
 
 ## Features in Detail
 
