@@ -21,6 +21,13 @@ IS_M_SERIES=$([ "$(uname -m)" = "arm64" ] && echo "true" || echo "false")
 readonly MAX_PARALLEL_JOBS=15 # Maximum parallel background jobs
 readonly TEMP_FILE_AGE_DAYS=7 # Age threshold for temp file cleanup
 readonly ORPHAN_AGE_DAYS=60   # Age threshold for orphaned data
+
+# Protected Service Worker domains (web-based editing tools)
+readonly PROTECTED_SW_DOMAINS=(
+    "capcut.com"
+    "photopea.com"
+    "pixlr.com"
+)
 # Default whitelist patterns (preselected, user can disable)
 declare -a DEFAULT_WHITELIST_PATTERNS=(
     "$HOME/Library/Caches/ms-playwright*"
@@ -444,6 +451,56 @@ start_cleanup() {
     fi
 }
 
+# Clean Service Worker CacheStorage with domain protection
+clean_service_worker_cache() {
+    local browser_name="$1"
+    local cache_path="$2"
+
+    [[ ! -d "$cache_path" ]] && return 0
+
+    local total_size=0
+    local cleaned_size=0
+    local protected_count=0
+
+    # Find all cache directories and calculate sizes
+    while IFS= read -r cache_dir; do
+        [[ ! -d "$cache_dir" ]] && continue
+
+        # Extract domain from path
+        local domain=$(basename "$cache_dir" | grep -oE '[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}' | head -1 || echo "")
+        local size=$(du -sk "$cache_dir" 2>/dev/null | awk '{print $1}')
+        total_size=$((total_size + size))
+
+        # Check if domain is protected
+        local is_protected=false
+        for protected_domain in "${PROTECTED_SW_DOMAINS[@]}"; do
+            if [[ "$domain" == *"$protected_domain"* ]]; then
+                is_protected=true
+                protected_count=$((protected_count + 1))
+                break
+            fi
+        done
+
+        # Clean if not protected
+        if [[ "$is_protected" == "false" ]]; then
+            if [[ "$DRY_RUN" != "true" ]]; then
+                rm -rf "$cache_dir" 2>/dev/null || true
+            fi
+            cleaned_size=$((cleaned_size + size))
+        fi
+    done < <(find "$cache_path" -type d -depth 2 2>/dev/null)
+
+    if [[ $cleaned_size -gt 0 ]]; then
+        local cleaned_mb=$((cleaned_size / 1024))
+        if [[ "$DRY_RUN" != "true" ]]; then
+            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $browser_name Service Worker cache (${cleaned_mb}MB cleaned, $protected_count protected)"
+        else
+            echo -e "  ${YELLOW}→${NC} $browser_name Service Worker cache (would clean ${cleaned_mb}MB, $protected_count protected)"
+        fi
+        note_activity
+    fi
+}
+
 perform_cleanup() {
     echo -e "${BLUE}${ICON_ADMIN}${NC} $(detect_architecture) | Free space: $(get_free_space)"
 
@@ -576,11 +633,21 @@ perform_cleanup() {
 
     safe_clean ~/Library/Caches/com.microsoft.edgemac/* "Edge cache"
     safe_clean ~/Library/Caches/company.thebrowser.Browser/* "Arc cache"
+    safe_clean ~/Library/Caches/company.thebrowser.dia/* "Dia cache"
     safe_clean ~/Library/Caches/BraveSoftware/Brave-Browser/* "Brave cache"
     safe_clean ~/Library/Caches/Firefox/* "Firefox cache"
     safe_clean ~/Library/Caches/com.operasoftware.Opera/* "Opera cache"
     safe_clean ~/Library/Caches/com.vivaldi.Vivaldi/* "Vivaldi cache"
+    safe_clean ~/Library/Caches/Comet/* "Comet cache"
+    safe_clean ~/Library/Caches/com.kagi.kagimacOS/* "Orion cache"
+    safe_clean ~/Library/Caches/zen/* "Zen cache"
     safe_clean ~/Library/Application\ Support/Firefox/Profiles/*/cache2/* "Firefox profile cache"
+
+    # Service Worker CacheStorage
+    clean_service_worker_cache "Chrome" "$HOME/Library/Application Support/Google/Chrome/Default/Service Worker/CacheStorage"
+    clean_service_worker_cache "Edge" "$HOME/Library/Application Support/Microsoft Edge/Default/Service Worker/CacheStorage"
+    clean_service_worker_cache "Brave" "$HOME/Library/Application Support/BraveSoftware/Brave-Browser/Default/Service Worker/CacheStorage"
+    clean_service_worker_cache "Arc" "$HOME/Library/Application Support/Arc/User Data/Default/Service Worker/CacheStorage"
     end_section
 
     # ===== 6. Cloud Storage =====
