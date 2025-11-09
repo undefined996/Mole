@@ -20,10 +20,20 @@ log_success() { echo -e "${GREEN}${ICON_SUCCESS}${NC} $1"; }
 log_warn() { echo -e "${YELLOW}${ICON_WARN}${NC} $1"; }
 log_error() { echo -e "${RED}${ICON_ERR}${NC} $1"; }
 
-RAYCAST_DIRS=(
-    "$HOME/Documents/Raycast/Scripts"
-    "$HOME/Library/Application Support/Raycast/script-commands"
-)
+DEFAULT_DIR="$HOME/Library/Application Support/Raycast/script-commands"
+ALT_DIR="$HOME/Documents/Raycast/Scripts"
+RAYCAST_DIRS=()
+
+if [[ -d "$DEFAULT_DIR" ]]; then
+    RAYCAST_DIRS+=("$DEFAULT_DIR")
+fi
+if [[ -d "$ALT_DIR" ]]; then
+    RAYCAST_DIRS+=("$ALT_DIR")
+fi
+if [[ ${#RAYCAST_DIRS[@]} -eq 0 ]]; then
+    RAYCAST_DIRS+=("$DEFAULT_DIR")
+fi
+
 BASE_URL="https://raw.githubusercontent.com/tw93/Mole/main/integrations/raycast"
 SCRIPTS=(mole-clean.sh mole-clean-dry-run.sh mole-uninstall.sh)
 
@@ -50,11 +60,17 @@ done
 
 echo ""
 log_success "All set! Next steps:"
-cat <<'INSTRUCTIONS'
+cat <<INSTRUCTIONS
   1. Open Raycast and run "Reload Script Directories".
   2. Search for "Clean Mac" / "Dry Run" / "Uninstall Apps".
   3. Missing? Open Raycast Settings → Extensions → Script Commands
-     and add either folder listed above.
+     and add $(printf '"%s" ' "${RAYCAST_DIRS[@]}").
 INSTRUCTIONS
+
+if open "raycast://extensions/script-commands" > /dev/null 2>&1; then
+    log_step "Raycast settings opened so you can confirm the directory."
+else
+    log_warn "Could not auto-open Raycast. Launch it manually if needed."
+fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""

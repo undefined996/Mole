@@ -2,19 +2,22 @@
 
 Quick launcher integrations for Mole.
 
-## Raycast
+## Shortcut Apps (Spotlight & Shortcuts)
 
-One command install:
+Generate ready-to-use launcher apps (Clean / Dry Run / Uninstall):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/tw93/Mole/main/integrations/setup-raycast.sh | bash
+curl -fsSL https://raw.githubusercontent.com/tw93/Mole/main/integrations/setup-shortcut-apps.sh | bash
 ```
 
-The installer copies scripts into both `~/Documents/Raycast/Scripts` and `~/Library/Application Support/Raycast/script-commands`. After installation, open Raycast and search "Reload Script Directories".
+This drops them into `~/Applications`, so you can trigger Mole via Spotlight, Dock, or Shortcuts (“Open App” action).  
+Prefer to craft your own shortcut? Add “Run Shell Script”:
 
-Still nothing? Go to `Raycast Settings → Extensions → Script Commands`, click `Add Directories`, and select either of those folders.
+```bash
+mo clean
+```
 
-Available commands: `clean mac`, `dry run`, `uninstall apps`
+Dry run: `mo clean --dry-run` • Uninstall: `mo uninstall`
 
 ## Alfred
 
@@ -28,19 +31,12 @@ For dry-run: `mo clean --dry-run`
 
 For uninstall: `mo uninstall`
 
-## macOS Shortcuts
-
-Create a shortcut with "Run Shell Script":
-
-```bash
-mo clean
-```
-
-Then add to Menu Bar or assign a keyboard shortcut.
-
 ## Uninstall
 
 ```bash
+rm -rf ~/Applications/Mole\ Clean*.app
+rm -rf ~/Applications/Mole\ Uninstall\ Apps.app
+# Legacy Raycast script commands (if you installed them before switching)
 rm -rf ~/Documents/Raycast/Scripts/mole-*.sh
 rm -rf ~/Library/Application\ Support/Raycast/script-commands/mole-*.sh
 ```

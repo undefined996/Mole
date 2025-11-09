@@ -64,16 +64,14 @@ mo --version            # Show installed version
 
 ## Quick Launchers
 
-Install Raycast integration with one command:
+Generate Spotlight / Shortcuts launchers with one command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/integrations/setup-raycast.sh | bash
+curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/integrations/setup-shortcut-apps.sh | bash
 ```
 
-The installer drops scripts into both `~/Documents/Raycast/Scripts` and `~/Library/Application Support/Raycast/script-commands`, so Raycast should detect at least one automatically.
-If you still do not see `clean mac`, open `Raycast Settings → Extensions → Script Commands`, click `Add Directories`, and pick whichever of those two folders you prefer.
-
-For Alfred and macOS Shortcuts, see [integrations/README.md](integrations/README.md).
+This drops tiny apps such as “Mole Clean” into `~/Applications` so you can trigger them from Spotlight, Dock, or the Shortcuts app.  
+For Alfred, Shortcuts details, and more, see [integrations/README.md](integrations/README.md).
 
 ## Features in Detail
 
