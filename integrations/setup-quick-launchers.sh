@@ -35,6 +35,9 @@ write_raycast_script() {
     local title="$2"
     local mo_bin="$3"
     local subcommand="$4"
+    local cmd="${mo_bin} ${subcommand}"
+    local cmd_escaped="${cmd//\\/\\\\}"
+    cmd_escaped="${cmd_escaped//\"/\\\"}"
     cat > "$target" <<EOF
 #!/bin/bash
 
@@ -51,7 +54,24 @@ set -euo pipefail
 
 echo "🐹 Running ${title}..."
 echo ""
-"${mo_bin}" ${subcommand}
+
+if [[ -n "\${TERM:-}" && "\${TERM}" != "dumb" ]]; then
+    "${mo_bin}" ${subcommand}
+    exit \$?
+fi
+
+if command -v osascript >/dev/null 2>&1; then
+    osascript <<'APPLESCRIPT'
+tell application "Terminal"
+    activate
+    do script "${cmd_escaped}"
+end tell
+APPLESCRIPT
+else
+    echo "TERM environment variable not set. Run this manually:"
+    echo "    ${cmd}"
+    exit 1
+fi
 EOF
     chmod +x "$target"
 }
@@ -75,8 +95,8 @@ create_raycast_commands() {
     log_step "Installing Raycast commands..."
     for dir in "${dirs[@]}"; do
         mkdir -p "$dir"
-        write_raycast_script "$dir/mole-clean.sh" "Clean Mac" "$mo_bin" "clean"
-        write_raycast_script "$dir/mole-uninstall.sh" "Uninstall Apps" "$mo_bin" "uninstall"
+        write_raycast_script "$dir/mole-clean.sh" "clean" "$mo_bin" "clean"
+        write_raycast_script "$dir/mole-uninstall.sh" "uninstall" "$mo_bin" "uninstall"
         log_success "Scripts ready in: $dir"
     done
 
@@ -108,8 +128,8 @@ create_alfred_workflow() {
 
     log_step "Installing Alfred workflows..."
     local workflows=(
-        "fun.tw93.mole.clean|Mole Clean|mclean|Run Mole clean|\"${mo_bin}\" clean"
-        "fun.tw93.mole.uninstall|Mole Uninstall|muninstall|Uninstall apps via Mole|\"${mo_bin}\" uninstall"
+        "fun.tw93.mole.clean|Mole clean|clean|Run Mole clean|\"${mo_bin}\" clean"
+        "fun.tw93.mole.uninstall|Mole uninstall|uninstall|Uninstall apps via Mole|\"${mo_bin}\" uninstall"
     )
 
     for entry in "${workflows[@]}"; do
@@ -224,7 +244,7 @@ main() {
     create_alfred_workflow "$mo_bin"
 
     echo ""
-    log_success "Done! Raycast (search “Clean Mac”) and Alfred (keywords: mclean / muninstall) are ready."
+    log_success "Done! Raycast (search “clean” / “uninstall”) and Alfred (keywords: clean / uninstall) are ready."
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 }

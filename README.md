@@ -70,7 +70,7 @@ One command sets up Raycast + Alfred shortcuts for `mo clean` and `mo uninstall`
 curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/integrations/setup-quick-launchers.sh | bash
 ```
 
-Done! Raycast gets “Clean Mac / Uninstall Apps”, Alfred gets `mclean / muninstall`.  
+Done! Raycast gets `clean` / `uninstall`, Alfred gets the same keywords.  
 Details and manual options live in [integrations/README.md](integrations/README.md).
 
 ## Features in Detail

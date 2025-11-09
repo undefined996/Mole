@@ -10,8 +10,8 @@ curl -fsSL https://raw.githubusercontent.com/tw93/Mole/main/integrations/setup-q
 
 This command:
 
-- Adds two Raycast Script Commands (`Clean Mac`, `Uninstall Apps`) to the usual Raycast directories and opens the Script Commands panel so you can reload immediately.
-- Creates two Alfred workflows with keywords `mclean` and `muninstall` so you can type and run Mole in Alfred.
+- Adds two Raycast Script Commands (`clean`, `uninstall`) to the usual Raycast directories and opens the Script Commands panel so you can reload immediately.
+- Creates two Alfred workflows with keywords `clean` and `uninstall` so you can type and run Mole in Alfred.
 Both launchers call your locally installed `mo`/`mole` binary directly—no extra prompts or AppleScript permissions needed.
 
 ## Alfred
