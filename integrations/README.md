@@ -10,9 +10,9 @@ One command install:
 curl -fsSL https://raw.githubusercontent.com/tw93/Mole/main/integrations/setup-raycast.sh | bash
 ```
 
-Then open Raycast and search "Reload Script Directories".
+The installer copies scripts into both `~/Documents/Raycast/Scripts` and `~/Library/Application Support/Raycast/script-commands`. After installation, open Raycast and search "Reload Script Directories".
 
-If the commands still do not appear, go to `Raycast Settings → Extensions → Script Commands`, click `Add Directories`, and add `~/Documents/Raycast/Scripts`.
+Still nothing? Go to `Raycast Settings → Extensions → Script Commands`, click `Add Directories`, and select either of those folders.
 
 Available commands: `clean mac`, `dry run`, `uninstall apps`
 
@@ -42,4 +42,5 @@ Then add to Menu Bar or assign a keyboard shortcut.
 
 ```bash
 rm -rf ~/Documents/Raycast/Scripts/mole-*.sh
+rm -rf ~/Library/Application\ Support/Raycast/script-commands/mole-*.sh
 ```
