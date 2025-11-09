@@ -693,6 +693,16 @@ perform_cleanup() {
         note_activity
     fi
 
+    # Nix package manager
+    if command -v nix-collect-garbage > /dev/null 2>&1; then
+        if [[ "$DRY_RUN" != "true" ]]; then
+            clean_tool_cache "Nix garbage collection" nix-collect-garbage -d
+        else
+            echo -e "  ${YELLOW}→${NC} Nix garbage collection (would clean)"
+        fi
+        note_activity
+    fi
+
     safe_clean ~/.gitconfig.lock "Git config lock"
     end_section
 
