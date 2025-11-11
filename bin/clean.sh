@@ -751,8 +751,11 @@ perform_cleanup() {
             if [[ -t 1 ]]; then stop_inline_spinner; fi
 
             # Show summary of what was cleaned
-            local removed_count=$(echo "$brew_output" | grep -c "Removing:" || echo "0")
-            local freed_space=$(echo "$brew_output" | grep -o "[0-9.]*[KMGT]B freed" | tail -1 || echo "")
+            local removed_count
+            removed_count=$(printf '%s\n' "$brew_output" | grep -c "Removing:" 2>/dev/null || true)
+            removed_count="${removed_count:-0}"
+            local freed_space
+            freed_space=$(printf '%s\n' "$brew_output" | grep -o "[0-9.]*[KMGT]B freed" 2>/dev/null | tail -1 || true)
 
             if [[ $removed_count -gt 0 ]] || [[ -n "$freed_space" ]]; then
                 if [[ -n "$freed_space" ]]; then
