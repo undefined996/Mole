@@ -13,6 +13,11 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.6'
+
       - name: Install shell linting and testing tools
         run: brew install bats-core shfmt shellcheck
 
@@ -21,3 +26,6 @@ jobs:
 
       - name: Run shellcheck linter and bats tests
         run: ./scripts/check.sh
+
+      - name: Build Go disk analyzer
+        run: mkdir -p bin && go build -o bin/analyze-go ./cmd/analyze

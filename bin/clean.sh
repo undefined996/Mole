@@ -370,6 +370,42 @@ safe_clean() {
     return 0
 }
 
+clean_ds_store_tree() {
+    local target="$1"
+    local label="$2"
+
+    [[ -d "$target" ]] || return 0
+
+    local file_count=0
+    local total_bytes=0
+
+    while IFS= read -r -d '' ds_file; do
+        local size
+        size=$(stat -f%z "$ds_file" 2> /dev/null || echo 0)
+        total_bytes=$((total_bytes + size))
+        ((file_count++))
+        if [[ "$DRY_RUN" != "true" ]]; then
+            rm -f "$ds_file" 2> /dev/null || true
+        fi
+    done < <(find "$target" -type f -name '.DS_Store' -print0 2> /dev/null)
+
+    if [[ $file_count -gt 0 ]]; then
+        local size_human
+        size_human=$(bytes_to_human "$total_bytes")
+        if [[ "$DRY_RUN" == "true" ]]; then
+            echo -e "  ${YELLOW}→${NC} $label ${YELLOW}($file_count files, $size_human dry)${NC}"
+        else
+            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $label ${GREEN}($file_count files, $size_human)${NC}"
+        fi
+
+        local size_kb=$(( (total_bytes + 1023) / 1024 ))
+        ((files_cleaned += file_count))
+        ((total_size_cleaned += size_kb))
+        ((total_items++))
+        note_activity
+    fi
+}
+
 start_cleanup() {
     clear
     printf '\n'
@@ -596,6 +632,24 @@ perform_cleanup() {
     safe_clean ~/Downloads/*.download "Incomplete downloads (Safari)"
     safe_clean ~/Downloads/*.crdownload "Incomplete downloads (Chrome)"
     safe_clean ~/Downloads/*.part "Incomplete downloads (partial)"
+    end_section
+
+    start_section "Finder metadata cleanup"
+    clean_ds_store_tree "$HOME" "Home directory (.DS_Store)"
+
+    if [[ -d "/Volumes" ]]; then
+        for volume in /Volumes/*; do
+            [[ -d "$volume" && -w "$volume" ]] || continue
+
+            local fs_type=""
+            fs_type=$(df -T "$volume" 2> /dev/null | tail -1 | awk '{print $2}')
+            case "$fs_type" in
+                nfs | smbfs | afpfs | cifs | webdav) continue ;;
+            esac
+
+            clean_ds_store_tree "$volume" "$(basename "$volume") volume (.DS_Store)"
+        done
+    fi
     end_section
 
     # ===== 3. macOS System Caches =====

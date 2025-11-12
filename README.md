@@ -53,6 +53,7 @@ mo update               # Update Mole
 mo remove               # Remove Mole from system
 mo --help               # Show help
 mo --version            # Show installed version
+
 ```
 
 ## Tips
@@ -151,6 +152,8 @@ Total: 156.8GB
 ├─ 📁 Documents                                      18.4GB
 └─ 📁 Desktop                                        12.7GB
 ```
+
+> The analyzer now runs inside a Go/Bubble Tea TUI: use arrow keys + Enter to drill into folders, Backspace to go up, `r` to refresh, and `q` to quit. Large files and occupancy bars refresh after each scan so you can see the heaviest items immediately.
 
 ## Support
 
