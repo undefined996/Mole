@@ -197,7 +197,7 @@ func main() {
 		isOverview = false
 	}
 
-	p := tea.NewProgram(newModel(abs, isOverview))
+	p := tea.NewProgram(newModel(abs, isOverview), tea.WithAltScreen())
 	if err := p.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "analyzer error: %v\n", err)
 		os.Exit(1)
@@ -549,7 +549,7 @@ func (m model) View() string {
 
 	if m.isOverview {
 		fmt.Fprintf(&b, "%sAnalyze Disk%s\n", colorPurple, colorReset)
-		fmt.Fprintf(&b, "%sSelect a location to explore:%s\n\n", colorGray, colorReset)
+		fmt.Fprintf(&b, "%sSelect a location to explore:%s\n", colorGray, colorReset)
 	} else {
 		fmt.Fprintf(&b, "%sAnalyze Disk%s  %s%s%s", colorPurple, colorReset, colorGray, displayPath(m.path), colorReset)
 		if !m.scanning {
