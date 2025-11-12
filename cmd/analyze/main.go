@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/md5"
+	"encoding/gob"
 	"fmt"
 	"io/fs"
 	"os"
@@ -131,6 +133,14 @@ type scanResult struct {
 	totalSize  int64
 }
 
+type cacheEntry struct {
+	Entries    []dirEntry
+	LargeFiles []fileEntry
+	TotalSize  int64
+	ModTime    time.Time
+	ScanTime   time.Time
+}
+
 type historyEntry struct {
 	path          string
 	entries       []dirEntry
@@ -258,7 +268,24 @@ func (m model) Init() tea.Cmd {
 
 func (m model) scanCmd(path string) tea.Cmd {
 	return func() tea.Msg {
+		// Try to load from persistent cache first
+		if cached, err := loadCacheFromDisk(path); err == nil {
+			result := scanResult{
+				entries:    cached.Entries,
+				largeFiles: cached.LargeFiles,
+				totalSize:  cached.TotalSize,
+			}
+			return scanResultMsg{result: result, err: nil}
+		}
+
+		// Cache miss or invalid, perform actual scan
 		result, err := scanPathConcurrent(path, m.filesScanned, m.dirsScanned, m.bytesScanned, m.currentPath)
+
+		// Save to persistent cache asynchronously
+		if err == nil {
+			go saveCacheToDisk(path, result)
+		}
+
 		return scanResultMsg{result: result, err: err}
 	}
 }
@@ -727,9 +754,14 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 	var entriesMu sync.Mutex
 
 	// Use worker pool for concurrent directory scanning
-	maxWorkers := runtime.NumCPU() * 2
-	if maxWorkers < 4 {
-		maxWorkers = 4
+	// For I/O-bound operations, use more workers than CPU count
+	maxWorkers := runtime.NumCPU() * 4
+	if maxWorkers < 16 {
+		maxWorkers = 16 // Minimum 16 workers for better I/O throughput
+	}
+	// Cap at 128 to avoid excessive goroutines
+	if maxWorkers > 128 {
+		maxWorkers = 128
 	}
 	if maxWorkers > len(children) {
 		maxWorkers = len(children)
@@ -763,13 +795,14 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 					atomic.AddInt64(&total, size)
 					atomic.AddInt64(dirsScanned, 1)
 
-					entriesMu.Lock()
-					entries = append(entries, dirEntry{
+					entry := dirEntry{
 						name:  name,
 						path:  path,
 						size:  size,
 						isDir: true,
-					})
+					}
+					entriesMu.Lock()
+					entries = append(entries, entry)
 					entriesMu.Unlock()
 				}(child.Name(), fullPath)
 				continue
@@ -786,13 +819,14 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 				atomic.AddInt64(&total, size)
 				atomic.AddInt64(dirsScanned, 1)
 
-				entriesMu.Lock()
-				entries = append(entries, dirEntry{
+				entry := dirEntry{
 					name:  name,
 					path:  path,
 					size:  size,
 					isDir: true,
-				})
+				}
+				entriesMu.Lock()
+				entries = append(entries, entry)
 				entriesMu.Unlock()
 			}(child.Name(), fullPath)
 			continue
@@ -856,13 +890,20 @@ func shouldSkipFileForLargeTracking(path string) bool {
 // Fast directory size calculation (no detailed tracking, no large files)
 func calculateDirSizeFast(root string, filesScanned, dirsScanned, bytesScanned *int64) int64 {
 	var total int64
+	var localFiles, localDirs int64
+	var batchBytes int64
 
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 		if d.IsDir() {
-			atomic.AddInt64(dirsScanned, 1)
+			localDirs++
+			// Batch update every 100 dirs to reduce atomic operations
+			if localDirs%100 == 0 {
+				atomic.AddInt64(dirsScanned, 100)
+				localDirs = 0
+			}
 			return nil
 		}
 		info, err := d.Info()
@@ -871,10 +912,28 @@ func calculateDirSizeFast(root string, filesScanned, dirsScanned, bytesScanned *
 		}
 		size := info.Size()
 		total += size
-		atomic.AddInt64(filesScanned, 1)
-		atomic.AddInt64(bytesScanned, size)
+		batchBytes += size
+		localFiles++
+		// Batch update every 100 files to reduce atomic operations
+		if localFiles%100 == 0 {
+			atomic.AddInt64(filesScanned, 100)
+			atomic.AddInt64(bytesScanned, batchBytes)
+			localFiles = 0
+			batchBytes = 0
+		}
 		return nil
 	})
+
+	// Final update for remaining counts
+	if localFiles > 0 {
+		atomic.AddInt64(filesScanned, localFiles)
+	}
+	if localDirs > 0 {
+		atomic.AddInt64(dirsScanned, localDirs)
+	}
+	if batchBytes > 0 {
+		atomic.AddInt64(bytesScanned, batchBytes)
+	}
 
 	return total
 }
@@ -946,6 +1005,8 @@ func findLargeFilesWithSpotlight(root string, minSize int64) []fileEntry {
 func calculateDirSizeConcurrent(root string, tracker *largeFileTracker, filesScanned, dirsScanned, bytesScanned *int64, currentPath *string) int64 {
 	var total int64
 	var updateCounter int64
+	var localFiles, localDirs int64
+	var batchBytes int64
 
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -956,7 +1017,12 @@ func calculateDirSizeConcurrent(root string, tracker *largeFileTracker, filesSca
 			if shouldFoldDir(d.Name()) {
 				return filepath.SkipDir
 			}
-			atomic.AddInt64(dirsScanned, 1)
+			localDirs++
+			// Batch update every 50 dirs to reduce atomic operations
+			if localDirs%50 == 0 {
+				atomic.AddInt64(dirsScanned, 50)
+				localDirs = 0
+			}
 			return nil
 		}
 		info, err := d.Info()
@@ -965,57 +1031,100 @@ func calculateDirSizeConcurrent(root string, tracker *largeFileTracker, filesSca
 		}
 		size := info.Size()
 		total += size
-		atomic.AddInt64(filesScanned, 1)
-		atomic.AddInt64(bytesScanned, size)
+		batchBytes += size
+		localFiles++
+
+		// Batch update every 50 files to reduce atomic operations
+		if localFiles%50 == 0 {
+			atomic.AddInt64(filesScanned, 50)
+			atomic.AddInt64(bytesScanned, batchBytes)
+			localFiles = 0
+			batchBytes = 0
+		}
 
 		// Only track large files that are not code/text files
 		if !shouldSkipFileForLargeTracking(path) {
 			tracker.add(fileEntry{name: filepath.Base(path), path: path, size: size})
 		}
 
-		// Update current path every 100 files to reduce contention
+		// Update current path every 500 files to reduce contention
 		updateCounter++
-		if updateCounter%100 == 0 {
+		if updateCounter%500 == 0 {
 			*currentPath = path
 		}
 
 		return nil
 	})
 
+	// Final update for remaining counts
+	if localFiles > 0 {
+		atomic.AddInt64(filesScanned, localFiles)
+	}
+	if localDirs > 0 {
+		atomic.AddInt64(dirsScanned, localDirs)
+	}
+	if batchBytes > 0 {
+		atomic.AddInt64(bytesScanned, batchBytes)
+	}
+
 	return total
 }
 
 type largeFileTracker struct {
-	mu      sync.Mutex
-	entries []fileEntry
+	mu         sync.Mutex
+	entries    []fileEntry
+	minSize    int64
+	needsSort  bool
 }
 
 func newLargeFileTracker() *largeFileTracker {
 	return &largeFileTracker{
-		entries: make([]fileEntry, 0, maxLargeFiles),
+		entries: make([]fileEntry, 0, maxLargeFiles*2), // Pre-allocate more space
+		minSize: minLargeFileSize,
 	}
 }
 
 func (t *largeFileTracker) add(f fileEntry) {
-	if f.size < minLargeFileSize {
+	if f.size < t.minSize {
 		return
 	}
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	// Just append without sorting - sort only once at the end
 	t.entries = append(t.entries, f)
-	sort.Slice(t.entries, func(i, j int) bool {
-		return t.entries[i].size > t.entries[j].size
-	})
-	if len(t.entries) > maxLargeFiles {
-		t.entries = t.entries[:maxLargeFiles]
+	t.needsSort = true
+
+	// Update minimum size threshold dynamically
+	if len(t.entries) > maxLargeFiles*3 {
+		// Periodically sort and trim to avoid memory bloat
+		sort.Slice(t.entries, func(i, j int) bool {
+			return t.entries[i].size > t.entries[j].size
+		})
+		if len(t.entries) > maxLargeFiles {
+			t.minSize = t.entries[maxLargeFiles-1].size
+			t.entries = t.entries[:maxLargeFiles]
+		}
+		t.needsSort = false
 	}
 }
 
 func (t *largeFileTracker) list() []fileEntry {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	// Sort only when needed
+	if t.needsSort {
+		sort.Slice(t.entries, func(i, j int) bool {
+			return t.entries[i].size > t.entries[j].size
+		})
+		if len(t.entries) > maxLargeFiles {
+			t.entries = t.entries[:maxLargeFiles]
+		}
+		t.needsSort = false
+	}
+
 	return append([]fileEntry(nil), t.entries...)
 }
 
@@ -1269,4 +1378,94 @@ func cacheSnapshot(m model) historyEntry {
 	entry := snapshotFromModel(m)
 	entry.dirty = false
 	return entry
+}
+
+// Persistent cache functions
+func getCacheDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	cacheDir := filepath.Join(home, ".cache", "mole")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return "", err
+	}
+	return cacheDir, nil
+}
+
+func getCachePath(path string) (string, error) {
+	cacheDir, err := getCacheDir()
+	if err != nil {
+		return "", err
+	}
+	// Use MD5 hash of path as cache filename
+	hash := md5.Sum([]byte(path))
+	filename := fmt.Sprintf("%x.cache", hash)
+	return filepath.Join(cacheDir, filename), nil
+}
+
+func loadCacheFromDisk(path string) (*cacheEntry, error) {
+	cachePath, err := getCachePath(path)
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := os.Open(cachePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var entry cacheEntry
+	decoder := gob.NewDecoder(file)
+	if err := decoder.Decode(&entry); err != nil {
+		return nil, err
+	}
+
+	// Validate cache: check if directory was modified after cache creation
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// If directory was modified after cache, invalidate
+	if info.ModTime().After(entry.ModTime) {
+		return nil, fmt.Errorf("cache expired: directory modified")
+	}
+
+	// If cache is older than 7 days, invalidate
+	if time.Since(entry.ScanTime) > 7*24*time.Hour {
+		return nil, fmt.Errorf("cache expired: too old")
+	}
+
+	return &entry, nil
+}
+
+func saveCacheToDisk(path string, result scanResult) error {
+	cachePath, err := getCachePath(path)
+	if err != nil {
+		return err
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	entry := cacheEntry{
+		Entries:    result.entries,
+		LargeFiles: result.largeFiles,
+		TotalSize:  result.totalSize,
+		ModTime:    info.ModTime(),
+		ScanTime:   time.Now(),
+	}
+
+	file, err := os.Create(cachePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := gob.NewEncoder(file)
+	return encoder.Encode(entry)
 }
