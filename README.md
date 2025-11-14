@@ -47,8 +47,8 @@ mo clean                # System cleanup
 mo clean --dry-run      # Preview mode
 mo clean --whitelist    # Manage protected caches
 mo uninstall            # Uninstall apps
-mo optimize             # System optimization
 mo analyze              # Disk analyzer
+mo optimize             # System optimization
 
 mo touchid              # Configure Touch ID for sudo
 mo update               # Update Mole
@@ -73,8 +73,7 @@ One command sets up Raycast + Alfred shortcuts for `mo clean` and `mo uninstall`
 curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/integrations/setup-quick-launchers.sh | bash
 ```
 
-Done! Raycast gets `clean` / `uninstall`, Alfred gets the same keywords.  
-Details and manual options live in [integrations/README.md](integrations/README.md).
+Done! Use `mo` search to quickly find them. See [integrations/README.md](integrations/README.md) for details.
 
 ## Features in Detail
 
@@ -83,47 +82,17 @@ Details and manual options live in [integrations/README.md](integrations/README.
 ```bash
 $ mo clean
 
-▶ System essentials
-  ✓ User app cache (45.2GB)
-  ✓ User app logs (2.1GB)
-  ✓ Trash (12.3GB)
+Scanning cache directories...
 
-▶ Browser cleanup
-  ✓ Chrome cache (8.4GB)
-  ✓ Safari cache (2.1GB)
-
-▶ Developer tools
-  ✓ Xcode derived data (9.1GB)
-  ✓ Node.js cache (14.2GB)
-
-▶ Others
-  ✓ Dropbox cache (5.2GB)
-  ✓ Spotify cache (3.1GB)
+  ✓ User app cache                                           45.2GB
+  ✓ Browser cache (Chrome, Safari, Firefox)                  10.5GB
+  ✓ Developer tools (Xcode, Node.js, npm)                    23.3GB
+  ✓ System logs and temp files                                3.8GB
+  ✓ App-specific cache (Spotify, Dropbox, Slack)              8.4GB
+  ✓ Trash                                                     12.3GB
 
 ====================================================================
-CLEANUP COMPLETE!
-Space freed: 95.50GB | Free space now: 223.5GB
-====================================================================
-```
-
-### System Optimization
-
-```bash
-$ mo optimize
-
-System: 5/32 GB RAM | 333/460 GB Disk (72%) | Uptime 6d
-
-▶ System Maintenance - Rebuild system databases & flush caches
-▶ Network Services - Reset network services
-▶ Finder & Dock Refresh - Clear Finder/Dock caches and restart
-▶ Diagnostics Cleanup - Purge old diagnostic & crash logs
-▶ Mail Downloads - Recover Mail attachment space
-▶ Memory & Swap - Purge swapfiles, restart dynamic pager
-
-====================================================================
-System optimization completed
-Automations: 8 sections optimized end-to-end.
-Highlights: caches refreshed, services restarted, startup assets rebuilt.
+Space freed: 95.5GB | Free space now: 223.5GB
 ====================================================================
 ```
 
@@ -139,16 +108,14 @@ Select Apps to Remove
   ☐ Final Cut Pro             (3.8G) | Recent
 
 Uninstalling: Adobe Creative Cloud
-  ✓ Removed application              # /Applications/
-  ✓ Cleaned 52 related files         # ~/Library/ across 12 locations
-    - Support files & caches         # Application Support, Caches
-    - Preferences & logs             # Preferences, Logs
-    - WebKit storage & cookies       # WebKit, HTTPStorages
-    - Extensions & plugins           # Internet Plug-Ins, Services
-    - System files with sudo         # /Library/, Launch daemons
+
+  ✓ Removed application
+  ✓ Cleaned 52 related files across 12 locations
+    - Application Support, Caches, Preferences
+    - Logs, WebKit storage, Cookies
+    - Extensions, Plugins, Launch daemons
 
 ====================================================================
-UNINSTALLATION COMPLETE!
 Space freed: 12.8GB
 ====================================================================
 ```
@@ -158,25 +125,35 @@ Space freed: 12.8GB
 ```bash
 $ mo analyze
 
-Analyzing: /Users/You
-═══════════════════════════════════════════════════════
-Total: 156.8GB
+Analyze Disk  ~/Documents  |  Total: 156.8GB
 
-├─ 📁 Library                                        45.2GB
-│  ├─ 📁 Caches                                      28.4GB
-│  └─ 📁 Application Support                         16.8GB
-├─ 📁 Downloads                                      32.6GB
-│  ├─ 📄 Xcode-14.3.1.dmg                            12.3GB
-│  ├─ 📄 backup_2023.zip                             8.6GB
-│  └─ 📄 old_projects.tar.gz                         5.2GB
-├─ 📁 Movies                                         28.9GB
-│  ├─ 📄 vacation_2023.mov                           15.4GB
-│  └─ 📄 screencast_raw.mp4                          8.8GB
-├─ 📁 Documents                                      18.4GB
-└─ 📁 Desktop                                        12.7GB
+ ▶  1. ███████████████████  48.2%  |  📁 Library                     75.4GB  >6mo
+    2. ██████████░░░░░░░░░  22.1%  |  📁 Downloads                   34.6GB
+    3. ████░░░░░░░░░░░░░░░  14.3%  |  📁 Movies                      22.4GB
+    4. ███░░░░░░░░░░░░░░░░  10.8%  |  📁 Documents                   16.9GB
+    5. ██░░░░░░░░░░░░░░░░░   5.2%  |  📄 backup_2023.zip              8.2GB
+
+  ↑↓←→ Navigate  |  O Open  |  F Reveal  |  ⌫ Delete  |  L Large(24)  |  Q Quit
 ```
 
-> The analyzer now runs inside a Go/Bubble Tea TUI: use arrow keys + Enter to drill into folders, Backspace to go up, `r` to refresh, and `q` to quit. Large files and occupancy bars refresh after each scan so you can see the heaviest items immediately.
+### System Optimization
+
+```bash
+$ mo optimize
+
+System: 5/32 GB RAM | 333/460 GB Disk (72%) | Uptime 6d
+
+  ✓ Rebuild system databases and flush caches
+  ✓ Reset network services
+  ✓ Refresh Finder and Dock
+  ✓ Clean diagnostic and crash logs
+  ✓ Purge swap files and restart dynamic pager
+  ✓ Rebuild launch services and spotlight index
+
+====================================================================
+System optimization completed
+====================================================================
+```
 
 ## Support
 

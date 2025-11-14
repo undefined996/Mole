@@ -455,14 +455,12 @@ show_main_menu() {
 
     printf '\r\033[2K%s\n' "$(show_menu_option 1 "Clean Mac - Remove junk files and optimize" "$([[ $selected -eq 1 ]] && echo true || echo false)")"
     printf '\r\033[2K%s\n' "$(show_menu_option 2 "Uninstall Apps - Remove applications completely" "$([[ $selected -eq 2 ]] && echo true || echo false)")"
-    printf '\r\033[2K%s\n' "$(show_menu_option 3 "Optimize Mac - System health & tuning" "$([[ $selected -eq 3 ]] && echo true || echo false)")"
-    printf '\r\033[2K%s\n' "$(show_menu_option 4 "Analyze Disk - Interactive space explorer" "$([[ $selected -eq 4 ]] && echo true || echo false)")"
-    printf '\r\033[2K%s\n' "$(show_menu_option 5 "Help & Information - Usage guide and tips" "$([[ $selected -eq 5 ]] && echo true || echo false)")"
-    printf '\r\033[2K%s\n' "$(show_menu_option 6 "Exit - Close Mole" "$([[ $selected -eq 6 ]] && echo true || echo false)")"
+    printf '\r\033[2K%s\n' "$(show_menu_option 3 "Analyze Disk - Interactive space explorer" "$([[ $selected -eq 3 ]] && echo true || echo false)")"
+    printf '\r\033[2K%s\n' "$(show_menu_option 4 "Optimize Mac - System health & tuning" "$([[ $selected -eq 4 ]] && echo true || echo false)")"
 
     if [[ -t 0 ]]; then
         printf '\r\033[2K\n'
-        printf '\r\033[2K%s\n' "  ${GRAY}↑/↓${NC} Navigate  ${GRAY}|${NC}  ${GRAY}Enter${NC} Select  ${GRAY}|${NC}  ${GRAY}Q/ESC${NC} Quit"
+        printf '\r\033[2K%s\n' "  ${GRAY}↑/↓${NC} Navigate  ${GRAY}|${NC}  ${GRAY}Enter${NC} Select  ${GRAY}|${NC}  ${GRAY}H${NC} Help  ${GRAY}|${NC}  ${GRAY}ESC${NC} Quit"
         printf '\r\033[2K\n'
     fi
 
@@ -523,40 +521,30 @@ interactive_main_menu() {
 
         case "$key" in
             "UP") ((current_option > 1)) && ((current_option--)) ;;
-            "DOWN") ((current_option < 6)) && ((current_option++)) ;;
+            "DOWN") ((current_option < 4)) && ((current_option++)) ;;
             "ENTER" | "$current_option")
                 show_cursor
                 case $current_option in
-                    1)
-                        exec "$SCRIPT_DIR/bin/clean.sh"
-                        ;;
+                    1) exec "$SCRIPT_DIR/bin/clean.sh" ;;
                     2) exec "$SCRIPT_DIR/bin/uninstall.sh" ;;
-                    3) exec "$SCRIPT_DIR/bin/optimize.sh" ;;
-                    4) exec "$SCRIPT_DIR/bin/analyze.sh" ;;
-                    5)
-                        clear
-                        show_help
-                        exit 0
-                        ;;
-                    6) cleanup_and_exit ;;
+                    3) exec "$SCRIPT_DIR/bin/analyze.sh" ;;
+                    4) exec "$SCRIPT_DIR/bin/optimize.sh" ;;
                 esac
                 ;;
+            "h" | "H")
+                show_cursor
+                clear
+                show_help
+                exit 0
+                ;;
             "QUIT") cleanup_and_exit ;;
-            [1-6])
+            [1-4])
                 show_cursor
                 case $key in
-                    1)
-                        exec "$SCRIPT_DIR/bin/clean.sh"
-                        ;;
+                    1) exec "$SCRIPT_DIR/bin/clean.sh" ;;
                     2) exec "$SCRIPT_DIR/bin/uninstall.sh" ;;
-                    3) exec "$SCRIPT_DIR/bin/optimize.sh" ;;
-                    4) exec "$SCRIPT_DIR/bin/analyze.sh" ;;
-                    5)
-                        clear
-                        show_help
-                        exit 0
-                        ;;
-                    6) cleanup_and_exit ;;
+                    3) exec "$SCRIPT_DIR/bin/analyze.sh" ;;
+                    4) exec "$SCRIPT_DIR/bin/optimize.sh" ;;
                 esac
                 ;;
         esac
