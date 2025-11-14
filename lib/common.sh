@@ -42,6 +42,77 @@ mo_spinner_chars() {
     printf "%s" "$chars"
 }
 
+# Security and Path Validation Functions
+
+# Validates a path for safe deletion
+# Returns 0 if path is safe to delete, 1 otherwise
+validate_path_for_deletion() {
+    local path="$1"
+
+    # Check path is not empty
+    if [[ -z "$path" ]]; then
+        log_error "Path validation failed: empty path"
+        return 1
+    fi
+
+    # Check path is absolute
+    if [[ "$path" != /* ]]; then
+        log_error "Path validation failed: path must be absolute: $path"
+        return 1
+    fi
+
+    # Check path doesn't contain dangerous characters
+    if [[ "$path" =~ [[:cntrl:]] ]] || [[ "$path" =~ $'\n' ]]; then
+        log_error "Path validation failed: contains control characters: $path"
+        return 1
+    fi
+
+    # Check path isn't critical system directory
+    case "$path" in
+        / | /bin | /sbin | /usr | /usr/bin | /usr/sbin | /etc | /var | /System | /Library/Extensions)
+            log_error "Path validation failed: critical system directory: $path"
+            return 1
+            ;;
+    esac
+
+    # Path is safe
+    return 0
+}
+
+# Safe wrapper around rm -rf with validation and logging
+# Usage: safe_remove "/path/to/file"
+# Returns 0 on success, 1 on failure
+safe_remove() {
+    local path="$1"
+    local silent="${2:-false}"
+
+    # Validate path
+    if ! validate_path_for_deletion "$path"; then
+        return 1
+    fi
+
+    # Check if path exists
+    if [[ ! -e "$path" ]]; then
+        [[ "$silent" != "true" ]] && log_warning "Path does not exist, skipping: $path"
+        return 0
+    fi
+
+    # Log what we're about to delete
+    if [[ -d "$path" ]]; then
+        log_info "Removing directory: $path"
+    else
+        log_info "Removing file: $path"
+    fi
+
+    # Perform the deletion
+    if rm -rf "$path" 2> /dev/null; then
+        return 0
+    else
+        log_error "Failed to remove: $path"
+        return 1
+    fi
+}
+
 # Logging configuration
 readonly LOG_FILE="${HOME}/.config/mole/mole.log"
 readonly LOG_MAX_SIZE_DEFAULT=1048576 # 1MB

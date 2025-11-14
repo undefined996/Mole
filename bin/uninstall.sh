@@ -452,8 +452,22 @@ uninstall_applications() {
             read -p "  Force quit $app_name? (y/N): " -n 1 -r
             echo
             if [[ $REPLY =~ ^[Yy]$ ]]; then
-                pkill -f "$app_path" 2> /dev/null || true
-                sleep 2
+                # Retry kill operation with verification to avoid TOCTOU
+                local retry=0
+                while [[ $retry -lt 3 ]]; do
+                    pkill -f "$app_path" 2> /dev/null || true
+                    sleep 1
+                    # Verify app was killed
+                    if ! pgrep -f "$app_path" > /dev/null 2>&1; then
+                        break
+                    fi
+                    ((retry++))
+                done
+
+                # Final check
+                if pgrep -f "$app_path" > /dev/null 2>&1; then
+                    log_warning "Failed to quit $app_name after $retry attempts"
+                fi
             else
                 echo -e "  ${BLUE}${ICON_EMPTY}${NC} Skipped $app_name"
                 continue

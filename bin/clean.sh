@@ -450,10 +450,17 @@ start_cleanup() {
                 SYSTEM_CLEAN=true
                 echo -e "${GREEN}${ICON_SUCCESS}${NC} Admin access granted"
                 echo ""
-                # Start sudo keepalive with error handling
+                # Start sudo keepalive with robust parent checking
+                # Store parent PID to ensure keepalive exits if parent dies
+                parent_pid=$$
                 (
                     local retry_count=0
                     while true; do
+                        # Check if parent process still exists first
+                        if ! kill -0 "$parent_pid" 2> /dev/null; then
+                            exit 0
+                        fi
+
                         if ! sudo -n true 2> /dev/null; then
                             ((retry_count++))
                             if [[ $retry_count -ge 3 ]]; then
@@ -464,7 +471,6 @@ start_cleanup() {
                         fi
                         retry_count=0
                         sleep 30
-                        kill -0 "$$" 2> /dev/null || exit
                     done
                 ) 2> /dev/null &
                 SUDO_KEEPALIVE_PID=$!

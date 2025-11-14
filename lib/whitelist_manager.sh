@@ -184,9 +184,8 @@ is_whitelisted() {
 
     for existing in "${CURRENT_WHITELIST_PATTERNS[@]}"; do
         local existing_expanded="${existing/#\~/$HOME}"
-        # Support both exact match and glob pattern match
-        # shellcheck disable=SC2053
-        if [[ "$check_pattern" == "$existing_expanded" ]] || [[ $check_pattern == $existing_expanded ]]; then
+        # Only use exact string match to prevent glob expansion security issues
+        if [[ "$check_pattern" == "$existing_expanded" ]]; then
             return 0
         fi
     done

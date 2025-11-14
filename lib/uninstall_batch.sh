@@ -8,6 +8,40 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Batch uninstall functionality with minimal confirmations
 # Replaces the overly verbose individual confirmation approach
+
+# Decode and validate base64 encoded file list
+# Returns decoded string if valid, empty string otherwise
+decode_file_list() {
+    local encoded="$1"
+    local app_name="$2"
+    local decoded
+
+    # Decode base64 data
+    if ! decoded=$(printf '%s' "$encoded" | base64 -d 2>/dev/null); then
+        log_error "Failed to decode file list for $app_name"
+        echo ""
+        return 1
+    fi
+
+    # Validate decoded data doesn't contain null bytes
+    if [[ "$decoded" =~ $'\0' ]]; then
+        log_warning "File list for $app_name contains null bytes, rejecting"
+        echo ""
+        return 1
+    fi
+
+    # Validate paths look reasonable (each line should be a path or empty)
+    while IFS= read -r line; do
+        if [[ -n "$line" && ! "$line" =~ ^/ ]]; then
+            log_warning "Invalid path in file list for $app_name: $line"
+            echo ""
+            return 1
+        fi
+    done <<< "$decoded"
+
+    echo "$decoded"
+    return 0
+}
 # Note: find_app_files() and calculate_total_size() functions now in lib/common.sh
 
 # Batch uninstall with single confirmation
@@ -64,7 +98,7 @@ batch_uninstall_applications() {
     echo ""
     for detail in "${app_details[@]}"; do
         IFS='|' read -r app_name app_path bundle_id total_kb encoded_files <<< "$detail"
-        local related_files=$(printf '%s' "$encoded_files" | base64 -d)
+        local related_files=$(decode_file_list "$encoded_files" "$app_name")
         local app_size_display=$(bytes_to_human "$((total_kb * 1024))")
 
         echo -e "${BLUE}${ICON_CONFIRM}${NC} ${app_name} ${GRAY}(${app_size_display})${NC}"
@@ -129,10 +163,15 @@ batch_uninstall_applications() {
                 return 1
             fi
         fi
+        # Start sudo keepalive with robust parent checking
+        parent_pid=$$
         (while true; do
+            # Check if parent process still exists first
+            if ! kill -0 "$parent_pid" 2> /dev/null; then
+                exit 0
+            fi
             sudo -n true
             sleep 60
-            kill -0 "$$" || exit
         done 2> /dev/null) &
         sudo_keepalive_pid=$!
     fi
@@ -149,7 +188,7 @@ batch_uninstall_applications() {
     local -a success_items=()
     for detail in "${app_details[@]}"; do
         IFS='|' read -r app_name app_path bundle_id total_kb encoded_files <<< "$detail"
-        local related_files=$(printf '%s' "$encoded_files" | base64 -d)
+        local related_files=$(decode_file_list "$encoded_files" "$app_name")
         local reason=""
         local needs_sudo=false
         [[ ! -w "$(dirname "$app_path")" || "$(stat -f%Su "$app_path" 2> /dev/null)" == "root" ]] && needs_sudo=true
