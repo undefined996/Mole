@@ -378,7 +378,31 @@ clean_ds_store_tree() {
 
     local file_count=0
     local total_bytes=0
+    local spinner_active="false"
 
+    if [[ -t 1 ]]; then
+        MOLE_SPINNER_PREFIX="  "
+        start_inline_spinner "Cleaning Finder metadata..."
+        spinner_active="true"
+    fi
+
+    # Build exclusion paths for find (skip common slow/large directories)
+    local -a exclude_paths=(
+        -path "*/Library/Application Support/MobileSync" -prune -o
+        -path "*/Library/Developer" -prune -o
+        -path "*/.Trash" -prune -o
+        -path "*/node_modules" -prune -o
+        -path "*/.git" -prune -o
+        -path "*/Library/Caches" -prune -o
+    )
+
+    # Limit depth for HOME to avoid slow scans
+    local max_depth=""
+    if [[ "$target" == "$HOME" ]]; then
+        max_depth="-maxdepth 5"
+    fi
+
+    # Find .DS_Store files with exclusions and depth limit
     while IFS= read -r -d '' ds_file; do
         local size
         size=$(stat -f%z "$ds_file" 2> /dev/null || echo 0)
@@ -387,7 +411,17 @@ clean_ds_store_tree() {
         if [[ "$DRY_RUN" != "true" ]]; then
             rm -f "$ds_file" 2> /dev/null || true
         fi
-    done < <(find "$target" -type f -name '.DS_Store' -print0 2> /dev/null)
+
+        # Stop after 500 files to avoid hanging
+        if [[ $file_count -ge 500 ]]; then
+            break
+        fi
+    done < <(find "$target" $max_depth "${exclude_paths[@]}" -type f -name '.DS_Store' -print0 2> /dev/null)
+
+    if [[ "$spinner_active" == "true" ]]; then
+        stop_inline_spinner
+        echo -ne "\r\033[K"
+    fi
 
     if [[ $file_count -gt 0 ]]; then
         local size_human

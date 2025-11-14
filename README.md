@@ -23,6 +23,7 @@
 - **Thorough Uninstall** - Scans 22+ locations to remove app leftovers, not just the .app file
 - **Interactive Disk Analyzer** - Navigate folders with arrow keys, find and delete large files quickly
 - **Fast & Lightweight** - Terminal-based with arrow-key navigation, pagination, and Touch ID support
+- **System Optimization** - Rebuilds caches, resets services, and trims swap/network cruft with one run
 
 ## Quick Start
 
@@ -46,6 +47,7 @@ mo clean                # System cleanup
 mo clean --dry-run      # Preview mode
 mo clean --whitelist    # Manage protected caches
 mo uninstall            # Uninstall apps
+mo optimize             # System optimization
 mo analyze              # Disk analyzer
 
 mo touchid              # Configure Touch ID for sudo
@@ -101,6 +103,27 @@ $ mo clean
 ====================================================================
 CLEANUP COMPLETE!
 Space freed: 95.50GB | Free space now: 223.5GB
+====================================================================
+```
+
+### System Optimization
+
+```bash
+$ mo optimize
+
+System: 5/32 GB RAM | 333/460 GB Disk (72%) | Uptime 6d
+
+▶ System Maintenance - Rebuild system databases & flush caches
+▶ Network Services - Reset network services
+▶ Finder & Dock Refresh - Clear Finder/Dock caches and restart
+▶ Diagnostics Cleanup - Purge old diagnostic & crash logs
+▶ Mail Downloads - Recover Mail attachment space
+▶ Memory & Swap - Purge swapfiles, restart dynamic pager
+
+====================================================================
+System optimization completed
+Automations: 8 sections optimized end-to-end.
+Highlights: caches refreshed, services restarted, startup assets rebuilt.
 ====================================================================
 ```
 

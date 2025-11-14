@@ -29,3 +29,6 @@ jobs:
 
       - name: Build Go disk analyzer
         run: mkdir -p bin && go build -o bin/analyze-go ./cmd/analyze
+
+      - name: Build Go optimizer
+        run: mkdir -p bin && go build -o bin/optimize-go ./cmd/optimize
