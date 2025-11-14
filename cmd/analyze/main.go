@@ -5,7 +5,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
@@ -23,6 +22,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/cespare/xxhash/v2"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -42,21 +43,131 @@ const (
 )
 
 // Directories to fold: calculate size but don't expand children
+// These are typically dependency/cache dirs with thousands of small files
 var foldDirs = map[string]bool{
-	".git":          true,
-	"node_modules":  true,
-	".Trash":        true,
-	".npm":          true,
-	".cache":        true,
-	".yarn":         true,
-	".pnpm-store":   true,
+	// Version control
+	".git": true,
+	".svn": true,
+	".hg":  true,
+
+	// JavaScript/Node
+	"node_modules":     true,
+	".npm":             true,
+	"_npx":             true, // ~/.npm/_npx global cache
+	"_cacache":         true, // ~/.npm/_cacache
+	"_logs":            true, // ~/.npm/_logs
+	"_locks":           true, // ~/.npm/_locks
+	"_quick":           true, // Quick install cache
+	"_libvips":         true, // ~/.npm/_libvips
+	"_prebuilds":       true, // ~/.npm/_prebuilds
+	"_update-notifier-last-checked": true, // npm update notifier
+	".yarn":            true,
+	".pnpm-store":      true,
+	".next":            true,
+	".nuxt":            true,
+	"bower_components": true,
+	".vite":            true,
+	".turbo":           true,
+	".parcel-cache":    true,
+	".nx":              true,
+	".rush":            true,
+	"tnpm":             true, // Taobao npm
+	".tnpm":            true, // Taobao npm cache
+	".bun":             true, // Bun cache
+	".deno":            true, // Deno cache
+
+	// Python
 	"__pycache__":   true,
 	".pytest_cache": true,
-	"target":        true, // Rust/Java build output
-	"build":         true,
-	"dist":          true,
-	".next":         true,
-	".nuxt":         true,
+	".mypy_cache":   true,
+	".ruff_cache":   true,
+	"venv":          true,
+	".venv":         true,
+	"virtualenv":    true,
+	".tox":          true,
+	"site-packages": true,
+	".eggs":         true,
+	"*.egg-info":    true,
+	".pyenv":        true, // ~/.pyenv
+	".poetry":       true, // ~/.poetry
+	".pip":          true, // ~/.pip cache
+	".pipx":         true, // ~/.pipx
+
+	// Ruby/Go/PHP (vendor), Java/Kotlin/Scala/Rust (target)
+	"vendor":        true,
+	".bundle":       true,
+	"gems":          true,
+	".rbenv":        true, // ~/.rbenv
+	"target":        true,
+	".gradle":       true,
+	".m2":           true,
+	".ivy2":         true,
+	"out":           true,
+	"pkg":           true,
+	"composer.phar": true,
+	".composer":     true, // ~/.composer
+	".cargo":        true, // ~/.cargo
+
+	// Build outputs
+	"build":     true,
+	"dist":      true,
+	".output":   true,
+	"coverage":  true,
+	".coverage": true,
+
+	// IDE
+	".idea":   true,
+	".vscode": true,
+	".vs":     true,
+	".fleet":  true,
+
+	// Cache directories
+	".cache":          true,
+	"__MACOSX":        true,
+	".DS_Store":       true,
+	".Trash":          true,
+	"Caches":          true,
+	".Spotlight-V100": true,
+	".fseventsd":      true,
+	".DocumentRevisions-V100": true,
+	".TemporaryItems": true,
+	"$RECYCLE.BIN":    true,
+	".temp":           true,
+	".tmp":            true,
+	"_temp":           true,
+	"_tmp":            true,
+	".Homebrew":       true, // Homebrew cache
+	".rustup":         true, // Rust toolchain
+	".sdkman":         true, // SDK manager
+	".nvm":            true, // Node version manager
+
+	// Docker & Containers
+	".docker":     true,
+	".containerd": true,
+
+	// Mobile development
+	"Pods":        true,
+	"DerivedData": true,
+	".build":      true,
+	"xcuserdata":  true,
+	"Carthage":    true,
+
+	// Web frameworks
+	".angular":    true,
+	".svelte-kit": true,
+	".astro":      true,
+	".solid":      true,
+
+	// Databases
+	".mysql":    true,
+	".postgres": true,
+	"mongodb":   true,
+
+	// Other
+	".terraform": true,
+	".vagrant":   true,
+	"tmp":        true,
+	"temp":       true,
 }
 
 // System directories to skip (macOS specific)
@@ -112,6 +223,9 @@ var skipExtensions = map[string]bool{
 }
 
 var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧"}
+
+// Global singleflight group to avoid duplicate scans of the same path
+var scanGroup singleflight.Group
 
 type overviewSizeSnapshot struct {
 	Size    int64     `json:"size"`
@@ -211,7 +325,6 @@ type model struct {
 	currentPath          *string
 	showLargeFiles       bool
 	isOverview           bool
-	showFlameGraph       bool
 	deleteConfirm        bool
 	deleteTarget         *dirEntry
 	cache                map[string]historyEntry
@@ -278,13 +391,13 @@ func newModel(path string, isOverview bool) model {
 		overviewDirsScanned:  &overviewDirsScanned,
 		overviewBytesScanned: &overviewBytesScanned,
 		overviewCurrentPath:  &overviewCurrentPath,
+		overviewSizeCache:    make(map[string]int64),
+		overviewScanningSet:  make(map[string]bool),
 	}
 
 	// In overview mode, create shortcut entries
 	if isOverview {
 		m.scanning = false
-		m.overviewSizeCache = make(map[string]int64)
-		m.overviewScanningSet = make(map[string]bool)
 		m.hydrateOverviewEntries()
 		m.selected = 0
 		m.offset = 0
@@ -344,11 +457,6 @@ func (m *model) hydrateOverviewEntries() {
 func (m *model) scheduleOverviewScans() tea.Cmd {
 	if !m.isOverview {
 		return nil
-	}
-
-	// Initialize scanning set if needed
-	if m.overviewScanningSet == nil {
-		m.overviewScanningSet = make(map[string]bool)
 	}
 
 	// Find pending entries (not scanned and not currently scanning)
@@ -460,15 +568,27 @@ func (m model) scanCmd(path string) tea.Cmd {
 			return scanResultMsg{result: result, err: nil}
 		}
 
-		// Cache miss or invalid, perform actual scan
-		result, err := scanPathConcurrent(path, m.filesScanned, m.dirsScanned, m.bytesScanned, m.currentPath)
+		// Use singleflight to avoid duplicate scans of the same path
+		// If multiple goroutines request the same path, only one scan will be performed
+		v, err, _ := scanGroup.Do(path, func() (interface{}, error) {
+			return scanPathConcurrent(path, m.filesScanned, m.dirsScanned, m.bytesScanned, m.currentPath)
+		})
 
-		// Save to persistent cache asynchronously
-		if err == nil {
-			go saveCacheToDisk(path, result)
+		if err != nil {
+			return scanResultMsg{err: err}
 		}
 
-		return scanResultMsg{result: result, err: err}
+		result := v.(scanResult)
+
+		// Save to persistent cache asynchronously with error logging
+		go func(p string, r scanResult) {
+			if err := saveCacheToDisk(p, r); err != nil {
+				// Log error but don't fail the scan
+				_ = err // Cache save failure is not critical
+			}
+		}(path, result)
+
+		return scanResultMsg{result: result, err: nil}
 	}
 }
 
@@ -506,13 +626,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case overviewSizeMsg:
-		if m.overviewSizeCache == nil {
-			m.overviewSizeCache = make(map[string]int64)
-		}
-		if m.overviewScanningSet == nil {
-			m.overviewScanningSet = make(map[string]bool)
-		}
-
 		// Remove from scanning set
 		delete(m.overviewScanningSet, msg.path)
 
@@ -607,10 +720,6 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.showLargeFiles = false
 			return m, nil
 		}
-		if m.showFlameGraph {
-			m.showFlameGraph = false
-			return m, nil
-		}
 		return m, tea.Quit
 	case "up", "k":
 		if m.showLargeFiles {
@@ -655,10 +764,6 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.showLargeFiles = false
 			return m, nil
 		}
-		if m.showFlameGraph {
-			m.showFlameGraph = false
-			return m, nil
-		}
 		if len(m.history) == 0 {
 			// Return to overview if at top level
 			if !m.isOverview {
@@ -701,18 +806,10 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.scanCmd(m.path), tickCmd())
 	case "l":
 		m.showLargeFiles = !m.showLargeFiles
-		m.showFlameGraph = false
 		if m.showLargeFiles {
 			m.largeSelected = 0
 			m.largeOffset = 0
 		}
-	case "g", "v":
-		// Toggle flame graph view
-		if m.isOverview {
-			return m, nil // Flame graph not available in overview mode
-		}
-		m.showFlameGraph = !m.showFlameGraph
-		m.showLargeFiles = false
 	case "o":
 		// Open selected entry
 		if m.showLargeFiles {
@@ -770,12 +867,6 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) switchToOverviewMode() tea.Cmd {
-	if m.overviewSizeCache == nil {
-		m.overviewSizeCache = make(map[string]int64)
-	}
-	if m.overviewScanningSet == nil {
-		m.overviewScanningSet = make(map[string]bool)
-	}
 	m.isOverview = true
 	m.path = "/"
 	m.scanning = false
@@ -834,9 +925,6 @@ func (m model) View() string {
 	var b strings.Builder
 	fmt.Fprintln(&b)
 
-	// Visualization removed - will be redesigned
-	_ = m.showFlameGraph
-
 	if m.isOverview && hasPendingOverviewEntries(m.entries) {
 		fmt.Fprintf(&b, "%sAnalyze Disk%s\n", colorPurple, colorReset)
 		fmt.Fprintf(&b, "%sPreparing overview...%s\n\n", colorGray, colorReset)
@@ -855,9 +943,7 @@ func (m model) View() string {
 			currentPath := *m.overviewCurrentPath
 			if currentPath != "" {
 				shortPath := displayPath(currentPath)
-				if len(shortPath) > 60 {
-					shortPath = "..." + shortPath[len(shortPath)-57:]
-				}
+				shortPath = truncateMiddle(shortPath, 60)
 				fmt.Fprintf(&b, "%s%s%s\n", colorGray, shortPath, colorReset)
 			}
 		}
@@ -897,9 +983,7 @@ func (m model) View() string {
 			currentPath := *m.currentPath
 			if currentPath != "" {
 				shortPath := displayPath(currentPath)
-				if len(shortPath) > 60 {
-					shortPath = "..." + shortPath[len(shortPath)-57:]
-				}
+				shortPath = truncateMiddle(shortPath, 60)
 				fmt.Fprintf(&b, "%s%s%s\n", colorGray, shortPath, colorReset)
 			}
 		}
@@ -930,9 +1014,7 @@ func (m model) View() string {
 			for idx := start; idx < end; idx++ {
 				file := m.largeFiles[idx]
 				shortPath := displayPath(file.path)
-				if len(shortPath) > 56 {
-					shortPath = shortPath[:53] + "..."
-				}
+				shortPath = truncateMiddle(shortPath, 56)
 				entryPrefix := "    "
 				if idx == m.largeSelected {
 					entryPrefix = fmt.Sprintf(" %s%s▶%s  ", colorCyan, colorBold, colorReset)
@@ -1103,9 +1185,9 @@ func (m model) View() string {
 	} else {
 		largeFileCount := len(m.largeFiles)
 		if largeFileCount > 0 {
-			fmt.Fprintf(&b, "%s  ↑↓←→ Navigate  |  O Open  |  F Reveal  |  ⌫ Delete  |  G FlameGraph  |  L Large(%d)  |  Q Quit%s\n", colorGray, largeFileCount, colorReset)
+			fmt.Fprintf(&b, "%s  ↑↓←→ Navigate  |  O Open  |  F Reveal  |  ⌫ Delete  |  L Large(%d)  |  Q Quit%s\n", colorGray, largeFileCount, colorReset)
 		} else {
-			fmt.Fprintf(&b, "%s  ↑↓←→ Navigate  |  O Open  |  F Reveal  |  ⌫ Delete  |  G FlameGraph  |  Q Quit%s\n", colorGray, colorReset)
+			fmt.Fprintf(&b, "%s  ↑↓←→ Navigate  |  O Open  |  F Reveal  |  ⌫ Delete  |  Q Quit%s\n", colorGray, colorReset)
 		}
 	}
 	return b.String()
@@ -1153,14 +1235,19 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 			}
 
 			// For folded directories, calculate size quickly without expanding
-			if shouldFoldDir(child.Name()) {
+			if shouldFoldDirWithPath(child.Name(), fullPath) {
 				wg.Add(1)
 				go func(name, path string) {
 					defer wg.Done()
 					sem <- struct{}{}
 					defer func() { <-sem }()
 
-					size := calculateDirSizeFast(path, filesScanned, dirsScanned, bytesScanned, currentPath)
+					// Try du command first for folded dirs (much faster)
+					size := calculateDirSizeWithDu(path)
+					if size <= 0 {
+						// Fallback to walk if du fails
+						size = calculateDirSizeFast(path, filesScanned, dirsScanned, bytesScanned, currentPath)
+					}
 					atomic.AddInt64(&total, size)
 					atomic.AddInt64(dirsScanned, 1)
 
@@ -1254,6 +1341,48 @@ func shouldFoldDir(name string) bool {
 	return foldDirs[name]
 }
 
+// shouldFoldDirWithPath checks if a directory should be folded based on path context
+func shouldFoldDirWithPath(name, path string) bool {
+	// Check basic fold list first
+	if foldDirs[name] {
+		return true
+	}
+
+	// Special case: .npm directory - fold all single-letter subdirectories (npm cache structure)
+	if strings.Contains(path, "/.npm/") && len(name) == 1 {
+		return true
+	}
+
+	return false
+}
+
+// calculateDirSizeWithDu uses du command for fast directory size calculation
+// Returns size in bytes, or 0 if command fails
+func calculateDirSizeWithDu(path string) int64 {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Use -sb for exact byte count (matches info.Size() behavior)
+	// -s: summarize (don't show subdirs), -b: bytes (not blocks)
+	cmd := exec.CommandContext(ctx, "du", "-sb", path)
+	output, err := cmd.Output()
+	if err != nil {
+		return 0
+	}
+
+	fields := strings.Fields(string(output))
+	if len(fields) < 1 {
+		return 0
+	}
+
+	bytes, err := strconv.ParseInt(fields[0], 10, 64)
+	if err != nil {
+		return 0
+	}
+
+	return bytes
+}
+
 func shouldSkipFileForLargeTracking(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	return skipExtensions[ext]
@@ -1266,7 +1395,17 @@ func calculateDirSizeFast(root string, filesScanned, dirsScanned, bytesScanned *
 	var localFiles, localDirs int64
 	var batchBytes int64
 
-	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	walkFunc := func(path string, d fs.DirEntry, err error) error {
+		// Check for timeout
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		if err != nil {
 			return nil
 		}
@@ -1298,7 +1437,9 @@ func calculateDirSizeFast(root string, filesScanned, dirsScanned, bytesScanned *
 			batchBytes = 0
 		}
 		return nil
-	})
+	}
+
+	_ = filepath.WalkDir(root, walkFunc)
 
 	// Final update for remaining counts
 	if localFiles > 0 {
@@ -1384,13 +1525,29 @@ func calculateDirSizeConcurrent(root string, tracker *largeFileTracker, filesSca
 	var localFiles, localDirs int64
 	var batchBytes int64
 
-	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	// Create context with timeout for very large directories
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	walkFunc := func(path string, d fs.DirEntry, err error) error {
+		// Check for context cancellation
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		if err != nil {
 			return nil
 		}
 		if d.IsDir() {
-			// Skip folded directories during recursive scanning
-			if shouldFoldDir(d.Name()) {
+			// Skip folded directories during recursive scanning, but calculate their size first
+			if shouldFoldDirWithPath(d.Name(), path) {
+				// Calculate folded directory size and add to parent total
+				foldedSize := calculateDirSizeWithDu(path)
+				if foldedSize > 0 {
+					total += foldedSize
+					atomic.AddInt64(bytesScanned, foldedSize)
+				}
 				return filepath.SkipDir
 			}
 			localDirs++
@@ -1430,7 +1587,9 @@ func calculateDirSizeConcurrent(root string, tracker *largeFileTracker, filesSca
 		}
 
 		return nil
-	})
+	}
+
+	_ = filepath.WalkDir(root, walkFunc)
 
 	// Final update for remaining counts
 	if localFiles > 0 {
@@ -1513,6 +1672,25 @@ func displayPath(path string) string {
 		return strings.Replace(path, home, "~", 1)
 	}
 	return path
+}
+
+// truncateMiddle truncates string in the middle, keeping head and tail
+// e.g. "very/long/path/to/file.txt" -> "very/long/.../file.txt"
+func truncateMiddle(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+
+	// Reserve 3 chars for "..."
+	if maxLen < 10 {
+		return s[:maxLen]
+	}
+
+	// Keep more of the tail (filename usually more important)
+	headLen := (maxLen - 3) / 3
+	tailLen := maxLen - 3 - headLen
+
+	return s[:headLen] + "..." + s[len(s)-tailLen:]
 }
 
 func formatNumber(n int64) string {
@@ -2091,8 +2269,8 @@ func getCachePath(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// Use MD5 hash of path as cache filename
-	hash := md5.Sum([]byte(path))
+	// Use xxhash (faster than MD5) of path as cache filename
+	hash := xxhash.Sum64String(path)
 	filename := fmt.Sprintf("%x.cache", hash)
 	return filepath.Join(cacheDir, filename), nil
 }
@@ -2199,11 +2377,11 @@ func formatUnusedTime(lastAccess time.Time) string {
 	years := days / 365
 
 	if years >= 2 {
-		return fmt.Sprintf(">%dyr unused", years)
+		return fmt.Sprintf(">%dyr", years)
 	} else if years >= 1 {
-		return ">1yr unused"
+		return ">1yr"
 	} else if months >= 3 {
-		return fmt.Sprintf(">%dmo unused", months)
+		return fmt.Sprintf(">%dmo", months)
 	}
 
 	return ""
