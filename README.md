@@ -65,16 +65,6 @@ mo --version            # Show installed version
 - Protect caches with `mo clean --whitelist`; defaults cover Playwright, HuggingFace, Maven, and Surge Mac paths.
 - Use `mo touchid` to approve sudo with Touch ID instead of typing your password.
 
-## Quick Launchers
-
-One command sets up Raycast + Alfred shortcuts for `mo clean` and `mo uninstall`:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/integrations/setup-quick-launchers.sh | bash
-```
-
-Done! Use `mo` search to quickly find them. See [integrations/README.md](integrations/README.md) for details.
-
 ## Features in Detail
 
 ### Deep System Cleanup
@@ -153,6 +143,28 @@ Analyze Disk  ~/Documents  |  Total: 156.8GB
     5. ██░░░░░░░░░░░░░░░░░   5.2%  |  📄 backup_2023.zip              8.2GB
 
   ↑↓←→ Navigate  |  O Open  |  F Reveal  |  ⌫ Delete  |  L Large(24)  |  Q Quit
+```
+
+## Quick Launchers
+
+Launch Mole commands instantly from Raycast or Alfred:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tw93/Mole/main/scripts/setup-quick-launchers.sh | bash
+```
+
+This adds 4 commands to Raycast and Alfred:
+- `clean` - Deep system cleanup
+- `uninstall` - Remove applications
+- `optimize` - System health check
+- `analyze` - Disk space explorer
+
+Raycast scripts auto-detect your preferred terminal (Warp, Ghostty, Alacritty, Kitty, etc). Set `MO_LAUNCHER_APP=<name>` to override.
+
+**Uninstall:**
+```bash
+rm -rf ~/Documents/Raycast/Scripts/mole-*.sh
+rm -rf ~/Library/Application\ Support/Raycast/script-commands/mole-*.sh
 ```
 
 ## Support
