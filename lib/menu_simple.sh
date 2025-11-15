@@ -124,7 +124,7 @@ paginated_multi_select() {
         if [[ $total_items -eq 0 ]]; then
             printf "${clear_line}${GRAY}No items available${NC}\n" >&2
             printf "${clear_line}\n" >&2
-            printf "${clear_line}${GRAY}Q/ESC${NC} Quit\n" >&2
+            printf "${clear_line}${GRAY}Q${NC} Quit\n" >&2
             printf "${clear_line}" >&2
             return
         fi
@@ -168,7 +168,7 @@ paginated_multi_select() {
 
         # Clear any remaining lines at bottom
         printf "${clear_line}\n" >&2
-        printf "${clear_line}${GRAY}${ICON_NAV_UP}/${ICON_NAV_DOWN}${NC} Navigate  ${GRAY}|${NC}  ${GRAY}Space${NC} Select  ${GRAY}|${NC}  ${GRAY}Enter${NC} Confirm  ${GRAY}|${NC}  ${GRAY}Q/ESC${NC} Quit\n" >&2
+        printf "${clear_line}${GRAY}${ICON_NAV_UP}/${ICON_NAV_DOWN}${NC} Navigate  ${GRAY}|${NC}  ${GRAY}Space${NC} Select  ${GRAY}|${NC}  ${GRAY}Enter${NC} Confirm  ${GRAY}|${NC}  ${GRAY}Q${NC} Quit\n" >&2
 
         # Clear one more line to ensure no artifacts
         printf "${clear_line}" >&2

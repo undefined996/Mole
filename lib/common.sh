@@ -296,7 +296,7 @@ read_key() {
         $'\x7f' | $'\x08') echo "DELETE" ;; # Backspace/Delete key
         $'\x1b')
             # ESC sequence - could be arrow key, delete key, or ESC alone
-            # Read the next two bytes within 1s
+            # Read the next bytes with 1s timeout for maximum compatibility
             if IFS= read -r -s -n 1 -t 1 rest 2> /dev/null; then
                 if [[ "$rest" == "[" ]]; then
                     # Got ESC [, read next character

@@ -461,7 +461,7 @@ paginated_multi_select() {
                     "${GRAY}${ICON_NAV_UP}/${ICON_NAV_DOWN}${NC} Navigate"
                     "${GRAY}Space${NC} Select"
                     "${GRAY}Enter${NC} Confirm"
-                    "${GRAY}Q/ESC${NC} Quit"
+                    "${GRAY}Q${NC} Quit"
                 )
                 _print_wrapped_controls "$sep" "${_segs_basic[@]}"
                 local -a _segs_advanced=(
@@ -477,7 +477,7 @@ paginated_multi_select() {
                     "${GRAY}Space${NC} Select"
                     "${GRAY}Enter${NC} Confirm"
                     "${GRAY}/${NC} Filter"
-                    "${GRAY}Q/ESC${NC} Quit"
+                    "${GRAY}Q${NC} Quit"
                 )
                 _print_wrapped_controls "$sep" "${_segs_simple[@]}"
             fi
