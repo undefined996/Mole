@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
 # Version info
-VERSION="1.9.3"
+VERSION="1.9.4"
 MOLE_TAGLINE="can dig deep to clean your Mac."
 
 # Get latest version from remote repository
@@ -532,10 +532,22 @@ interactive_main_menu() {
                     4) exec "$SCRIPT_DIR/bin/analyze.sh" ;;
                 esac
                 ;;
-            "CHAR:1") show_cursor; exec "$SCRIPT_DIR/bin/clean.sh" ;;
-            "CHAR:2") show_cursor; exec "$SCRIPT_DIR/bin/uninstall.sh" ;;
-            "CHAR:3") show_cursor; exec "$SCRIPT_DIR/bin/optimize.sh" ;;
-            "CHAR:4") show_cursor; exec "$SCRIPT_DIR/bin/analyze.sh" ;;
+            "CHAR:1")
+                show_cursor
+                exec "$SCRIPT_DIR/bin/clean.sh"
+                ;;
+            "CHAR:2")
+                show_cursor
+                exec "$SCRIPT_DIR/bin/uninstall.sh"
+                ;;
+            "CHAR:3")
+                show_cursor
+                exec "$SCRIPT_DIR/bin/optimize.sh"
+                ;;
+            "CHAR:4")
+                show_cursor
+                exec "$SCRIPT_DIR/bin/analyze.sh"
+                ;;
             "HELP")
                 show_cursor
                 clear

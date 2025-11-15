@@ -247,7 +247,7 @@ create_raycast_commands() {
     done
 
     if open "raycast://extensions/script-commands" > /dev/null 2>&1; then
-        log_step "Raycast settings opened. Run “Reload Script Directories”."
+        log_step "Raycast settings opened. Run 'Reload Script Directories'."
     else
         log_warn "Could not auto-open Raycast. Open it manually to reload scripts."
     fi

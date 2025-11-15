@@ -602,7 +602,7 @@ perform_cleanup() {
 
     # ===== 1. Deep system cleanup (if admin) - Do this first while sudo is fresh =====
     if [[ "$SYSTEM_CLEAN" == "true" ]]; then
-        start_section "Deep system-level cleanup"
+        start_section "Deep system"
 
         # Clean system caches more safely
         sudo find /Library/Caches -name "*.cache" -delete 2> /dev/null || true
@@ -638,7 +638,7 @@ perform_cleanup() {
     fi
 
     # ===== 2. User essentials =====
-    start_section "System essentials"
+    start_section "User essentials"
     safe_clean ~/Library/Caches/* "User app cache"
     safe_clean ~/Library/Logs/* "User app logs"
     safe_clean ~/.Trash/* "Trash"
@@ -680,7 +680,7 @@ perform_cleanup() {
     safe_clean ~/Downloads/*.part "Incomplete downloads (partial)"
     end_section
 
-    start_section "Finder metadata cleanup"
+    start_section "Finder metadata"
     clean_ds_store_tree "$HOME" "Home directory (.DS_Store)"
 
     if [[ -d "/Volumes" ]]; then
@@ -698,7 +698,7 @@ perform_cleanup() {
     fi
     end_section
 
-    # ===== 3. macOS System Caches =====
+    # ===== 3. macOS system caches =====
     start_section "macOS system caches"
     safe_clean ~/Library/Saved\ Application\ State/* "Saved application states"
     safe_clean ~/Library/Caches/com.apple.spotlight "Spotlight cache"
@@ -718,7 +718,7 @@ perform_cleanup() {
     safe_clean ~/Library/Caches/com.apple.WebKit.Networking/* "WebKit network cache"
     end_section
 
-    # ===== 4. Sandboxed App Caches =====
+    # ===== 4. Sandboxed app caches =====
     start_section "Sandboxed app caches"
     safe_clean ~/Library/Containers/com.apple.wallpaper.agent/Data/Library/Caches/* "Wallpaper agent cache"
     safe_clean ~/Library/Containers/com.apple.mediaanalysisd/Data/Library/Caches/* "Media analysis cache"
@@ -727,7 +727,7 @@ perform_cleanup() {
     end_section
 
     # ===== 5. Browsers =====
-    start_section "Browser cleanup"
+    start_section "Browsers"
     safe_clean ~/Library/Caches/com.apple.Safari/* "Safari cache"
 
     # Chrome/Chromium
@@ -764,8 +764,8 @@ perform_cleanup() {
         -type d -name "CacheStorage" -path "*/Service Worker/*" 2> /dev/null)
     end_section
 
-    # ===== 6. Cloud Storage =====
-    start_section "Cloud storage caches"
+    # ===== 6. Cloud storage =====
+    start_section "Cloud storage"
     safe_clean ~/Library/Caches/com.dropbox.* "Dropbox cache"
     safe_clean ~/Library/Caches/com.getdropbox.dropbox "Dropbox cache"
     safe_clean ~/Library/Caches/com.google.GoogleDrive "Google Drive cache"
@@ -775,7 +775,7 @@ perform_cleanup() {
     safe_clean ~/Library/Caches/com.microsoft.OneDrive "OneDrive cache"
     end_section
 
-    # ===== 7. Office Applications =====
+    # ===== 7. Office applications =====
     start_section "Office applications"
     safe_clean ~/Library/Caches/com.microsoft.Word "Microsoft Word cache"
     safe_clean ~/Library/Caches/com.microsoft.Excel "Microsoft Excel cache"
@@ -883,7 +883,7 @@ perform_cleanup() {
 
             # Read output
             if [[ -f "$brew_tmp_file" ]]; then
-                brew_output=$(cat "$brew_tmp_file" 2>/dev/null || echo "")
+                brew_output=$(cat "$brew_tmp_file" 2> /dev/null || echo "")
             fi
 
             if [[ "$brew_success" == "true" && $elapsed -lt $timeout_seconds ]]; then
@@ -924,10 +924,8 @@ perform_cleanup() {
     fi
 
     safe_clean ~/.gitconfig.lock "Git config lock"
-    end_section
 
-    # ===== 9. Extended developer caches =====
-    start_section "Extended developer caches"
+    # Extended caches
     safe_clean ~/.pnpm-store/* "pnpm store cache"
     safe_clean ~/.local/share/pnpm/store/* "pnpm global store"
     safe_clean ~/.cache/typescript/* "TypeScript cache"
@@ -955,7 +953,7 @@ perform_cleanup() {
             -not -path "*/Library/*" \
             -not -path "*/.Trash/*" \
             -not -path "*/node_modules/*" \
-            2>/dev/null || true
+            2> /dev/null || true
     )
     if [[ -t 1 ]]; then
         stop_inline_spinner
@@ -973,7 +971,7 @@ perform_cleanup() {
             -not -path "*/Library/*" \
             -not -path "*/.Trash/*" \
             -not -path "*/node_modules/*" \
-            2>/dev/null || true
+            2> /dev/null || true
     )
     if [[ -t 1 ]]; then
         stop_inline_spinner
@@ -1061,8 +1059,8 @@ perform_cleanup() {
 
     end_section
 
-    # ===== 10. Applications =====
-    start_section "Applications"
+    # ===== 9. Development applications =====
+    start_section "Development applications"
     safe_clean ~/Library/Developer/Xcode/DerivedData/* "Xcode derived data"
     # Skip: Archives contain signed App Store builds
     # safe_clean ~/Library/Developer/Xcode/Archives/* "Xcode archives"
@@ -1183,7 +1181,7 @@ perform_cleanup() {
 
     end_section
 
-    # ===== 11. Virtualization Tools =====
+    # ===== 10. Virtualization tools =====
     start_section "Virtualization tools"
     safe_clean ~/Library/Caches/com.vmware.fusion "VMware Fusion cache"
     safe_clean ~/Library/Caches/com.parallels.* "Parallels cache"
@@ -1191,7 +1189,7 @@ perform_cleanup() {
     safe_clean ~/.vagrant.d/tmp/* "Vagrant temporary files"
     end_section
 
-    # ===== 12. Application Support logs cleanup =====
+    # ===== 11. Application Support logs cleanup =====
     start_section "Application Support logs"
 
     # Clean log directories for apps that store logs in Application Support
@@ -1220,10 +1218,10 @@ perform_cleanup() {
 
     end_section
 
-    # ===== 13. Orphaned app data cleanup =====
+    # ===== 12. Orphaned app data cleanup =====
     # Only touch apps missing from scan + 60+ days inactive
     # Skip protected vendors, keep Preferences/Application Support
-    start_section "Orphaned app data cleanup"
+    start_section "Orphaned app data"
 
     local -r ORPHAN_AGE_THRESHOLD=60 # 2 months - good balance between safety and cleanup
 
@@ -1375,7 +1373,7 @@ perform_cleanup() {
 
     end_section
 
-    # ===== 14. Apple Silicon optimizations =====
+    # ===== 13. Apple Silicon optimizations =====
     if [[ "$IS_M_SERIES" == "true" ]]; then
         start_section "Apple Silicon optimizations"
         safe_clean /Library/Apple/usr/share/rosetta/rosetta_update_bundle "Rosetta 2 cache"
@@ -1386,7 +1384,7 @@ perform_cleanup() {
         end_section
     fi
 
-    # ===== 15. iOS device backups =====
+    # ===== 14. iOS device backups =====
     start_section "iOS device backups"
     backup_dir="$HOME/Library/Application Support/MobileSync/Backup"
     if [[ -d "$backup_dir" ]] && find "$backup_dir" -mindepth 1 -maxdepth 1 | read -r _; then
@@ -1400,7 +1398,7 @@ perform_cleanup() {
     fi
     end_section
 
-    # ===== 16. Time Machine failed backups =====
+    # ===== 15. Time Machine failed backups =====
     start_section "Time Machine failed backups"
     local tm_cleaned=0
 
@@ -1508,58 +1506,75 @@ perform_cleanup() {
     end_section
 
     # ===== Check for large project dependencies =====
-    start_section "Large project dependencies check"
+    start_section "Large project dependencies"
 
-        if [[ -t 1 ]]; then MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning project directories..."; fi
+    if [[ -t 1 ]]; then MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning project directories..."; fi
 
-        local node_modules_size=0
-        local node_modules_count=0
-        local venv_size=0
-        local venv_count=0
+    local node_modules_size=0
+    local node_modules_count=0
+    local venv_size=0
+    local venv_count=0
 
-        # Find node_modules older than 60 days in home directory
-        while IFS= read -r nm_dir; do
-            [[ ! -d "$nm_dir" ]] && continue
-            local size_kb=$(du -sk "$nm_dir" 2>/dev/null | awk '{print $1}' || echo "0")
-            if [[ $size_kb -gt 102400 ]]; then  # > 100MB
-                ((node_modules_size += size_kb))
-                ((node_modules_count++))
-            fi
-        done < <(find "$HOME" -type d -name "node_modules" -maxdepth 4 -mtime +60 \
-            -not -path "*/Library/*" \
-            -not -path "*/.Trash/*" \
-            2>/dev/null || true)
+    # Use a single find with du to batch process node_modules
+    # This is much faster than running du separately for each directory
+    # Search only likely project directories to speed up scanning
+    local search_paths=()
+    [[ -d "$HOME/Documents" ]] && search_paths+=("$HOME/Documents")
+    [[ -d "$HOME/Desktop" ]] && search_paths+=("$HOME/Desktop")
+    [[ -d "$HOME/Projects" ]] && search_paths+=("$HOME/Projects")
+    [[ -d "$HOME/www" ]] && search_paths+=("$HOME/www")
+    [[ -d "$HOME/Code" ]] && search_paths+=("$HOME/Code")
+    [[ -d "$HOME/dev" ]] && search_paths+=("$HOME/dev")
 
-        # Find venv/virtualenv older than 60 days
-        while IFS= read -r venv_dir; do
-            [[ ! -d "$venv_dir" ]] && continue
-            local size_kb=$(du -sk "$venv_dir" 2>/dev/null | awk '{print $1}' || echo "0")
-            if [[ $size_kb -gt 51200 ]]; then  # > 50MB
-                ((venv_size += size_kb))
-                ((venv_count++))
-            fi
-        done < <(find "$HOME" -type d \( -name "venv" -o -name ".venv" -o -name "env" \) -maxdepth 4 -mtime +60 \
-            -not -path "*/Library/*" \
-            -not -path "*/.Trash/*" \
-            -not -path "*/node_modules/*" \
-            2>/dev/null || true)
+    # If no common project dirs found, search HOME but with depth 3
+    if [[ ${#search_paths[@]} -eq 0 ]]; then
+        search_paths=("$HOME")
+    fi
 
-        if [[ -t 1 ]]; then stop_inline_spinner; fi
-
-        # Show suggestions if found
-        if [[ $node_modules_count -gt 0 ]] || [[ $venv_count -gt 0 ]]; then
-            if [[ $node_modules_count -gt 0 ]]; then
-                local nm_gb=$(echo "$node_modules_size" | awk '{printf "%.1f", $1/1024/1024}')
-                echo -e "  ${GRAY}○${NC} Found ${YELLOW}${nm_gb}GB${NC} in $node_modules_count old node_modules ${GRAY}(60+ days)${NC}"
-            fi
-            if [[ $venv_count -gt 0 ]]; then
-                local venv_gb=$(echo "$venv_size" | awk '{printf "%.1f", $1/1024/1024}')
-                echo -e "  ${GRAY}○${NC} Found ${YELLOW}${venv_gb}GB${NC} in $venv_count old Python venv ${GRAY}(60+ days)${NC}"
-            fi
-            echo -e "  ${YELLOW}☻${NC} Run 'mo analyze' to see details and manually clean"
-        else
-            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} No large unused project dependencies found"
+    while IFS=$'\t' read -r size_kb nm_dir; do
+        [[ ! -d "$nm_dir" ]] && continue
+        if [[ $size_kb -gt 102400 ]]; then # > 100MB
+            ((node_modules_size += size_kb))
+            ((node_modules_count++))
         fi
+    done < <(find "${search_paths[@]}" -type d -name "node_modules" -maxdepth 4 -mtime +60 \
+        -not -path "*/Library/*" \
+        -not -path "*/.Trash/*" \
+        -print0 2> /dev/null |
+        xargs -0 -n 20 -P 4 sh -c 'for dir in "$@"; do du -sk "$dir" 2>/dev/null || echo "0 $dir"; done' _ |
+        awk '{print $1 "\t" substr($0, index($0,$2))}' || true)
+
+    # Use a single find with du to batch process venv directories
+    while IFS=$'\t' read -r size_kb venv_dir; do
+        [[ ! -d "$venv_dir" ]] && continue
+        if [[ $size_kb -gt 51200 ]]; then # > 50MB
+            ((venv_size += size_kb))
+            ((venv_count++))
+        fi
+    done < <(find "${search_paths[@]}" -type d \( -name "venv" -o -name ".venv" -o -name "env" \) -maxdepth 4 -mtime +60 \
+        -not -path "*/Library/*" \
+        -not -path "*/.Trash/*" \
+        -not -path "*/node_modules/*" \
+        -print0 2> /dev/null |
+        xargs -0 -n 20 -P 4 sh -c 'for dir in "$@"; do du -sk "$dir" 2>/dev/null || echo "0 $dir"; done' _ |
+        awk '{print $1 "\t" substr($0, index($0,$2))}' || true)
+
+    if [[ -t 1 ]]; then stop_inline_spinner; fi
+
+    # Show suggestions if found
+    if [[ $node_modules_count -gt 0 ]] || [[ $venv_count -gt 0 ]]; then
+        if [[ $node_modules_count -gt 0 ]]; then
+            local nm_gb=$(echo "$node_modules_size" | awk '{printf "%.1f", $1/1024/1024}')
+            echo -e "  ${GRAY}○${NC} Found ${YELLOW}${nm_gb}GB${NC} in $node_modules_count old node_modules ${GRAY}(60+ days)${NC}"
+        fi
+        if [[ $venv_count -gt 0 ]]; then
+            local venv_gb=$(echo "$venv_size" | awk '{printf "%.1f", $1/1024/1024}')
+            echo -e "  ${GRAY}○${NC} Found ${YELLOW}${venv_gb}GB${NC} in $venv_count old Python venv ${GRAY}(60+ days)${NC}"
+        fi
+        echo -e "  ${YELLOW}☻${NC} Run 'mo analyze' to see details and manually clean"
+    else
+        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} No large unused project dependencies found"
+    fi
     end_section
 
     # ===== Final summary =====
