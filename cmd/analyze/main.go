@@ -308,6 +308,12 @@ type overviewSizeMsg struct {
 
 type tickMsg time.Time
 
+type deleteProgressMsg struct {
+	done  bool
+	err   error
+	count int64
+}
+
 type model struct {
 	path                 string
 	history              []historyEntry
@@ -327,6 +333,8 @@ type model struct {
 	isOverview           bool
 	deleteConfirm        bool
 	deleteTarget         *dirEntry
+	deleting             bool
+	deleteCount          *int64
 	cache                map[string]historyEntry
 	largeSelected        int
 	largeOffset          int
@@ -602,6 +610,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m.updateKey(msg)
+	case deleteProgressMsg:
+		if msg.done {
+			m.deleting = false
+			if msg.err != nil {
+				m.status = fmt.Sprintf("Failed to delete: %v", msg.err)
+			} else {
+				m.status = fmt.Sprintf("Deleted %d items", msg.count)
+				// Mark all caches as dirty
+				for i := range m.history {
+					m.history[i].dirty = true
+				}
+				for path := range m.cache {
+					entry := m.cache[path]
+					entry.dirty = true
+					m.cache[path] = entry
+				}
+				// Refresh the view
+				m.scanning = true
+				return m, tea.Batch(m.scanCmd(m.path), tickCmd())
+			}
+		}
+		return m, nil
 	case scanResultMsg:
 		m.scanning = false
 		if msg.err != nil {
@@ -658,8 +688,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case tickMsg:
-		if m.scanning || (m.isOverview && m.overviewScanning) {
+		if m.scanning || m.deleting || (m.isOverview && m.overviewScanning) {
 			m.spinner = (m.spinner + 1) % len(spinnerFrames)
+			// Update delete progress status
+			if m.deleting && m.deleteCount != nil {
+				count := atomic.LoadInt64(m.deleteCount)
+				if count > 0 {
+					m.status = fmt.Sprintf("Deleting... %s items removed", formatNumber(count))
+				}
+			}
 			return m, tickCmd()
 		}
 		return m, nil
@@ -672,27 +709,17 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle delete confirmation
 	if m.deleteConfirm {
 		if msg.String() == "delete" || msg.String() == "backspace" {
-			// Confirm delete
+			// Confirm delete - start async deletion
 			if m.deleteTarget != nil {
-				err := os.RemoveAll(m.deleteTarget.path)
-				if err != nil {
-					m.status = fmt.Sprintf("Failed to delete: %v", err)
-				} else {
-					m.status = fmt.Sprintf("Deleted %s", m.deleteTarget.name)
-					for i := range m.history {
-						m.history[i].dirty = true
-					}
-					for path := range m.cache {
-						entry := m.cache[path]
-						entry.dirty = true
-						m.cache[path] = entry
-					}
-					// Refresh the view
-					m.scanning = true
-					m.deleteConfirm = false
-					m.deleteTarget = nil
-					return m, tea.Batch(m.scanCmd(m.path), tickCmd())
-				}
+				m.deleteConfirm = false
+				m.deleting = true
+				var deleteCount int64
+				m.deleteCount = &deleteCount
+				targetPath := m.deleteTarget.path
+				targetName := m.deleteTarget.name
+				m.deleteTarget = nil
+				m.status = fmt.Sprintf("Deleting %s...", targetName)
+				return m, tea.Batch(deletePathCmd(targetPath, m.deleteCount), tickCmd())
 			}
 			m.deleteConfirm = false
 			m.deleteTarget = nil
@@ -965,6 +992,22 @@ func (m model) View() string {
 			fmt.Fprintf(&b, "  |  Total: %s", humanizeBytes(m.totalSize))
 		}
 		fmt.Fprintln(&b)
+	}
+
+	if m.deleting {
+		// Show delete progress
+		count := int64(0)
+		if m.deleteCount != nil {
+			count = atomic.LoadInt64(m.deleteCount)
+		}
+
+		fmt.Fprintf(&b, "\n%s%s%s%s Deleting: %s%s items%s removed, please wait...\n",
+			colorCyan, colorBold,
+			spinnerFrames[m.spinner],
+			colorReset,
+			colorYellow, formatNumber(count), colorReset)
+
+		return b.String()
 	}
 
 	if m.scanning {
@@ -1347,9 +1390,19 @@ func shouldFoldDirWithPath(name, path string) bool {
 		return true
 	}
 
-	// Special case: .npm directory - fold all single-letter subdirectories (npm cache structure)
-	if strings.Contains(path, "/.npm/") && len(name) == 1 {
-		return true
+	// Special case: .npm directory - fold all subdirectories under cache folders
+	// This includes: .npm/_quick/*, .npm/_cacache/*, .npm/*/
+	if strings.Contains(path, "/.npm/") {
+		// Get the parent directory name
+		parent := filepath.Base(filepath.Dir(path))
+		// If parent is a cache folder (_quick, _cacache, etc) or .npm itself, fold it
+		if parent == ".npm" || strings.HasPrefix(parent, "_") {
+			return true
+		}
+		// Also fold single-letter subdirectories (npm cache structure)
+		if len(name) == 1 {
+			return true
+		}
 	}
 
 	return false
@@ -1361,9 +1414,9 @@ func calculateDirSizeWithDu(path string) int64 {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Use -sb for exact byte count (matches info.Size() behavior)
-	// -s: summarize (don't show subdirs), -b: bytes (not blocks)
-	cmd := exec.CommandContext(ctx, "du", "-sb", path)
+	// Use -sk for 1K-block output, then convert to bytes
+	// macOS du doesn't support -b flag
+	cmd := exec.CommandContext(ctx, "du", "-sk", path)
 	output, err := cmd.Output()
 	if err != nil {
 		return 0
@@ -1374,12 +1427,12 @@ func calculateDirSizeWithDu(path string) int64 {
 		return 0
 	}
 
-	bytes, err := strconv.ParseInt(fields[0], 10, 64)
+	kb, err := strconv.ParseInt(fields[0], 10, 64)
 	if err != nil {
 		return 0
 	}
 
-	return bytes
+	return kb * 1024
 }
 
 func shouldSkipFileForLargeTracking(path string) bool {
@@ -2073,12 +2126,60 @@ func scanOverviewPathCmd(path string, index int) tea.Cmd {
 	}
 }
 
+// deletePathCmd deletes a path recursively with progress tracking
+func deletePathCmd(path string, counter *int64) tea.Cmd {
+	return func() tea.Msg {
+		count, err := deletePathWithProgress(path, counter)
+		return deleteProgressMsg{
+			done:  true,
+			err:   err,
+			count: count,
+		}
+	}
+}
+
+// deletePathWithProgress recursively deletes a path and tracks progress
+func deletePathWithProgress(root string, counter *int64) (int64, error) {
+	var count int64
+
+	// Walk the directory tree and delete files
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			// If we can't read a path, skip it but continue
+			return nil
+		}
+
+		// Don't delete directories yet, just count and delete files
+		if !d.IsDir() {
+			if removeErr := os.Remove(path); removeErr == nil {
+				count++
+				if counter != nil {
+					atomic.StoreInt64(counter, count)
+				}
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return count, err
+	}
+
+	// Now remove all empty directories using RemoveAll
+	// This is safe because we've already deleted all files
+	if err := os.RemoveAll(root); err != nil {
+		return count, err
+	}
+
+	return count, nil
+}
+
 // measureOverviewSize calculates the size of a directory using multiple strategies:
 // 1. Check JSON cache (fast)
-// 2. Try mdls metadata (fast, macOS only)
-// 3. Walk the directory to get logical size (matches detailed scans)
-// 4. Try du command (moderate speed, physical size)
-// 5. Check gob cache (fallback)
+// 2. Try du command (fast and accurate)
+// 3. Walk the directory to get logical size (accurate but slower)
+// 4. Check gob cache (fallback)
 func measureOverviewSize(path string) (int64, error) {
 	if path == "" {
 		return 0, fmt.Errorf("empty path")
@@ -2099,25 +2200,19 @@ func measureOverviewSize(path string) (int64, error) {
 		return cached, nil
 	}
 
-	// Strategy 2: Try mdls (fastest, macOS only)
-	if metadataSize, err := getDirectorySizeFromMetadata(path); err == nil && metadataSize > 0 {
-		_ = storeOverviewSize(path, metadataSize)
-		return metadataSize, nil
-	}
-
-	// Strategy 3: Fall back to a quick logical size walk so the result matches detailed scans.
-	if logicalSize, err := getDirectoryLogicalSize(path); err == nil && logicalSize > 0 {
-		_ = storeOverviewSize(path, logicalSize)
-		return logicalSize, nil
-	}
-
-	// Strategy 4: Try du command (fast and reliable for physical size)
+	// Strategy 2: Try du command first (fast and accurate with -s flag)
 	if duSize, err := getDirectorySizeFromDu(path); err == nil && duSize > 0 {
 		_ = storeOverviewSize(path, duSize)
 		return duSize, nil
 	}
 
-	// Strategy 5: Check gob cache as fallback
+	// Strategy 3: Fall back to logical size walk (accurate but slower)
+	if logicalSize, err := getDirectoryLogicalSize(path); err == nil && logicalSize > 0 {
+		_ = storeOverviewSize(path, logicalSize)
+		return logicalSize, nil
+	}
+
+	// Strategy 4: Check gob cache as fallback
 	if cached, err := loadCacheFromDisk(path); err == nil {
 		_ = storeOverviewSize(path, cached.TotalSize)
 		return cached.TotalSize, nil
@@ -2171,12 +2266,14 @@ func getDirectorySizeFromMetadata(path string) (int64, error) {
 }
 
 // getDirectorySizeFromDu calculates directory size using the du command.
-// Uses -d 0 to avoid recursing into subdirectories, and includes a timeout protection.
+// Uses -s to summarize total size including all subdirectories.
 func getDirectorySizeFromDu(path string) (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), duTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "du", "-sk", "-d", "0", path)
+	// Use -sk for 1K-block size output, -s for summary
+	// Note: -k and -s are separate flags (not -sk -s)
+	cmd := exec.CommandContext(ctx, "du", "-sk", path)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
