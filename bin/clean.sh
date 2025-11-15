@@ -710,6 +710,11 @@ perform_cleanup() {
     safe_clean ~/Library/Caches/com.apple.Safari/Webpage\ Previews/* "Safari webpage previews"
     # Mail envelope index and backup index are intentionally not cleaned (issue #32)
     safe_clean ~/Library/Application\ Support/CloudDocs/session/db/* "iCloud session cache"
+
+    # Additional system data reducers
+    safe_clean ~/Library/Caches/com.apple.Safari/fsCachedData/* "Safari cached data"
+    safe_clean ~/Library/Caches/com.apple.WebKit.WebContent/* "WebKit content cache"
+    safe_clean ~/Library/Caches/com.apple.WebKit.Networking/* "WebKit network cache"
     end_section
 
     # ===== 4. Sandboxed App Caches =====
