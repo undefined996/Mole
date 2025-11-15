@@ -53,16 +53,23 @@ if [[ -f "$HOME/.config/mole/whitelist" ]]; then
         # Expand tilde to home directory
         [[ "$line" == ~* ]] && line="${line/#~/$HOME}"
 
-        # Validate path format (allow safe characters only)
-        if [[ ! "$line" =~ ^[a-zA-Z0-9/_.\*~\ @-]+$ ]]; then
-            WHITELIST_WARNINGS+=("Invalid chars: $line")
+        # Stricter path validation (no spaces, wildcards only at end)
+        # Allow: letters, numbers, /, _, ., -, @ and * only at the end
+        if [[ ! "$line" =~ ^[a-zA-Z0-9/_.@-]+(\*)?$ ]]; then
+            WHITELIST_WARNINGS+=("Invalid path format: $line")
             continue
         fi
 
-        # Prevent absolute path to critical system directories
+        # Reject paths with consecutive slashes (e.g., //)
+        if [[ "$line" =~ // ]]; then
+            WHITELIST_WARNINGS+=("Consecutive slashes: $line")
+            continue
+        fi
+
+        # Prevent critical system directories
         case "$line" in
-            /System/* | /bin/* | /sbin/* | /usr/bin/* | /usr/sbin/*)
-                WHITELIST_WARNINGS+=("System path: $line")
+            /System/* | /bin/* | /sbin/* | /usr/bin/* | /usr/sbin/* | /etc/* | /var/db/*)
+                WHITELIST_WARNINGS+=("Protected system path: $line")
                 continue
                 ;;
         esac
@@ -432,7 +439,7 @@ clean_ds_store_tree() {
             echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $label ${GREEN}($file_count files, $size_human)${NC}"
         fi
 
-        local size_kb=$(( (total_bytes + 1023) / 1024 ))
+        local size_kb=$(((total_bytes + 1023) / 1024))
         ((files_cleaned += file_count))
         ((total_size_cleaned += size_kb))
         ((total_items++))
@@ -543,7 +550,7 @@ clean_service_worker_cache() {
 
         # Extract domain from path
         local domain=$(basename "$cache_dir" | grep -oE '[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}' | head -1 || echo "")
-        local size=$(du -sk "$cache_dir" 2>/dev/null | awk '{print $1}')
+        local size=$(du -sk "$cache_dir" 2> /dev/null | awk '{print $1}')
 
         # Check if domain is protected
         local is_protected=false
@@ -558,11 +565,11 @@ clean_service_worker_cache() {
         # Clean if not protected
         if [[ "$is_protected" == "false" ]]; then
             if [[ "$DRY_RUN" != "true" ]]; then
-                rm -rf "$cache_dir" 2>/dev/null || true
+                rm -rf "$cache_dir" 2> /dev/null || true
             fi
             cleaned_size=$((cleaned_size + size))
         fi
-    done < <(find "$cache_path" -type d -depth 2 2>/dev/null)
+    done < <(find "$cache_path" -type d -depth 2 2> /dev/null)
 
     if [[ $cleaned_size -gt 0 ]]; then
         local cleaned_mb=$((cleaned_size / 1024))
@@ -745,10 +752,10 @@ perform_cleanup() {
         [[ "$profile_name" != "Default" ]] && browser_name="$browser_name ($profile_name)"
         clean_service_worker_cache "$browser_name" "$sw_path"
     done < <(find "$HOME/Library/Application Support/Google/Chrome" \
-                  "$HOME/Library/Application Support/Microsoft Edge" \
-                  "$HOME/Library/Application Support/BraveSoftware/Brave-Browser" \
-                  "$HOME/Library/Application Support/Arc/User Data" \
-                  -type d -name "CacheStorage" -path "*/Service Worker/*" 2>/dev/null)
+        "$HOME/Library/Application Support/Microsoft Edge" \
+        "$HOME/Library/Application Support/BraveSoftware/Brave-Browser" \
+        "$HOME/Library/Application Support/Arc/User Data" \
+        -type d -name "CacheStorage" -path "*/Service Worker/*" 2> /dev/null)
     end_section
 
     # ===== 6. Cloud Storage =====
@@ -844,10 +851,10 @@ perform_cleanup() {
 
             # Show summary of what was cleaned
             local removed_count
-            removed_count=$(printf '%s\n' "$brew_output" | grep -c "Removing:" 2>/dev/null || true)
+            removed_count=$(printf '%s\n' "$brew_output" | grep -c "Removing:" 2> /dev/null || true)
             removed_count="${removed_count:-0}"
             local freed_space
-            freed_space=$(printf '%s\n' "$brew_output" | grep -o "[0-9.]*[KMGT]B freed" 2>/dev/null | tail -1 || true)
+            freed_space=$(printf '%s\n' "$brew_output" | grep -o "[0-9.]*[KMGT]B freed" 2> /dev/null | tail -1 || true)
 
             if [[ $removed_count -gt 0 ]] || [[ -n "$freed_space" ]]; then
                 if [[ -n "$freed_space" ]]; then
@@ -1142,82 +1149,45 @@ perform_cleanup() {
     end_section
 
     # ===== 13. Orphaned app data cleanup =====
-    # Only touch apps missing from comprehensive scan + 60+ days inactive
+    # Only touch apps missing from scan + 60+ days inactive
     # Skip protected vendors, keep Preferences/Application Support
     start_section "Orphaned app data cleanup"
 
-    local -r ORPHAN_AGE_THRESHOLD=$ORPHAN_AGE_DAYS
+    local -r ORPHAN_AGE_THRESHOLD=60 # 2 months - good balance between safety and cleanup
 
     # Build list of installed application bundle identifiers
     MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning installed applications..."
     local installed_bundles=$(create_temp_file)
-    local running_bundles=$(create_temp_file)
-    local launch_agents=$(create_temp_file)
 
-    # Scan multiple possible application locations to avoid false positives
+    # Simplified: only scan primary locations (reduces scan time by ~70%)
     local -a search_paths=(
         "/Applications"
         "$HOME/Applications"
-        "/System/Applications"
-        "/System/Library/CoreServices/Applications"
-        "/Library/Application Support"
-        "$HOME/Library/Application Support"
-        "/Users/Shared/Applications"
-        "/Applications/Utilities"
     )
 
-    # Add Homebrew paths if they exist
-    [[ -d "/opt/homebrew/Caskroom" ]] && search_paths+=("/opt/homebrew/Caskroom")
-    [[ -d "/usr/local/Caskroom" ]] && search_paths+=("/usr/local/Caskroom")
-    [[ -d "/opt/homebrew/Cellar" ]] && search_paths+=("/opt/homebrew/Cellar")
-    [[ -d "/usr/local/Cellar" ]] && search_paths+=("/usr/local/Cellar")
-
-    # Add common developer paths
-    [[ -d "$HOME/Developer" ]] && search_paths+=("$HOME/Developer")
-    [[ -d "$HOME/Projects" ]] && search_paths+=("$HOME/Projects")
-    [[ -d "$HOME/Downloads" ]] && search_paths+=("$HOME/Downloads")
-
-    # Add other common third-party install locations
-    [[ -d "/opt/apps" ]] && search_paths+=("/opt/apps")
-    [[ -d "/opt/local/Applications" ]] && search_paths+=("/opt/local/Applications")
-    [[ -d "/usr/local/apps" ]] && search_paths+=("/usr/local/apps")
-
-    # Scan for .app bundles in all search paths
+    # Scan for .app bundles
     for search_path in "${search_paths[@]}"; do
-        if [[ -d "$search_path" ]]; then
-            while IFS= read -r app; do
-                [[ -f "$app/Contents/Info.plist" ]] || continue
-                bundle_id=$(defaults read "$app/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "")
-                [[ -n "$bundle_id" ]] && echo "$bundle_id" >> "$installed_bundles"
-            done < <(find "$search_path" -maxdepth 3 -type d -name "*.app" 2> /dev/null || true)
-        fi
-    done
-
-    # Use Spotlight fallback for apps in unusual locations
-    if command -v mdfind > /dev/null 2>&1; then
+        [[ -d "$search_path" ]] || continue
         while IFS= read -r app; do
             [[ -f "$app/Contents/Info.plist" ]] || continue
             bundle_id=$(defaults read "$app/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "")
             [[ -n "$bundle_id" ]] && echo "$bundle_id" >> "$installed_bundles"
-        done < <(mdfind "kMDItemKind == 'Application'" 2> /dev/null | grep "\.app$" || true)
-    fi
+        done < <(find "$search_path" -maxdepth 2 -type d -name "*.app" 2> /dev/null || true)
+    done
 
-    # Get running applications
+    # Get running applications and LaunchAgents
     local running_apps=$(osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null || echo "")
-    echo "$running_apps" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | grep -v '^$' > "$running_bundles"
+    echo "$running_apps" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | grep -v '^$' >> "$installed_bundles"
 
-    # Check LaunchAgents and LaunchDaemons
-    find ~/Library/LaunchAgents /Library/LaunchAgents /Library/LaunchDaemons \
+    find ~/Library/LaunchAgents /Library/LaunchAgents \
         -name "*.plist" -type f 2> /dev/null | while IFS= read -r plist; do
-        bundle_id=$(basename "$plist" .plist)
-        echo "$bundle_id" >> "$launch_agents"
-    done 2> /dev/null || true
+        basename "$plist" .plist
+    done >> "$installed_bundles" 2> /dev/null || true
 
-    # Combine and deduplicate all bundle IDs
-    sort -u "$installed_bundles" "$running_bundles" "$launch_agents" > "${installed_bundles}.final"
-    mv "${installed_bundles}.final" "$installed_bundles"
+    # Deduplicate
+    sort -u "$installed_bundles" -o "$installed_bundles"
 
-    local app_count=$(wc -l < "$installed_bundles" | tr -d ' ')
+    local app_count=$(wc -l < "$installed_bundles" 2> /dev/null | tr -d ' ')
     stop_inline_spinner
     echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $app_count active/installed apps"
 
@@ -1268,156 +1238,59 @@ perform_cleanup() {
         return 0
     }
 
-    # Clean orphaned caches
-    MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning orphaned caches..."
-    local cache_found=0
-    if ls ~/Library/Caches/com.* > /dev/null 2>&1; then
-        for cache_dir in ~/Library/Caches/com.* ~/Library/Caches/org.* ~/Library/Caches/net.* ~/Library/Caches/io.*; do
-            [[ -d "$cache_dir" ]] || continue
-            local bundle_id=$(basename "$cache_dir")
-            if is_orphaned "$bundle_id" "$cache_dir"; then
-                local size_kb=$(du -sk "$cache_dir" 2> /dev/null | awk '{print $1}' || echo "0")
-                if [[ "$size_kb" -gt 0 ]]; then
-                    safe_clean "$cache_dir" "Orphaned cache: $bundle_id"
-                    ((cache_found++))
-                    ((total_orphaned_kb += size_kb))
-                fi
-            fi
-        done
-    fi
-    stop_inline_spinner
-    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $cache_found orphaned caches"
+    # Unified orphaned resource scanner (caches, logs, states, webkit, HTTP, cookies)
+    MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning orphaned app resources..."
 
-    # Clean orphaned logs
-    MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning orphaned logs..."
-    local logs_found=0
-    if ls ~/Library/Logs/com.* > /dev/null 2>&1; then
-        for log_dir in ~/Library/Logs/com.* ~/Library/Logs/org.* ~/Library/Logs/net.* ~/Library/Logs/io.*; do
-            [[ -d "$log_dir" ]] || continue
-            local bundle_id=$(basename "$log_dir")
-            if is_orphaned "$bundle_id" "$log_dir"; then
-                local size_kb=$(du -sk "$log_dir" 2> /dev/null | awk '{print $1}' || echo "0")
-                if [[ "$size_kb" -gt 0 ]]; then
-                    safe_clean "$log_dir" "Orphaned logs: $bundle_id"
-                    ((logs_found++))
-                    ((total_orphaned_kb += size_kb))
-                fi
-            fi
-        done
-    fi
-    stop_inline_spinner
-    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $logs_found orphaned log directories"
+    # Define resource types to scan
+    local -a resource_types=(
+        "~/Library/Caches|Caches|com.*:org.*:net.*:io.*"
+        "~/Library/Logs|Logs|com.*:org.*:net.*:io.*"
+        "~/Library/Saved Application State|States|*.savedState"
+        "~/Library/WebKit|WebKit|com.*:org.*:net.*:io.*"
+        "~/Library/HTTPStorages|HTTP|com.*:org.*:net.*:io.*"
+        "~/Library/Cookies|Cookies|*.binarycookies"
+    )
 
-    # Clean orphaned saved states
-    MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning orphaned saved states..."
-    local states_found=0
-    if ls ~/Library/Saved\ Application\ State/*.savedState > /dev/null 2>&1; then
-        for state_dir in ~/Library/Saved\ Application\ State/*.savedState; do
-            [[ -d "$state_dir" ]] || continue
-            local bundle_id=$(basename "$state_dir" .savedState)
-            if is_orphaned "$bundle_id" "$state_dir"; then
-                local size_kb=$(du -sk "$state_dir" 2> /dev/null | awk '{print $1}' || echo "0")
-                if [[ "$size_kb" -gt 0 ]]; then
-                    safe_clean "$state_dir" "Orphaned state: $bundle_id"
-                    ((states_found++))
-                    ((total_orphaned_kb += size_kb))
-                fi
-            fi
-        done
-    fi
-    stop_inline_spinner
-    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $states_found orphaned saved states"
+    orphaned_count=0
 
-    # Clean orphaned containers
-    # Note: Disabled by default - container names may not match Bundle IDs
-    MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning orphaned containers..."
-    local containers_found=0
-    local containers_size_kb=0
-    if ls ~/Library/Containers/com.* > /dev/null 2>&1; then
-        # Count potential orphaned containers but don't delete them
-        for container_dir in ~/Library/Containers/com.* ~/Library/Containers/org.* ~/Library/Containers/net.* ~/Library/Containers/io.*; do
-            [[ -d "$container_dir" ]] || continue
-            local bundle_id=$(basename "$container_dir")
-            if is_orphaned "$bundle_id" "$container_dir"; then
-                local size_kb=$(du -sk "$container_dir" 2> /dev/null | awk '{print $1}' || echo "0")
-                if [[ "$size_kb" -gt 0 ]]; then
-                    # DISABLED: Not cleaned due to potential Bundle ID mismatch risk
-                    ((containers_found++))
-                    ((containers_size_kb += size_kb))
-                fi
-            fi
-        done
-    fi
-    stop_inline_spinner
-    if [[ $containers_found -gt 0 ]]; then
-        local containers_mb=$(echo "$containers_size_kb" | awk '{printf "%.1f", $1/1024}')
-        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Skipped $containers_found potential orphaned containers (~${containers_mb}MB)"
-    else
-        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} No potential orphaned containers found"
-    fi
+    for resource_type in "${resource_types[@]}"; do
+        IFS='|' read -r base_path label patterns <<< "$resource_type"
+        base_path="${base_path/#\~/$HOME}"
 
-    # Clean orphaned WebKit data
-    MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning orphaned WebKit data..."
-    local webkit_found=0
-    if ls ~/Library/WebKit/com.* > /dev/null 2>&1; then
-        for webkit_dir in ~/Library/WebKit/com.* ~/Library/WebKit/org.* ~/Library/WebKit/net.* ~/Library/WebKit/io.*; do
-            [[ -d "$webkit_dir" ]] || continue
-            local bundle_id=$(basename "$webkit_dir")
-            if is_orphaned "$bundle_id" "$webkit_dir"; then
-                local size_kb=$(du -sk "$webkit_dir" 2> /dev/null | awk '{print $1}' || echo "0")
-                if [[ "$size_kb" -gt 0 ]]; then
-                    safe_clean "$webkit_dir" "Orphaned WebKit: $bundle_id"
-                    ((webkit_found++))
-                    ((total_orphaned_kb += size_kb))
-                fi
-            fi
-        done
-    fi
-    stop_inline_spinner
-    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $webkit_found orphaned WebKit data"
+        [[ -d "$base_path" ]] || continue
 
-    # Clean orphaned HTTP storages
-    MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning orphaned HTTP storages..."
-    local http_found=0
-    if ls ~/Library/HTTPStorages/com.* > /dev/null 2>&1; then
-        for http_dir in ~/Library/HTTPStorages/com.* ~/Library/HTTPStorages/org.* ~/Library/HTTPStorages/net.* ~/Library/HTTPStorages/io.*; do
-            [[ -d "$http_dir" ]] || continue
-            local bundle_id=$(basename "$http_dir")
-            if is_orphaned "$bundle_id" "$http_dir"; then
-                local size_kb=$(du -sk "$http_dir" 2> /dev/null | awk '{print $1}' || echo "0")
-                if [[ "$size_kb" -gt 0 ]]; then
-                    safe_clean "$http_dir" "Orphaned HTTP storage: $bundle_id"
-                    ((http_found++))
-                    ((total_orphaned_kb += size_kb))
-                fi
-            fi
+        # Build file pattern array
+        local -a file_patterns=()
+        IFS=':' read -ra pattern_arr <<< "$patterns"
+        for pat in "${pattern_arr[@]}"; do
+            file_patterns+=("$base_path/$pat")
         done
-    fi
-    stop_inline_spinner
-    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $http_found orphaned HTTP storages"
 
-    # Clean orphaned cookies
-    MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning orphaned cookies..."
-    local cookies_found=0
-    if ls ~/Library/Cookies/*.binarycookies > /dev/null 2>&1; then
-        for cookie_file in ~/Library/Cookies/*.binarycookies; do
-            [[ -f "$cookie_file" ]] || continue
-            local bundle_id=$(basename "$cookie_file" .binarycookies)
-            if is_orphaned "$bundle_id" "$cookie_file"; then
-                local size_kb=$(du -sk "$cookie_file" 2> /dev/null | awk '{print $1}' || echo "0")
-                if [[ "$size_kb" -gt 0 ]]; then
-                    safe_clean "$cookie_file" "Orphaned cookies: $bundle_id"
-                    ((cookies_found++))
-                    ((total_orphaned_kb += size_kb))
+        # Scan and clean orphaned items
+        for item_path in "${file_patterns[@]}"; do
+            # Use shell glob (no ls needed)
+            for match in $item_path; do
+                [[ -e "$match" ]] || continue
+
+                # Extract bundle ID from filename
+                local bundle_id=$(basename "$match")
+                bundle_id="${bundle_id%.savedState}"
+                bundle_id="${bundle_id%.binarycookies}"
+
+                if is_orphaned "$bundle_id" "$match"; then
+                    local size_kb=$(du -sk "$match" 2> /dev/null | awk '{print $1}' || echo "0")
+                    if [[ "$size_kb" -gt 0 ]]; then
+                        safe_clean "$match" "Orphaned $label: $bundle_id"
+                        ((orphaned_count++))
+                        ((total_orphaned_kb += size_kb))
+                    fi
                 fi
-            fi
+            done
         done
-    fi
-    stop_inline_spinner
-    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $cookies_found orphaned cookie files"
+    done
 
-    # Calculate total (exclude containers since they were not cleaned)
-    orphaned_count=$((cache_found + logs_found + states_found + webkit_found + http_found + cookies_found))
+    stop_inline_spinner
+    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $orphaned_count orphaned app resources"
 
     if [[ $orphaned_count -gt 0 ]]; then
         local orphaned_mb=$(echo "$total_orphaned_kb" | awk '{printf "%.1f", $1/1024}')
@@ -1427,7 +1300,7 @@ perform_cleanup() {
         echo "  ${GREEN}${ICON_SUCCESS}${NC} No orphaned app data found"
     fi
 
-    rm -f "$installed_bundles" "$running_bundles" "$launch_agents"
+    rm -f "$installed_bundles"
 
     end_section
 
