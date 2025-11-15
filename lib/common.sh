@@ -289,6 +289,7 @@ read_key() {
         $'\n' | $'\r') echo "ENTER" ;;
         ' ') echo "SPACE" ;;
         'q' | 'Q') echo "QUIT" ;;
+        'h' | 'H') echo "HELP" ;;
         'R') echo "RETRY" ;;
         'o' | 'O') echo "OPEN" ;;
         '/') echo "FILTER" ;;               # Trigger filter mode
@@ -368,13 +369,13 @@ drain_pending_input() {
     # Mouse wheel scrolling can generate rapid sequences like B^[OB^[OB^[O...
     while IFS= read -r -s -n 1 -t 0.01 _ 2> /dev/null; do
         ((drained++))
-        # Higher safety limit for mouse wheel sequences
-        [[ $drained -gt 1000 ]] && break
+        # Safety limit for mouse wheel sequences
+        [[ $drained -gt 200 ]] && break
     done
     # Second pass with even shorter timeout to catch any remaining input
     while IFS= read -r -s -n 1 -t 0.001 _ 2> /dev/null; do
         ((drained++))
-        [[ $drained -gt 1500 ]] && break
+        [[ $drained -gt 500 ]] && break
     done
 }
 
@@ -868,6 +869,7 @@ prompt_action() {
     echo ""
     echo -ne "${PURPLE}${ICON_ARROW}${NC} Press ${GREEN}Enter${NC} to ${action}, ${GRAY}ESC${NC} to ${cancel}: "
     IFS= read -r -s -n1 key || key=""
+    drain_pending_input  # Clean up any escape sequence remnants
 
     case "$key" in
         $'\e') # ESC
@@ -891,6 +893,7 @@ confirm_prompt() {
     local message="$1"
     echo -n "$message (Enter=OK / ESC q=Cancel): "
     IFS= read -r -s -n1 _key || _key=""
+    drain_pending_input  # Clean up any escape sequence remnants
     case "$_key" in
         $'\e' | q | Q)
             echo ""

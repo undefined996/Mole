@@ -503,6 +503,7 @@ main() {
 	echo -ne "${PURPLE}${ICON_ARROW}${NC} System optimizations need admin access — ${GREEN}Enter${NC} Touch ID/password, ${GRAY}ESC${NC} cancel: "
 
 	IFS= read -r -s -n1 key || key=""
+	drain_pending_input  # Clean up any escape sequence remnants
 	case "$key" in
 		$'\e' | q | Q)
 			echo ""

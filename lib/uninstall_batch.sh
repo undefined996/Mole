@@ -137,6 +137,7 @@ batch_uninstall_applications() {
     echo -ne "${PURPLE}${ICON_ARROW}${NC} ${removal_note}. Press ${GREEN}Enter${NC} to confirm, ${GRAY}ESC${NC} to cancel: "
 
     IFS= read -r -s -n1 key || key=""
+    drain_pending_input  # Clean up any escape sequence remnants
     case "$key" in
         $'\e' | q | Q)
             echo ""

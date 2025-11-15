@@ -460,25 +460,25 @@ start_cleanup() {
 
     if [[ -t 0 ]]; then
         echo ""
-        echo -ne "${PURPLE}${ICON_ARROW}${NC} System caches need sudo — ${GREEN}Enter${NC} continue, other key skip: "
+        echo -ne "${PURPLE}${ICON_ARROW}${NC} System caches need sudo — ${GREEN}Enter${NC} continue, ${GRAY}Space${NC} skip: "
 
-        # Use IFS= and read without -n to allow Ctrl+C to work properly
-        IFS= read -r -s -n 1 choice
-        local read_status=$?
+        # Use read_key to properly handle all key inputs
+        local choice
+        choice=$(read_key)
 
-        # If read was interrupted (Ctrl+C), exit cleanly
-        if [[ $read_status -ne 0 ]]; then
-            echo ""
-            exit 130
-        fi
-
-        if [[ "$choice" == $'\e' ]]; then
+        # Check for cancel (ESC or Q)
+        if [[ "$choice" == "QUIT" ]]; then
             echo -e " ${GRAY}Cancelled${NC}"
             exit 0
         fi
 
+        # Space = skip
+        if [[ "$choice" == "SPACE" ]]; then
+            echo -e " ${GRAY}Skipped${NC}"
+            echo ""
+            SYSTEM_CLEAN=false
         # Enter = yes, do system cleanup
-        if [[ -z "$choice" ]] || [[ "$choice" == $'\n' ]]; then
+        elif [[ "$choice" == "ENTER" ]]; then
             printf "\r\033[K" # Clear the prompt line
             if request_sudo_access "System cleanup requires admin access"; then
                 SYSTEM_CLEAN=true
@@ -514,10 +514,8 @@ start_cleanup() {
                 echo -e "${YELLOW}Authentication failed${NC}, continuing with user-level cleanup"
             fi
         else
-            # ESC or other key = no system cleanup
+            # Other keys (including arrow keys) = skip, no message needed
             SYSTEM_CLEAN=false
-            echo ""
-            echo -e "${GRAY}Skipped system cleanup, user-level only${NC}"
         fi
     else
         SYSTEM_CLEAN=false

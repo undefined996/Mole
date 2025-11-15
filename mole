@@ -343,6 +343,7 @@ remove_mole() {
 
     # Read single key
     IFS= read -r -s -n1 key || key=""
+    drain_pending_input  # Clean up any escape sequence remnants
     case "$key" in
         $'\e')
             echo -e "${GRAY}Cancelled${NC}"
@@ -531,7 +532,7 @@ interactive_main_menu() {
                     4) exec "$SCRIPT_DIR/bin/analyze.sh" ;;
                 esac
                 ;;
-            "h" | "H")
+            "HELP")
                 show_cursor
                 clear
                 show_help
