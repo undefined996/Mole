@@ -853,11 +853,12 @@ perform_cleanup() {
             # Run brew cleanup with timeout (45 seconds max)
             local brew_output=""
             local brew_success=false
-            local timeout_seconds=45
+            local timeout_seconds=60
             local brew_tmp_file
             brew_tmp_file=$(create_temp_file)
 
             # Run brew cleanup in background with manual timeout
+            # Deep clean with -s --prune=all (1 minute timeout)
             (brew cleanup -s --prune=all > "$brew_tmp_file" 2>&1) &
             local brew_pid=$!
             local elapsed=0
@@ -932,15 +933,32 @@ perform_cleanup() {
     safe_clean ~/.cache/electron/* "Electron cache"
     safe_clean ~/.cache/node-gyp/* "node-gyp cache"
     safe_clean ~/.node-gyp/* "node-gyp build cache"
-    # Note: ~/.turbo and ~/.vite may contain important configuration
-    # Only clean cache subdirectories if they exist
     safe_clean ~/.turbo/cache/* "Turbo cache"
-    # Note: Next.js cache is per-project (.next/cache), not in home directory
-    # safe_clean ~/.next/* "Next.js cache"  # REMOVED: Not a standard cache location
     safe_clean ~/.vite/cache/* "Vite cache"
     safe_clean ~/.cache/vite/* "Vite global cache"
     safe_clean ~/.cache/webpack/* "Webpack cache"
     safe_clean ~/.parcel-cache/* "Parcel cache"
+
+    # Clean project build caches in home directory (safe - can be rebuilt)
+    # Find .next/cache directories (limit depth to avoid slow scans)
+    find "$HOME" -type d -name ".next" -maxdepth 4 \
+        -not -path "*/Library/*" \
+        -not -path "*/.Trash/*" \
+        -not -path "*/node_modules/*" \
+        2>/dev/null | while read -r next_dir; do
+        if [[ -d "$next_dir/cache" ]]; then
+            safe_clean "$next_dir/cache"/* "Next.js build cache" || true
+        fi
+    done
+
+    # Clean Python bytecode cache (limit depth to avoid slow scans)
+    find "$HOME" -type d -name "__pycache__" -maxdepth 5 \
+        -not -path "*/Library/*" \
+        -not -path "*/.Trash/*" \
+        -not -path "*/node_modules/*" \
+        2>/dev/null | while read -r pycache; do
+        safe_clean "$pycache"/* "Python bytecode cache" || true
+    done
     safe_clean ~/Library/Caches/Google/AndroidStudio*/* "Android Studio cache"
     safe_clean ~/Library/Caches/com.unity3d.*/* "Unity cache"
     safe_clean ~/Library/Caches/com.jetbrains.toolbox/* "JetBrains Toolbox cache"
@@ -1070,11 +1088,7 @@ perform_cleanup() {
     safe_clean ~/Library/Caches/net.telestream.screenflow10/* "ScreenFlow cache"
     safe_clean ~/Library/Caches/Adobe/* "Adobe cache"
     safe_clean ~/Library/Caches/com.adobe.*/* "Adobe app caches"
-    safe_clean ~/Library/Application\ Support/Adobe/Common/Media\ Cache\ Files/* "Adobe media cache"
-    safe_clean ~/Library/Application\ Support/Adobe/Common/Peak\ Files/* "Adobe peak files"
     safe_clean ~/Library/Caches/com.apple.FinalCut/* "Final Cut Pro cache"
-    safe_clean ~/Library/Application\ Support/Final\ Cut\ Pro/*/Render\ Files/* "Final Cut render cache"
-    safe_clean ~/Library/Application\ Support/Motion/*/Render\ Files/* "Motion render cache"
     safe_clean ~/Library/Caches/com.blackmagic-design.DaVinciResolve/* "DaVinci Resolve cache"
     safe_clean ~/Library/Caches/com.adobe.PremierePro.*/* "Premiere Pro cache"
     safe_clean ~/Library/Caches/org.blenderfoundation.blender/* "Blender cache"
@@ -1112,7 +1126,6 @@ perform_cleanup() {
     safe_clean ~/Library/Caches/com.folx.*/* "Folx cache"
     safe_clean ~/Library/Caches/com.charlessoft.pacifist/* "Pacifist cache"
     safe_clean ~/Library/Caches/com.valvesoftware.steam/* "Steam cache"
-    safe_clean ~/Library/Application\ Support/Steam/appcache/* "Steam app cache"
     safe_clean ~/Library/Application\ Support/Steam/htmlcache/* "Steam web cache"
     safe_clean ~/Library/Caches/com.epicgames.EpicGamesLauncher/* "Epic Games cache"
     safe_clean ~/Library/Caches/com.blizzard.Battle.net/* "Battle.net cache"
@@ -1473,6 +1486,61 @@ perform_cleanup() {
     if [[ $tm_cleaned -eq 0 ]]; then
         echo -e "  ${GREEN}${ICON_SUCCESS}${NC} No failed Time Machine backups found"
     fi
+    end_section
+
+    # ===== Check for large project dependencies =====
+    start_section "Large project dependencies check"
+
+        if [[ -t 1 ]]; then MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning project directories..."; fi
+
+        local node_modules_size=0
+        local node_modules_count=0
+        local venv_size=0
+        local venv_count=0
+
+        # Find node_modules older than 60 days in home directory
+        while IFS= read -r nm_dir; do
+            [[ ! -d "$nm_dir" ]] && continue
+            local size_kb=$(du -sk "$nm_dir" 2>/dev/null | awk '{print $1}' || echo "0")
+            if [[ $size_kb -gt 102400 ]]; then  # > 100MB
+                ((node_modules_size += size_kb))
+                ((node_modules_count++))
+            fi
+        done < <(find "$HOME" -type d -name "node_modules" -maxdepth 4 -mtime +60 \
+            -not -path "*/Library/*" \
+            -not -path "*/.Trash/*" \
+            2>/dev/null || true)
+
+        # Find venv/virtualenv older than 60 days
+        while IFS= read -r venv_dir; do
+            [[ ! -d "$venv_dir" ]] && continue
+            local size_kb=$(du -sk "$venv_dir" 2>/dev/null | awk '{print $1}' || echo "0")
+            if [[ $size_kb -gt 51200 ]]; then  # > 50MB
+                ((venv_size += size_kb))
+                ((venv_count++))
+            fi
+        done < <(find "$HOME" -type d \( -name "venv" -o -name ".venv" -o -name "env" \) -maxdepth 4 -mtime +60 \
+            -not -path "*/Library/*" \
+            -not -path "*/.Trash/*" \
+            -not -path "*/node_modules/*" \
+            2>/dev/null || true)
+
+        if [[ -t 1 ]]; then stop_inline_spinner; fi
+
+        # Show suggestions if found
+        if [[ $node_modules_count -gt 0 ]] || [[ $venv_count -gt 0 ]]; then
+            if [[ $node_modules_count -gt 0 ]]; then
+                local nm_gb=$(echo "$node_modules_size" | awk '{printf "%.1f", $1/1024/1024}')
+                echo -e "  ${GRAY}○${NC} Found ${YELLOW}${nm_gb}GB${NC} in $node_modules_count old node_modules ${GRAY}(60+ days)${NC}"
+            fi
+            if [[ $venv_count -gt 0 ]]; then
+                local venv_gb=$(echo "$venv_size" | awk '{printf "%.1f", $1/1024/1024}')
+                echo -e "  ${GRAY}○${NC} Found ${YELLOW}${venv_gb}GB${NC} in $venv_count old Python venv ${GRAY}(60+ days)${NC}"
+            fi
+            echo -e "  ${YELLOW}☻${NC} Run 'mo analyze' to see details and manually clean"
+        else
+            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} No large unused project dependencies found"
+        fi
     end_section
 
     # ===== Final summary =====
