@@ -20,9 +20,9 @@ log_warn() { echo -e "${YELLOW}${ICON_WARN}${NC} $1"; }
 log_error() { echo -e "${RED}${ICON_ERR}${NC} $1"; }
 
 detect_mo() {
-    if command -v mo >/dev/null 2>&1; then
+    if command -v mo > /dev/null 2>&1; then
         command -v mo
-    elif command -v mole >/dev/null 2>&1; then
+    elif command -v mole > /dev/null 2>&1; then
         command -v mole
     else
         log_error "Mole not found. Install it first via Homebrew or ./install.sh."
@@ -38,7 +38,7 @@ write_raycast_script() {
     local raw_cmd="\"${mo_bin}\" ${subcommand}"
     local cmd_escaped="${raw_cmd//\\/\\\\}"
     cmd_escaped="${cmd_escaped//\"/\\\"}"
-    cat > "$target" <<EOF
+    cat > "$target" << EOF
 #!/bin/bash
 
 # Required parameters:
@@ -252,7 +252,7 @@ create_raycast_commands() {
 }
 
 uuid() {
-    if command -v uuidgen >/dev/null 2>&1; then
+    if command -v uuidgen > /dev/null 2>&1; then
         uuidgen
     else
         # Fallback pseudo UUID
@@ -286,7 +286,7 @@ create_alfred_workflow() {
         local dir="$workflows_dir/$workflow_uid"
         mkdir -p "$dir"
 
-        cat > "$dir/info.plist" <<EOF
+        cat > "$dir/info.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">

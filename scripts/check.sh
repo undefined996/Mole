@@ -62,6 +62,64 @@ else
     echo -e "${YELLOW}⚠ bats not installed or no tests found, skipping${NC}\n"
 fi
 
+# 4. Code optimization checks
+echo -e "${YELLOW}4. Checking code optimizations...${NC}"
+OPTIMIZATION_SCORE=0
+TOTAL_CHECKS=0
+
+# Check 1: Simplified keyboard input (0.05s timeout)
+((TOTAL_CHECKS++))
+if grep -q "read -r -s -n 1 -t 0.05" lib/common.sh; then
+    echo -e "${GREEN}  ✓ Keyboard timeout optimized (0.05s)${NC}"
+    ((OPTIMIZATION_SCORE++))
+else
+    echo -e "${YELLOW}  ⚠ Keyboard timeout not optimized${NC}"
+fi
+
+# Check 2: Single-pass drain_pending_input
+((TOTAL_CHECKS++))
+DRAIN_PASSES=$(grep -c "while IFS= read -r -s -n 1" lib/common.sh || echo 0)
+if [[ $DRAIN_PASSES -eq 1 ]]; then
+    echo -e "${GREEN}  ✓ drain_pending_input optimized (single-pass)${NC}"
+    ((OPTIMIZATION_SCORE++))
+else
+    echo -e "${YELLOW}  ⚠ drain_pending_input has multiple passes${NC}"
+fi
+
+# Check 3: Log rotation once per session
+((TOTAL_CHECKS++))
+if grep -q "rotate_log_once" lib/common.sh && ! grep -q "rotate_log()" lib/common.sh | grep -v "rotate_log_once"; then
+    echo -e "${GREEN}  ✓ Log rotation optimized (once per session)${NC}"
+    ((OPTIMIZATION_SCORE++))
+else
+    echo -e "${YELLOW}  ⚠ Log rotation not optimized${NC}"
+fi
+
+# Check 4: Simplified cache validation
+((TOTAL_CHECKS++))
+if ! grep -q "cache_meta\|cache_dir_mtime" bin/uninstall.sh; then
+    echo -e "${GREEN}  ✓ Cache validation simplified${NC}"
+    ((OPTIMIZATION_SCORE++))
+else
+    echo -e "${YELLOW}  ⚠ Cache still uses redundant metadata${NC}"
+fi
+
+# Check 5: Stricter path validation
+((TOTAL_CHECKS++))
+if grep -q "Consecutive slashes" bin/clean.sh; then
+    echo -e "${GREEN}  ✓ Path validation enhanced${NC}"
+    ((OPTIMIZATION_SCORE++))
+else
+    echo -e "${YELLOW}  ⚠ Path validation not enhanced${NC}"
+fi
+
+echo -e "${BLUE}  Optimization score: $OPTIMIZATION_SCORE/$TOTAL_CHECKS${NC}\n"
+
 # Summary
 echo -e "${GREEN}=== All Checks Completed ===${NC}"
-echo -e "${GREEN}✓ Code quality checks passed!${NC}"
+if [[ $OPTIMIZATION_SCORE -eq $TOTAL_CHECKS ]]; then
+    echo -e "${GREEN}✓ Code quality checks passed!${NC}"
+    echo -e "${GREEN}✓ All optimizations applied!${NC}"
+else
+    echo -e "${YELLOW}⚠ Code quality checks passed, but some optimizations missing${NC}"
+fi

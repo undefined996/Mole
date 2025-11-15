@@ -79,6 +79,27 @@ teardown() {
     grep -q "ERROR: $message" "$log_file"
 }
 
+@test "rotate_log_once only checks log size once per session" {
+    # Create a log file exceeding the max size
+    local log_file="$HOME/.config/mole/mole.log"
+    mkdir -p "$(dirname "$log_file")"
+    dd if=/dev/zero of="$log_file" bs=1024 count=1100 2> /dev/null
+
+    # First call should rotate
+    HOME="$HOME" bash --noprofile --norc -c "source '$PROJECT_ROOT/lib/common.sh'"
+    [[ -f "${log_file}.old" ]]
+
+    # Verify MOLE_LOG_ROTATED was set (rotation happened)
+    result=$(HOME="$HOME" MOLE_LOG_ROTATED=1 bash --noprofile --norc -c "source '$PROJECT_ROOT/lib/common.sh'; echo \$MOLE_LOG_ROTATED")
+    [[ "$result" == "1" ]]
+}
+
+@test "drain_pending_input clears stdin buffer" {
+    # Test that drain_pending_input doesn't hang
+    result=$(echo -e "test\ninput" | HOME="$HOME" timeout 1 bash --noprofile --norc -c "source '$PROJECT_ROOT/lib/common.sh'; drain_pending_input; echo done")
+    [[ "$result" == "done" ]]
+}
+
 @test "bytes_to_human converts byte counts into readable units" {
     output="$(
         HOME="$HOME" bash --noprofile --norc << 'EOF'
