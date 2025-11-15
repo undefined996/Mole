@@ -928,6 +928,15 @@ func (m model) enterSelectedDir() (tea.Model, tea.Cmd) {
 		m.status = "Scanning..."
 		m.scanning = true
 		m.isOverview = false
+
+		// Reset scan counters for new scan
+		atomic.StoreInt64(m.filesScanned, 0)
+		atomic.StoreInt64(m.dirsScanned, 0)
+		atomic.StoreInt64(m.bytesScanned, 0)
+		if m.currentPath != nil {
+			*m.currentPath = ""
+		}
+
 		if cached, ok := m.cache[m.path]; ok && !cached.dirty {
 			m.entries = cloneDirEntries(cached.entries)
 			m.largeFiles = cloneFileEntries(cached.largeFiles)
@@ -1058,14 +1067,16 @@ func (m model) View() string {
 				shortPath := displayPath(file.path)
 				shortPath = truncateMiddle(shortPath, 56)
 				entryPrefix := "    "
+				nameColor := ""
 				if idx == m.largeSelected {
 					entryPrefix = fmt.Sprintf(" %s%s▶%s  ", colorCyan, colorBold, colorReset)
+					nameColor = colorCyan  // Highlight filename with cyan
 				}
 				nameColumn := padName(shortPath, 56)
 				size := humanizeBytes(file.size)
 				bar := coloredProgressBar(file.size, maxLargeSize, 0)
-				fmt.Fprintf(&b, "%s%2d. %s  |  📄 %s %s%10s%s\n",
-					entryPrefix, idx+1, bar, nameColumn, colorGray, size, colorReset)
+				fmt.Fprintf(&b, "%s%2d. %s  |  📄 %s%s%s %s%10s%s\n",
+					entryPrefix, idx+1, bar, nameColor, nameColumn, colorReset, colorGray, size, colorReset)
 			}
 		}
 	} else {
@@ -1121,7 +1132,7 @@ func (m model) View() string {
 					nameSegment := fmt.Sprintf("%s %s", icon, paddedName)
 					if idx == m.selected {
 						entryPrefix = fmt.Sprintf(" %s%s▶%s  ", colorCyan, colorBold, colorReset)
-						nameSegment = fmt.Sprintf("%s%s %s%s", colorBold, icon, paddedName, colorReset)
+						nameSegment = fmt.Sprintf("%s%s %s%s", colorCyan, icon, paddedName, colorReset)
 					}
 					displayIndex := idx + 1
 
@@ -1197,7 +1208,7 @@ func (m model) View() string {
 					nameSegment := fmt.Sprintf("%s %s", icon, paddedName)
 					if idx == m.selected {
 						entryPrefix = fmt.Sprintf(" %s%s▶%s  ", colorCyan, colorBold, colorReset)
-						nameSegment = fmt.Sprintf("%s%s %s%s", colorBold, icon, paddedName, colorReset)
+						nameSegment = fmt.Sprintf("%s%s %s%s", colorCyan, icon, paddedName, colorReset)
 					}
 
 					displayIndex := idx + 1
@@ -1336,7 +1347,8 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 		if err != nil {
 			continue
 		}
-		size := info.Size()
+		// Get actual disk usage for sparse files and cloud files
+		size := getActualFileSize(fullPath, info)
 		atomic.AddInt64(&total, size)
 		atomic.AddInt64(filesScanned, 1)
 		atomic.AddInt64(bytesScanned, size)
@@ -1474,7 +1486,8 @@ func calculateDirSizeFast(root string, filesScanned, dirsScanned, bytesScanned *
 		if err != nil {
 			return nil
 		}
-		size := info.Size()
+		// Get actual disk usage for sparse files and cloud files
+		size := getActualFileSize(path, info)
 		total += size
 		batchBytes += size
 		localFiles++
@@ -1551,10 +1564,12 @@ func findLargeFilesWithSpotlight(root string, minSize int64) []fileEntry {
 			continue
 		}
 
+		// Get actual disk usage for sparse files and cloud files
+		actualSize := getActualFileSize(line, info)
 		files = append(files, fileEntry{
 			name: filepath.Base(line),
 			path: line,
-			size: info.Size(),
+			size: actualSize,
 		})
 	}
 
@@ -1614,7 +1629,8 @@ func calculateDirSizeConcurrent(root string, tracker *largeFileTracker, filesSca
 		if err != nil {
 			return nil
 		}
-		size := info.Size()
+		// Get actual disk usage for sparse files and cloud files
+		size := getActualFileSize(path, info)
 		total += size
 		batchBytes += size
 		localFiles++
@@ -2319,7 +2335,8 @@ func getDirectoryLogicalSize(path string) (int64, error) {
 		if err != nil {
 			return nil
 		}
-		total += info.Size()
+		// Get actual disk usage for sparse files and cloud files
+		total += getActualFileSize(p, info)
 		return nil
 	})
 	if err != nil && err != filepath.SkipDir {
@@ -2435,6 +2452,31 @@ func saveCacheToDisk(path string, result scanResult) error {
 
 	encoder := gob.NewEncoder(file)
 	return encoder.Encode(entry)
+}
+
+// getActualFileSize returns the actual disk usage of a file
+// This handles sparse files and cloud files correctly by using the block count
+func getActualFileSize(_ string, info fs.FileInfo) int64 {
+	// For regular files, check actual disk usage via stat
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		// Fallback to logical size
+		return info.Size()
+	}
+
+	// Calculate actual disk usage: blocks * block_size
+	// On macOS, Blocks is the number of 512-byte blocks actually allocated
+	actualSize := stat.Blocks * 512
+
+	// For sparse files and cloud files, actualSize will be much smaller than logical size
+	// Always prefer actual disk usage over logical size
+	if actualSize < info.Size() {
+		return actualSize
+	}
+
+	// For normal files, actualSize may be slightly larger due to block alignment
+	// In this case, use logical size for consistency
+	return info.Size()
 }
 
 // getLastAccessTime returns the last access time of a file or directory (macOS only)
