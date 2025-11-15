@@ -474,7 +474,7 @@ request_sudo_access() {
         # Traditional password method
         echo -e "${PURPLE}${ICON_ARROW}${NC} ${prompt_msg}"
         echo -ne "${PURPLE}${ICON_ARROW}${NC} Password: "
-        read -s password
+        IFS= read -r -s password
         echo ""
         if [[ -n "$password" ]] && echo "$password" | sudo -S true 2> /dev/null; then
             return 0
