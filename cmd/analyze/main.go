@@ -934,8 +934,28 @@ func (m model) View() string {
 	if m.isOverview {
 		fmt.Fprintf(&b, "%sAnalyze Disk%s\n", colorPurple, colorReset)
 		if m.overviewScanning {
-			fmt.Fprintf(&b, "%sSelect a location to explore:%s  ", colorGray, colorReset)
-			fmt.Fprintf(&b, "%s%s%s%s Scanning...\n", colorCyan, colorBold, spinnerFrames[m.spinner], colorReset)
+			// Check if we're in initial scan (all entries are pending)
+			allPending := true
+			for _, entry := range m.entries {
+				if entry.size >= 0 {
+					allPending = false
+					break
+				}
+			}
+
+			if allPending {
+				// Show prominent loading screen for initial scan
+				fmt.Fprintf(&b, "\n%s%s%s%s Measuring disk usage across system directories...\n",
+					colorCyan, colorBold,
+					spinnerFrames[m.spinner],
+					colorReset)
+				fmt.Fprintf(&b, "%sThis may take a moment on first run%s\n", colorGray, colorReset)
+				return b.String()
+			} else {
+				// Progressive scanning - show subtle indicator
+				fmt.Fprintf(&b, "%sSelect a location to explore:%s  ", colorGray, colorReset)
+				fmt.Fprintf(&b, "%s%s%s%s Scanning...\n", colorCyan, colorBold, spinnerFrames[m.spinner], colorReset)
+			}
 		} else {
 			fmt.Fprintf(&b, "%sSelect a location to explore:%s\n", colorGray, colorReset)
 		}

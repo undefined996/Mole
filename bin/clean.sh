@@ -403,11 +403,12 @@ clean_ds_store_tree() {
         -path "*/Library/Caches" -prune -o
     )
 
-    # Limit depth for HOME to avoid slow scans
-    local -a max_depth=()
+    # Build find command to avoid unbound array expansion with set -u
+    local -a find_cmd=("find" "$target")
     if [[ "$target" == "$HOME" ]]; then
-        max_depth=(-maxdepth 5)
+        find_cmd+=("-maxdepth" "5")
     fi
+    find_cmd+=("${exclude_paths[@]}" "-type" "f" "-name" ".DS_Store" "-print0")
 
     # Find .DS_Store files with exclusions and depth limit
     while IFS= read -r -d '' ds_file; do
@@ -423,7 +424,7 @@ clean_ds_store_tree() {
         if [[ $file_count -ge 500 ]]; then
             break
         fi
-    done < <(find "$target" "${max_depth[@]}" "${exclude_paths[@]}" -type f -name '.DS_Store' -print0 2> /dev/null)
+    done < <("${find_cmd[@]}" 2> /dev/null)
 
     if [[ "$spinner_active" == "true" ]]; then
         stop_inline_spinner
@@ -941,24 +942,42 @@ perform_cleanup() {
 
     # Clean project build caches in home directory (safe - can be rebuilt)
     # Find .next/cache directories (limit depth to avoid slow scans)
-    find "$HOME" -type d -name ".next" -maxdepth 4 \
-        -not -path "*/Library/*" \
-        -not -path "*/.Trash/*" \
-        -not -path "*/node_modules/*" \
-        2>/dev/null | while read -r next_dir; do
+    if [[ -t 1 ]]; then
+        MOLE_SPINNER_PREFIX="  "
+        start_inline_spinner "Searching Next.js caches..."
+    fi
+    while IFS= read -r next_dir; do
         if [[ -d "$next_dir/cache" ]]; then
             safe_clean "$next_dir/cache"/* "Next.js build cache" || true
         fi
-    done
+    done < <(
+        find "$HOME" -type d -name ".next" -maxdepth 4 \
+            -not -path "*/Library/*" \
+            -not -path "*/.Trash/*" \
+            -not -path "*/node_modules/*" \
+            2>/dev/null || true
+    )
+    if [[ -t 1 ]]; then
+        stop_inline_spinner
+    fi
 
     # Clean Python bytecode cache (limit depth to avoid slow scans)
-    find "$HOME" -type d -name "__pycache__" -maxdepth 5 \
-        -not -path "*/Library/*" \
-        -not -path "*/.Trash/*" \
-        -not -path "*/node_modules/*" \
-        2>/dev/null | while read -r pycache; do
+    if [[ -t 1 ]]; then
+        MOLE_SPINNER_PREFIX="  "
+        start_inline_spinner "Searching Python caches..."
+    fi
+    while IFS= read -r pycache; do
         safe_clean "$pycache"/* "Python bytecode cache" || true
-    done
+    done < <(
+        find "$HOME" -type d -name "__pycache__" -maxdepth 5 \
+            -not -path "*/Library/*" \
+            -not -path "*/.Trash/*" \
+            -not -path "*/node_modules/*" \
+            2>/dev/null || true
+    )
+    if [[ -t 1 ]]; then
+        stop_inline_spinner
+    fi
     safe_clean ~/Library/Caches/Google/AndroidStudio*/* "Android Studio cache"
     safe_clean ~/Library/Caches/com.unity3d.*/* "Unity cache"
     safe_clean ~/Library/Caches/com.jetbrains.toolbox/* "JetBrains Toolbox cache"
