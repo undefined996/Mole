@@ -67,13 +67,13 @@ echo -e "${YELLOW}4. Checking code optimizations...${NC}"
 OPTIMIZATION_SCORE=0
 TOTAL_CHECKS=0
 
-# Check 1: Simplified keyboard input (0.05s timeout)
+# Check 1: Keyboard input handling (restored to 1s for reliability)
 ((TOTAL_CHECKS++))
-if grep -q "read -r -s -n 1 -t 0.05" lib/common.sh; then
-    echo -e "${GREEN}  ✓ Keyboard timeout optimized (0.05s)${NC}"
+if grep -q "read -r -s -n 1 -t 1" lib/common.sh; then
+    echo -e "${GREEN}  ✓ Keyboard timeout properly configured (1s)${NC}"
     ((OPTIMIZATION_SCORE++))
 else
-    echo -e "${YELLOW}  ⚠ Keyboard timeout not optimized${NC}"
+    echo -e "${YELLOW}  ⚠ Keyboard timeout may be misconfigured${NC}"
 fi
 
 # Check 2: Single-pass drain_pending_input

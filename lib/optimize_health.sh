@@ -9,12 +9,12 @@ get_memory_info() {
     local total_bytes used_gb total_gb
 
     # Total memory
-    total_bytes=$(sysctl -n hw.memsize 2>/dev/null || echo "0")
+    total_bytes=$(sysctl -n hw.memsize 2> /dev/null || echo "0")
     total_gb=$(awk "BEGIN {printf \"%.2f\", $total_bytes / (1024*1024*1024)}")
 
     # Used memory from vm_stat
     local vm_output active wired compressed page_size
-    vm_output=$(vm_stat 2>/dev/null || echo "")
+    vm_output=$(vm_stat 2> /dev/null || echo "")
     page_size=4096
 
     active=$(echo "$vm_output" | awk '/Pages active:/ {print $NF}' | tr -d '.')
@@ -25,7 +25,7 @@ get_memory_info() {
     wired=${wired:-0}
     compressed=${compressed:-0}
 
-    local used_bytes=$(( (active + wired + compressed) * page_size ))
+    local used_bytes=$(((active + wired + compressed) * page_size))
     used_gb=$(awk "BEGIN {printf \"%.2f\", $used_bytes / (1024*1024*1024)}")
 
     echo "$used_gb $total_gb"
@@ -36,7 +36,7 @@ get_disk_info() {
     local home="${HOME:-/}"
     local df_output total_gb used_gb used_percent
 
-    df_output=$(df -k "$home" 2>/dev/null | tail -1)
+    df_output=$(df -k "$home" 2> /dev/null | tail -1)
 
     local total_kb used_kb
     total_kb=$(echo "$df_output" | awk '{print $2}')
@@ -53,7 +53,7 @@ get_disk_info() {
 get_uptime_days() {
     local boot_output boot_time uptime_days
 
-    boot_output=$(sysctl -n kern.boottime 2>/dev/null || echo "")
+    boot_output=$(sysctl -n kern.boottime 2> /dev/null || echo "")
     boot_time=$(echo "$boot_output" | sed -n 's/.*sec = \([0-9]*\).*/\1/p')
 
     if [[ -n "$boot_time" ]]; then
@@ -71,7 +71,7 @@ get_uptime_days() {
 dir_size_kb() {
     local path="$1"
     [[ ! -e "$path" ]] && echo "0" && return
-    du -sk "$path" 2>/dev/null | awk '{print $1}' || echo "0"
+    du -sk "$path" 2> /dev/null | awk '{print $1}' || echo "0"
 }
 
 # Format size from KB
@@ -101,7 +101,7 @@ check_startup_items() {
     )
 
     for dir in "${dirs[@]}"; do
-        [[ -d "$dir" ]] && count=$((count + $(ls -1 "$dir" 2>/dev/null | wc -l)))
+        [[ -d "$dir" ]] && count=$((count + $(ls -1 "$dir" 2> /dev/null | wc -l)))
     done
 
     if [[ $count -gt 5 ]]; then
@@ -160,7 +160,7 @@ check_swap_cleanup() {
     local file
 
     for file in /private/var/vm/swapfile*; do
-        [[ -f "$file" ]] && total_kb=$((total_kb + $(stat -f%z "$file" 2>/dev/null || echo 0) / 1024))
+        [[ -f "$file" ]] && total_kb=$((total_kb + $(stat -f%z "$file" 2> /dev/null || echo 0) / 1024))
     done
 
     if [[ $total_kb -gt 0 ]]; then
@@ -171,13 +171,13 @@ check_swap_cleanup() {
 
 # Check local snapshots
 check_local_snapshots() {
-    command -v tmutil >/dev/null 2>&1 || return
+    command -v tmutil > /dev/null 2>&1 || return
 
     local snapshots
-    snapshots=$(tmutil listlocalsnapshots / 2>/dev/null || echo "")
+    snapshots=$(tmutil listlocalsnapshots / 2> /dev/null || echo "")
 
     local count
-    count=$(echo "$snapshots" | grep -c "com.apple.TimeMachine" 2>/dev/null)
+    count=$(echo "$snapshots" | grep -c "com.apple.TimeMachine" 2> /dev/null)
     count=$(echo "$count" | tr -d ' \n')
     count=${count:-0}
     [[ "$count" =~ ^[0-9]+$ ]] && [[ $count -gt 0 ]] && echo "local_snapshots|Local Snapshots|${count} APFS local snapshots detected|true"
@@ -237,13 +237,20 @@ EOF
 
     # Conditional items
     local item
-    item=$(check_startup_items || true); [[ -n "$item" ]] && items+=("$item")
-    item=$(check_cache_refresh || true); [[ -n "$item" ]] && items+=("$item")
-    item=$(check_mail_downloads || true); [[ -n "$item" ]] && items+=("$item")
-    item=$(check_saved_state || true); [[ -n "$item" ]] && items+=("$item")
-    item=$(check_swap_cleanup || true); [[ -n "$item" ]] && items+=("$item")
-    item=$(check_local_snapshots || true); [[ -n "$item" ]] && items+=("$item")
-    item=$(check_developer_cleanup || true); [[ -n "$item" ]] && items+=("$item")
+    item=$(check_startup_items || true)
+    [[ -n "$item" ]] && items+=("$item")
+    item=$(check_cache_refresh || true)
+    [[ -n "$item" ]] && items+=("$item")
+    item=$(check_mail_downloads || true)
+    [[ -n "$item" ]] && items+=("$item")
+    item=$(check_saved_state || true)
+    [[ -n "$item" ]] && items+=("$item")
+    item=$(check_swap_cleanup || true)
+    [[ -n "$item" ]] && items+=("$item")
+    item=$(check_local_snapshots || true)
+    [[ -n "$item" ]] && items+=("$item")
+    item=$(check_developer_cleanup || true)
+    [[ -n "$item" ]] && items+=("$item")
 
     # Output items as JSON
     local first=true

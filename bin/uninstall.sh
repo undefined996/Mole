@@ -100,42 +100,18 @@ format_last_used_summary() {
 
 # Scan applications and collect information
 scan_applications() {
-    # Cache configuration
+    # Simplified cache: only check timestamp (24h TTL)
     local cache_dir="$HOME/.cache/mole"
     local cache_file="$cache_dir/app_scan_cache"
-    local cache_meta="$cache_dir/app_scan_meta"
-    local cache_dir_mtime="$cache_dir/app_dir_mtime"
-    local cache_ttl=86400 # 24 hours cache validity (app count change will trigger refresh)
+    local cache_ttl=86400 # 24 hours
 
     mkdir -p "$cache_dir" 2> /dev/null
 
-    # Get modification time of app directories to detect new installations
-    local sys_app_mtime
-    sys_app_mtime=$(stat -f%m "/Applications" 2> /dev/null || echo "0")
-    local user_app_mtime
-    user_app_mtime=$(stat -f%m "$HOME/Applications" 2> /dev/null || echo "0")
-    local combined_mtime=$((sys_app_mtime + user_app_mtime))
-
-    # Quick count of current apps (system + user directories)
-    local current_app_count
-    current_app_count=$(
-        (
-            find /Applications -name "*.app" -maxdepth 1 2> /dev/null
-            find ~/Applications -name "*.app" -maxdepth 1 2> /dev/null
-        ) | wc -l | tr -d ' '
-    )
-
-    # Check if cache is valid unless explicitly disabled
-    if [[ -f "$cache_file" && -f "$cache_meta" && -f "$cache_dir_mtime" ]]; then
-        local cache_age=$(($(date +%s) - $(stat -f%m "$cache_file" 2> /dev/null || echo 0)))
-        local cached_app_count
-        cached_app_count=$(cat "$cache_meta" 2> /dev/null || echo "0")
-        local cached_dir_mtime
-        cached_dir_mtime=$(cat "$cache_dir_mtime" 2> /dev/null || echo "0")
-
-        # Cache is valid if: age < TTL AND app count matches AND directory not modified
-        if [[ $cache_age -lt $cache_ttl && "$cached_app_count" == "$current_app_count" && "$cached_dir_mtime" == "$combined_mtime" ]]; then
-            # Silent - cache hit, return immediately without any output
+    # Check if cache exists and is fresh
+    if [[ -f "$cache_file" ]]; then
+        local cache_age=$(($(date +%s) - $(stat -f%m "$cache_file" 2> /dev/null || echo 86401)))
+        if [[ $cache_age -lt $cache_ttl ]]; then
+            # Cache hit - return immediately
             echo "$cache_file"
             return 0
         fi
@@ -381,12 +357,10 @@ scan_applications() {
     }
     rm -f "$temp_file"
 
-    # Update cache with app count metadata and directory modification time
+    # Save to cache (simplified - no metadata)
     cp "${temp_file}.sorted" "$cache_file" 2> /dev/null || true
-    echo "$current_app_count" > "$cache_meta" 2> /dev/null || true
-    echo "$combined_mtime" > "$cache_dir_mtime" 2> /dev/null || true
 
-    # Verify sorted file exists before returning
+    # Return sorted file
     if [[ -f "${temp_file}.sorted" ]]; then
         echo "${temp_file}.sorted"
     else
@@ -613,20 +587,13 @@ main() {
     # Hide cursor during operation
     hide_cursor
 
-    # Quick cache validity check first (minimal I/O)
-    local cache_dir="$HOME/.cache/mole"
-    local cache_file="$cache_dir/app_scan_cache"
-    local cache_meta="$cache_dir/app_scan_meta"
-    local cache_ttl=86400
+    # Simplified: always check if we need alt screen for scanning
+    # (scan_applications handles cache internally)
     local needs_scanning=true
-
-    # Fast preliminary check: cache exists and not expired
-    if [[ -f "$cache_file" && -f "$cache_meta" ]]; then
+    local cache_file="$HOME/.cache/mole/app_scan_cache"
+    if [[ -f "$cache_file" ]]; then
         local cache_age=$(($(date +%s) - $(stat -f%m "$cache_file" 2> /dev/null || echo 86401)))
-        if [[ $cache_age -lt $cache_ttl ]]; then
-            # Cache age is OK, now check app count (delegate to scan_applications)
-            needs_scanning=false
-        fi
+        [[ $cache_age -lt 86400 ]] && needs_scanning=false
     fi
 
     # Only enter alt screen if we need scanning (shows progress)
