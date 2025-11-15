@@ -461,7 +461,7 @@ show_main_menu() {
 
     if [[ -t 0 ]]; then
         printf '\r\033[2K\n'
-        printf '\r\033[2K%s\n' "  ${GRAY}↑/↓${NC} Navigate  ${GRAY}|${NC}  ${GRAY}Enter${NC} Select  ${GRAY}|${NC}  ${GRAY}H${NC} Help  ${GRAY}|${NC}  ${GRAY}Q${NC} Quit"
+        printf '\r\033[2K%s\n' "  ${GRAY}↑/↓${NC} Navigate  ${GRAY}|${NC}  ${GRAY}1-4${NC} Quick Select  ${GRAY}|${NC}  ${GRAY}H${NC} Help  ${GRAY}|${NC}  ${GRAY}Q${NC} Quit"
         printf '\r\033[2K\n'
     fi
 
@@ -523,7 +523,7 @@ interactive_main_menu() {
         case "$key" in
             "UP") ((current_option > 1)) && ((current_option--)) ;;
             "DOWN") ((current_option < 4)) && ((current_option++)) ;;
-            "ENTER" | "$current_option")
+            "ENTER")
                 show_cursor
                 case $current_option in
                     1) exec "$SCRIPT_DIR/bin/clean.sh" ;;
@@ -532,6 +532,10 @@ interactive_main_menu() {
                     4) exec "$SCRIPT_DIR/bin/analyze.sh" ;;
                 esac
                 ;;
+            "CHAR:1") show_cursor; exec "$SCRIPT_DIR/bin/clean.sh" ;;
+            "CHAR:2") show_cursor; exec "$SCRIPT_DIR/bin/uninstall.sh" ;;
+            "CHAR:3") show_cursor; exec "$SCRIPT_DIR/bin/optimize.sh" ;;
+            "CHAR:4") show_cursor; exec "$SCRIPT_DIR/bin/analyze.sh" ;;
             "HELP")
                 show_cursor
                 clear
@@ -539,15 +543,6 @@ interactive_main_menu() {
                 exit 0
                 ;;
             "QUIT") cleanup_and_exit ;;
-            [1-4])
-                show_cursor
-                case $key in
-                    1) exec "$SCRIPT_DIR/bin/clean.sh" ;;
-                    2) exec "$SCRIPT_DIR/bin/uninstall.sh" ;;
-                    3) exec "$SCRIPT_DIR/bin/optimize.sh" ;;
-                    4) exec "$SCRIPT_DIR/bin/analyze.sh" ;;
-                esac
-                ;;
         esac
     done
 }
