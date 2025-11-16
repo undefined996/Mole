@@ -62,7 +62,7 @@ mo --version            # Show installed version
 
 - Safety first, if your Mac is mission-critical, wait for Mole to mature before full cleanups.
 - Preview the cleanup by running `mo clean --dry-run` and reviewing the generated list.
-- Protect caches with `mo clean --whitelist`; defaults cover Playwright, HuggingFace, Maven, and Surge Mac paths.
+- Use `mo clean --whitelist` to manage protected caches.
 - Use `mo touchid` to approve sudo with Touch ID instead of typing your password.
 
 ## Features in Detail
@@ -153,19 +153,7 @@ Launch Mole commands instantly from Raycast or Alfred:
 curl -fsSL https://raw.githubusercontent.com/tw93/Mole/main/scripts/setup-quick-launchers.sh | bash
 ```
 
-This adds 4 commands to Raycast and Alfred:
-- `clean` - Deep system cleanup
-- `uninstall` - Remove applications
-- `optimize` - System health check
-- `analyze` - Disk space explorer
-
-Raycast scripts auto-detect your preferred terminal (Warp, Ghostty, Alacritty, Kitty, etc). Set `MO_LAUNCHER_APP=<name>` to override.
-
-**Uninstall:**
-```bash
-rm -rf ~/Documents/Raycast/Scripts/mole-*.sh
-rm -rf ~/Library/Application\ Support/Raycast/script-commands/mole-*.sh
-```
+Adds 4 commands: `clean`, `uninstall`, `optimize`, `analyze`. Auto-detects your terminal or set `MO_LAUNCHER_APP=<name>` to override.
 
 ## Support
 
