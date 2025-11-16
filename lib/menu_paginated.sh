@@ -44,7 +44,7 @@ paginated_multi_select() {
     fi
 
     local total_items=${#items[@]}
-    local items_per_page=15
+    local items_per_page=10
     local cursor_pos=0
     local top_index=0
     local filter_query=""
@@ -449,7 +449,7 @@ paginated_multi_select() {
             if [[ "$has_metadata" == "true" ]]; then
                 # With metadata: two lines (basic + advanced)
                 local -a _segs_basic=(
-                    "${GRAY}${ICON_NAV_UP}/${ICON_NAV_DOWN}${NC} Navigate"
+                    "${GRAY}${ICON_NAV_UP}/${ICON_NAV_DOWN}${NC} Nav"
                     "${GRAY}Space${NC} Select"
                     "${GRAY}Enter${NC} Confirm"
                     "${GRAY}Q${NC} Quit"
@@ -464,7 +464,7 @@ paginated_multi_select() {
             else
                 # Without metadata: single line (basic only)
                 local -a _segs_simple=(
-                    "${GRAY}${ICON_NAV_UP}/${ICON_NAV_DOWN}${NC} Navigate"
+                    "${GRAY}${ICON_NAV_UP}/${ICON_NAV_DOWN}${NC} Nav"
                     "${GRAY}Space${NC} Select"
                     "${GRAY}Enter${NC} Confirm"
                     "${GRAY}/${NC} Filter"
