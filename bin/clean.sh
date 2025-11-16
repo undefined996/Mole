@@ -34,8 +34,6 @@ declare -a DEFAULT_WHITELIST_PATTERNS=(
     "$HOME/.cache/huggingface*"
     "$HOME/.m2/repository/*"
     "$HOME/.ollama/models/*"
-    "$HOME/Library/Caches/com.nssurge.surge-mac/*"
-    "$HOME/Library/Application Support/com.nssurge.surge-mac/*"
 )
 declare -a WHITELIST_PATTERNS=()
 WHITELIST_WARNINGS=()
@@ -241,6 +239,18 @@ safe_clean() {
     local -a existing_paths=()
     for path in "${targets[@]}"; do
         local skip=false
+
+        # Hard-coded protection for critical apps (cannot be disabled by user)
+        case "$path" in
+            *clash*|*Clash*|*surge*|*Surge*|*mihomo*)
+                skip=true
+                ((skipped_count++))
+                ;;
+        esac
+
+        [[ "$skip" == "true" ]] && continue
+
+        # Check user-defined whitelist
         if [[ ${#WHITELIST_PATTERNS[@]} -gt 0 ]]; then
             for w in "${WHITELIST_PATTERNS[@]}"; do
                 # Match both exact path and glob pattern
@@ -1201,7 +1211,7 @@ perform_cleanup() {
 
         # Skip system and protected apps
         case "$app_name" in
-            com.apple.* | Adobe* | 1Password | Claude)
+            com.apple.* | Adobe* | 1Password | Claude | *ClashX* | *clash* | mihomo* | *Surge*)
                 continue
                 ;;
         esac
