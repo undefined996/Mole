@@ -157,6 +157,8 @@ Adds 4 commands: `clean`, `uninstall`, `optimize`, `analyze`. Auto-detects your 
 
 ## Support
 
+<a href="https://miaoyan.app/cats.html?name=Mole"><img src="https://miaoyan.app/assets/sponsors.svg" width="1000px" /></a>
+
 - If Mole reclaimed storage for you, consider starring the repo or sharing it with friends needing a cleaner Mac.
 - Have ideas or fixes? Open an issue or PR and help shape Mole's roadmap together with the community.
 - Love cats? Treat Tangyuan and Cola to canned food via <a href="https://miaoyan.app/cats.html?name=Mole" target="_blank">this link</a> and keep the mascots purring.
