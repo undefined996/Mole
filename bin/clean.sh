@@ -800,6 +800,8 @@ perform_cleanup() {
 
     safe_clean ~/.npm/_cacache/* "npm cache directory"
     safe_clean ~/.npm/_logs/* "npm logs"
+    safe_clean ~/.tnpm/_cacache/* "tnpm cache directory"
+    safe_clean ~/.tnpm/_logs/* "tnpm logs"
     safe_clean ~/.yarn/cache/* "Yarn cache"
     safe_clean ~/.bun/install/cache/* "Bun cache"
 
