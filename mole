@@ -461,7 +461,7 @@ show_main_menu() {
 
     if [[ -t 0 ]]; then
         printf '\r\033[2K\n'
-        printf '\r\033[2K%s\n' "  ${GRAY}↑/↓${NC} Navigate  ${GRAY}|${NC}  ${GRAY}1-4${NC} Quick Select  ${GRAY}|${NC}  ${GRAY}H${NC} Help  ${GRAY}|${NC}  ${GRAY}Q${NC} Quit"
+        printf '\r\033[2K%s\n' "${GRAY}↑/↓ Nav  ${GRAY}|${NC}  ${GRAY}Enter${NC} Select  ${GRAY}|${NC}  ${GRAY}H${NC} Help  ${GRAY}|${NC}  ${GRAY}Q${NC} Quit"
         printf '\r\033[2K\n'
     fi
 
