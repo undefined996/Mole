@@ -445,11 +445,32 @@ func createOverviewEntries() []dirEntry {
 	)
 
 	// Add Volumes if exists
-	if _, err := os.Stat("/Volumes"); err == nil {
+	if hasUsefulVolumeMounts("/Volumes") {
 		entries = append(entries, dirEntry{name: "Volumes", path: "/Volumes", isDir: true, size: -1})
 	}
 
 	return entries
+}
+
+func hasUsefulVolumeMounts(path string) bool {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return false
+	}
+
+	for _, entry := range entries {
+		if entry.Type()&fs.ModeSymlink != 0 {
+			continue // Skip synthetic system links like "Macintosh HD"
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		if info.IsDir() {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *model) hydrateOverviewEntries() {
