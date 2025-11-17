@@ -20,6 +20,7 @@ declare -a DEFAULT_WHITELIST_PATTERNS=(
     "$HOME/.ollama/models/*"
     "$HOME/Library/Caches/com.nssurge.surge-mac/*"
     "$HOME/Library/Application Support/com.nssurge.surge-mac/*"
+    "FINDER_METADATA"
 )
 
 # Save whitelist patterns to config
@@ -30,7 +31,7 @@ save_whitelist_patterns() {
 
     cat > "$WHITELIST_CONFIG" << 'EOF'
 # Mole Whitelist - Protected paths won't be deleted
-# Default protections: Playwright browsers, HuggingFace models, Maven repo, Ollama models, Surge Mac
+# Default protections: Playwright browsers, HuggingFace models, Maven repo, Ollama models, Surge Mac, Finder metadata
 # Add one pattern per line to keep items safe.
 EOF
 
@@ -127,6 +128,7 @@ Podman container cache|$HOME/.local/share/containers/cache/*|container_cache
 Font cache|$HOME/Library/Caches/com.apple.FontRegistry/*|system_cache
 Spotlight metadata cache|$HOME/Library/Caches/com.apple.spotlight/*|system_cache
 CloudKit cache|$HOME/Library/Caches/CloudKit/*|system_cache
+Finder metadata (.DS_Store)|FINDER_METADATA|system_cache
 EOF
 }
 
