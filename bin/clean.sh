@@ -707,7 +707,7 @@ perform_cleanup() {
     start_section "Finder metadata"
     if [[ "$PROTECT_FINDER_METADATA" == "true" ]]; then
         note_activity
-        echo -e "  ${GRAY}○${NC} Finder metadata protected by whitelist (Finder view settings preserved)."
+        echo -e "  ${GRAY}○${NC} Finder metadata protected by whitelist."
         echo -e "  ${GRAY}○${NC} Use ${GRAY}mo clean --whitelist${NC} to allow cleaning .DS_Store files."
     else
         clean_ds_store_tree "$HOME" "Home directory (.DS_Store)"
