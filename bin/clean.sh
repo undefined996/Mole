@@ -15,6 +15,7 @@ source "$SCRIPT_DIR/../lib/common.sh"
 # Configuration
 SYSTEM_CLEAN=false
 DRY_RUN=false
+PROTECT_FINDER_METADATA=false
 IS_M_SERIES=$([[ "$(uname -m)" == "arm64" ]] && echo "true" || echo "false")
 
 # Constants
@@ -28,6 +29,7 @@ readonly PROTECTED_SW_DOMAINS=(
     "photopea.com"
     "pixlr.com"
 )
+readonly FINDER_METADATA_SENTINEL="FINDER_METADATA"
 # Default whitelist patterns (preselected, user can disable)
 declare -a DEFAULT_WHITELIST_PATTERNS=(
     "$HOME/Library/Caches/ms-playwright*"
@@ -36,6 +38,7 @@ declare -a DEFAULT_WHITELIST_PATTERNS=(
     "$HOME/.ollama/models/*"
     "$HOME/Library/Caches/com.nssurge.surge-mac/*"
     "$HOME/Library/Application Support/com.nssurge.surge-mac/*"
+    "$FINDER_METADATA_SENTINEL"
 )
 declare -a WHITELIST_PATTERNS=()
 WHITELIST_WARNINGS=()
@@ -88,6 +91,15 @@ if [[ -f "$HOME/.config/mole/whitelist" ]]; then
     done < "$HOME/.config/mole/whitelist"
 else
     WHITELIST_PATTERNS=("${DEFAULT_WHITELIST_PATTERNS[@]}")
+fi
+
+if [[ ${#WHITELIST_PATTERNS[@]} -gt 0 ]]; then
+    for entry in "${WHITELIST_PATTERNS[@]}"; do
+        if [[ "$entry" == "$FINDER_METADATA_SENTINEL" ]]; then
+            PROTECT_FINDER_METADATA=true
+            break
+        fi
+    done
 fi
 total_items=0
 
@@ -681,20 +693,26 @@ perform_cleanup() {
     end_section
 
     start_section "Finder metadata"
-    clean_ds_store_tree "$HOME" "Home directory (.DS_Store)"
+    if [[ "$PROTECT_FINDER_METADATA" == "true" ]]; then
+        note_activity
+        echo -e "  ${GRAY}○${NC} Finder metadata protected by whitelist (Finder view settings preserved)."
+        echo -e "  ${GRAY}○${NC} Use ${GRAY}mo clean --whitelist${NC} to allow cleaning .DS_Store files."
+    else
+        clean_ds_store_tree "$HOME" "Home directory (.DS_Store)"
 
-    if [[ -d "/Volumes" ]]; then
-        for volume in /Volumes/*; do
-            [[ -d "$volume" && -w "$volume" ]] || continue
+        if [[ -d "/Volumes" ]]; then
+            for volume in /Volumes/*; do
+                [[ -d "$volume" && -w "$volume" ]] || continue
 
-            local fs_type=""
-            fs_type=$(df -T "$volume" 2> /dev/null | tail -1 | awk '{print $2}')
-            case "$fs_type" in
-                nfs | smbfs | afpfs | cifs | webdav) continue ;;
-            esac
+                local fs_type=""
+                fs_type=$(df -T "$volume" 2> /dev/null | tail -1 | awk '{print $2}')
+                case "$fs_type" in
+                    nfs | smbfs | afpfs | cifs | webdav) continue ;;
+                esac
 
-            clean_ds_store_tree "$volume" "$(basename "$volume") volume (.DS_Store)"
-        done
+                clean_ds_store_tree "$volume" "$(basename "$volume") volume (.DS_Store)"
+            done
+        fi
     fi
     end_section
 
