@@ -10,11 +10,11 @@ echo "Building analyze-go for multiple architectures..."
 
 # Build for arm64 (Apple Silicon)
 echo "  → Building for arm64..."
-GOARCH=arm64 go build -ldflags="-s -w" -o bin/analyze-go-arm64 cmd/analyze/main.go
+GOARCH=arm64 go build -ldflags="-s -w" -o bin/analyze-go-arm64 ./cmd/analyze
 
 # Build for amd64 (Intel)
 echo "  → Building for amd64..."
-GOARCH=amd64 go build -ldflags="-s -w" -o bin/analyze-go-amd64 cmd/analyze/main.go
+GOARCH=amd64 go build -ldflags="-s -w" -o bin/analyze-go-amd64 ./cmd/analyze
 
 # Create Universal Binary
 echo "  → Creating Universal Binary..."
