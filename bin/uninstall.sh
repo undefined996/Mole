@@ -497,6 +497,26 @@ uninstall_applications() {
         echo
 
         if [[ $REPLY =~ ^[Yy]$ ]]; then
+            # Stop Launch Agents and Daemons before removal
+            # User-level Launch Agents
+            for plist in ~/Library/LaunchAgents/"$bundle_id"*.plist; do
+                if [[ -f "$plist" ]]; then
+                    launchctl unload "$plist" 2> /dev/null || true
+                fi
+            done
+            # System-level Launch Agents
+            for plist in /Library/LaunchAgents/"$bundle_id"*.plist; do
+                if [[ -f "$plist" ]]; then
+                    sudo launchctl unload "$plist" 2> /dev/null || true
+                fi
+            done
+            # System-level Launch Daemons
+            for plist in /Library/LaunchDaemons/"$bundle_id"*.plist; do
+                if [[ -f "$plist" ]]; then
+                    sudo launchctl unload "$plist" 2> /dev/null || true
+                fi
+            done
+
             # Remove the application
             if rm -rf "$app_path" 2> /dev/null; then
                 echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed application"
@@ -508,8 +528,15 @@ uninstall_applications() {
             # Remove user-level related files
             while IFS= read -r file; do
                 if [[ -n "$file" && -e "$file" ]]; then
-                    if rm -rf "$file" 2> /dev/null; then
-                        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed $(echo "$file" | sed "s|$HOME|~|" | xargs basename)"
+                    # Handle symbolic links separately (only remove the link, not the target)
+                    if [[ -L "$file" ]]; then
+                        if rm "$file" 2> /dev/null; then
+                            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed $(echo "$file" | sed "s|$HOME|~|" | xargs basename)"
+                        fi
+                    else
+                        if rm -rf "$file" 2> /dev/null; then
+                            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed $(echo "$file" | sed "s|$HOME|~|" | xargs basename)"
+                        fi
                     fi
                 fi
             done <<< "$related_files"
@@ -519,10 +546,19 @@ uninstall_applications() {
                 echo -e "  ${BLUE}${ICON_SOLID}${NC} Admin access required for system files"
                 while IFS= read -r file; do
                     if [[ -n "$file" && -e "$file" ]]; then
-                        if sudo rm -rf "$file" 2> /dev/null; then
-                            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed $(basename "$file")"
+                        # Handle symbolic links separately (only remove the link, not the target)
+                        if [[ -L "$file" ]]; then
+                            if sudo rm "$file" 2> /dev/null; then
+                                echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed $(basename "$file")"
+                            else
+                                echo -e "  ${YELLOW}${ICON_ERROR}${NC} Failed to remove: $file"
+                            fi
                         else
-                            echo -e "  ${YELLOW}${ICON_ERROR}${NC} Failed to remove: $file"
+                            if sudo rm -rf "$file" 2> /dev/null; then
+                                echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed $(basename "$file")"
+                            else
+                                echo -e "  ${YELLOW}${ICON_ERROR}${NC} Failed to remove: $file"
+                            fi
                         fi
                     fi
                 done <<< "$system_files"

@@ -1569,6 +1569,14 @@ find_app_files() {
     [[ -d ~/Library/Logs/"$app_name" ]] && files_to_clean+=("$HOME/Library/Logs/$app_name")
     [[ -d ~/Library/Logs/"$bundle_id" ]] && files_to_clean+=("$HOME/Library/Logs/$bundle_id")
 
+    # Crash Reports and Diagnostics
+    while IFS= read -r -d '' report; do
+        files_to_clean+=("$report")
+    done < <(find ~/Library/Logs/DiagnosticReports \( -name "*$app_name*" -o -name "*$bundle_id*" \) -print0 2> /dev/null)
+    while IFS= read -r -d '' report; do
+        files_to_clean+=("$report")
+    done < <(find ~/Library/Logs/CrashReporter \( -name "*$app_name*" -o -name "*$bundle_id*" \) -print0 2> /dev/null)
+
     # Saved Application State
     [[ -d ~/Library/Saved\ Application\ State/"$bundle_id".savedState ]] && files_to_clean+=("$HOME/Library/Saved Application State/$bundle_id.savedState")
 
@@ -1708,6 +1716,12 @@ find_app_files() {
         files_to_clean+=("$favorite")
     done < <(find ~/Library/Favorites \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
+    # Unix-style configuration directories and files (cross-platform apps)
+    [[ -d ~/.config/"$app_name" ]] && files_to_clean+=("$HOME/.config/$app_name")
+    [[ -d ~/.local/share/"$app_name" ]] && files_to_clean+=("$HOME/.local/share/$app_name")
+    [[ -d ~/."$app_name" ]] && files_to_clean+=("$HOME/.$app_name")
+    [[ -f ~/."${app_name}rc" ]] && files_to_clean+=("$HOME/.${app_name}rc")
+
     # Only print if array has elements to avoid unbound variable error
     if [[ ${#files_to_clean[@]} -gt 0 ]]; then
         printf '%s\n' "${files_to_clean[@]}"
@@ -1746,6 +1760,14 @@ find_app_system_files() {
     # System Logs
     [[ -d /Library/Logs/"$app_name" ]] && system_files+=("/Library/Logs/$app_name")
     [[ -d /Library/Logs/"$bundle_id" ]] && system_files+=("/Library/Logs/$bundle_id")
+
+    # System Crash Reports and Diagnostics
+    while IFS= read -r -d '' report; do
+        system_files+=("$report")
+    done < <(find /Library/Logs/DiagnosticReports \( -name "*$app_name*" -o -name "*$bundle_id*" \) -print0 2> /dev/null)
+    while IFS= read -r -d '' report; do
+        system_files+=("$report")
+    done < <(find /Library/Logs/CrashReporter \( -name "*$app_name*" -o -name "*$bundle_id*" \) -print0 2> /dev/null)
 
     # System Frameworks
     [[ -d /Library/Frameworks/"$app_name".framework ]] && system_files+=("/Library/Frameworks/$app_name.framework")

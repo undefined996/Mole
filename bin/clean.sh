@@ -339,7 +339,12 @@ safe_clean() {
                 read -r size count < "$result_file" 2> /dev/null || true
                 if [[ "$count" -gt 0 && "$size" -gt 0 ]]; then
                     if [[ "$DRY_RUN" != "true" ]]; then
-                        rm -rf "$path" 2> /dev/null || true
+                        # Handle symbolic links separately (only remove the link, not the target)
+                        if [[ -L "$path" ]]; then
+                            rm "$path" 2> /dev/null || true
+                        else
+                            rm -rf "$path" 2> /dev/null || true
+                        fi
                     fi
                     ((total_size_bytes += size))
                     ((total_count += count))
@@ -363,7 +368,12 @@ safe_clean() {
 
             if [[ "$count" -gt 0 && "$size_bytes" -gt 0 ]]; then
                 if [[ "$DRY_RUN" != "true" ]]; then
-                    rm -rf "$path" 2> /dev/null || true
+                    # Handle symbolic links separately (only remove the link, not the target)
+                    if [[ -L "$path" ]]; then
+                        rm "$path" 2> /dev/null || true
+                    else
+                        rm -rf "$path" 2> /dev/null || true
+                    fi
                 fi
                 ((total_size_bytes += size_bytes))
                 ((total_count += count))
@@ -647,6 +657,16 @@ perform_cleanup() {
         fi
         [[ $tmp_cleaned -eq 1 ]] && log_success "Old system temp files (${TEMP_FILE_AGE_DAYS}+ days)"
 
+        # Clean system crash reports and diagnostics
+        sudo find /Library/Logs/DiagnosticReports -type f -mtime +30 -delete 2> /dev/null || true
+        sudo find /Library/Logs/CrashReporter -type f -mtime +30 -delete 2> /dev/null || true
+        log_success "Old system crash reports (30+ days)"
+
+        # Clean old system logs (keep recent ones for troubleshooting)
+        sudo find /var/log -name "*.log" -type f -mtime +30 -delete 2> /dev/null || true
+        sudo find /var/log -name "*.gz" -type f -mtime +30 -delete 2> /dev/null || true
+        log_success "Old system logs (30+ days)"
+
         sudo rm -rf /Library/Updates/* 2> /dev/null || true
         log_success "System library caches and updates"
 
@@ -702,6 +722,13 @@ perform_cleanup() {
     safe_clean ~/Downloads/*.download "Incomplete downloads (Safari)"
     safe_clean ~/Downloads/*.crdownload "Incomplete downloads (Chrome)"
     safe_clean ~/Downloads/*.part "Incomplete downloads (partial)"
+
+    # Additional user-level caches (commonly missed)
+    safe_clean ~/Library/Autosave\ Information/* "Autosave information"
+    safe_clean ~/Library/IdentityCaches/* "Identity caches"
+    safe_clean ~/Library/Suggestions/* "Suggestions cache (Siri)"
+    safe_clean ~/Library/Calendars/Calendar\ Cache "Calendar cache"
+    safe_clean ~/Library/Application\ Support/AddressBook/Sources/*/Photos.cache "Address Book photo cache"
     end_section
 
     start_section "Finder metadata"
@@ -1328,12 +1355,14 @@ perform_cleanup() {
         esac
 
         # Check file age - only clean if 60+ days inactive
+        # Use modification time (mtime) instead of access time (atime)
+        # because macOS disables atime updates by default for performance
         if [[ -e "$directory_path" ]]; then
-            local last_access_epoch=$(stat -f%a "$directory_path" 2> /dev/null || echo "0")
+            local last_modified_epoch=$(stat -f%m "$directory_path" 2> /dev/null || echo "0")
             local current_epoch=$(date +%s)
-            local days_since_access=$(((current_epoch - last_access_epoch) / 86400))
+            local days_since_modified=$(((current_epoch - last_modified_epoch) / 86400))
 
-            if [[ $days_since_access -lt $ORPHAN_AGE_THRESHOLD ]]; then
+            if [[ $days_since_modified -lt $ORPHAN_AGE_THRESHOLD ]]; then
                 return 1
             fi
         fi
@@ -1455,6 +1484,16 @@ perform_cleanup() {
                 while IFS= read -r inprogress_file; do
                     [[ -d "$inprogress_file" ]] || continue
 
+                    # Safety check: only delete .inProgress backups older than 24 hours
+                    # This prevents deleting backups that are currently in progress
+                    local file_mtime=$(stat -f%m "$inprogress_file" 2> /dev/null || echo "0")
+                    local current_time=$(date +%s)
+                    local hours_old=$(( (current_time - file_mtime) / 3600 ))
+
+                    if [[ $hours_old -lt 24 ]]; then
+                        continue # Skip - backup might still be in progress
+                    fi
+
                     local size_kb=$(du -sk "$inprogress_file" 2> /dev/null | awk '{print $1}' || echo "0")
                     if [[ "$size_kb" -gt 0 ]]; then
                         local backup_name=$(basename "$inprogress_file")
@@ -1501,6 +1540,15 @@ perform_cleanup() {
                     # Bundle is already mounted, safe to check
                     while IFS= read -r inprogress_file; do
                         [[ -d "$inprogress_file" ]] || continue
+
+                        # Safety check: only delete .inProgress backups older than 24 hours
+                        local file_mtime=$(stat -f%m "$inprogress_file" 2> /dev/null || echo "0")
+                        local current_time=$(date +%s)
+                        local hours_old=$(( (current_time - file_mtime) / 3600 ))
+
+                        if [[ $hours_old -lt 24 ]]; then
+                            continue # Skip - backup might still be in progress
+                        fi
 
                         local size_kb=$(du -sk "$inprogress_file" 2> /dev/null | awk '{print $1}' || echo "0")
                         if [[ "$size_kb" -gt 0 ]]; then
