@@ -34,21 +34,20 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 
 	// Use worker pool for concurrent directory scanning
 	// For I/O-bound operations, use more workers than CPU count
-	maxWorkers := runtime.NumCPU() * 4
-	if maxWorkers < 16 {
-		maxWorkers = 16 // Minimum 16 workers for better I/O throughput
+	numWorkers := runtime.NumCPU() * cpuMultiplier
+	if numWorkers < minWorkers {
+		numWorkers = minWorkers
 	}
-	// Cap at 128 to avoid excessive goroutines
-	if maxWorkers > 128 {
-		maxWorkers = 128
+	if numWorkers > maxWorkers {
+		numWorkers = maxWorkers
 	}
-	if maxWorkers > len(children) {
-		maxWorkers = len(children)
+	if numWorkers > len(children) {
+		numWorkers = len(children)
 	}
-	if maxWorkers < 1 {
-		maxWorkers = 1
+	if numWorkers < 1 {
+		numWorkers = 1
 	}
-	sem := make(chan struct{}, maxWorkers)
+	sem := make(chan struct{}, numWorkers)
 	var wg sync.WaitGroup
 
 	// Use channels to collect results without lock contention
@@ -91,8 +90,8 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 					defer func() { <-sem }()
 
 					// Try du command first for folded dirs (much faster)
-					size := calculateDirSizeWithDu(path)
-					if size <= 0 {
+					size, err := getDirectorySizeFromDu(path)
+					if err != nil || size <= 0 {
 						// Fallback to walk if du fails
 						size = calculateDirSizeFast(path, filesScanned, dirsScanned, bytesScanned, currentPath)
 					}
@@ -218,32 +217,6 @@ func shouldFoldDirWithPath(name, path string) bool {
 	return false
 }
 
-// calculateDirSizeWithDu uses du command for fast directory size calculation
-// Returns size in bytes, or 0 if command fails
-func calculateDirSizeWithDu(path string) int64 {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	// Use -sk for 1K-block output, then convert to bytes
-	// macOS du doesn't support -b flag
-	cmd := exec.CommandContext(ctx, "du", "-sk", path)
-	output, err := cmd.Output()
-	if err != nil {
-		return 0
-	}
-
-	fields := strings.Fields(string(output))
-	if len(fields) < 1 {
-		return 0
-	}
-
-	kb, err := strconv.ParseInt(fields[0], 10, 64)
-	if err != nil {
-		return 0
-	}
-
-	return kb * 1024
-}
 
 func shouldSkipFileForLargeTracking(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
@@ -323,7 +296,10 @@ func findLargeFilesWithSpotlight(root string, minSize int64) []fileEntry {
 	// mdfind query: files >= minSize in the specified directory
 	query := fmt.Sprintf("kMDItemFSSize >= %d", minSize)
 
-	cmd := exec.Command("mdfind", "-onlyin", root, query)
+	ctx, cancel := context.WithTimeout(context.Background(), mdlsTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "mdfind", "-onlyin", root, query)
 	output, err := cmd.Output()
 	if err != nil {
 		// Fallback: mdfind not available or failed
@@ -405,8 +381,8 @@ func calculateDirSizeConcurrent(root string, largeFileChan chan<- fileEntry, fil
 
 	// Limit concurrent subdirectory scans to avoid too many goroutines
 	maxConcurrent := runtime.NumCPU() * 2
-	if maxConcurrent > 32 {
-		maxConcurrent = 32
+	if maxConcurrent > maxDirWorkers {
+		maxConcurrent = maxDirWorkers
 	}
 	sem := make(chan struct{}, maxConcurrent)
 
@@ -420,8 +396,8 @@ func calculateDirSizeConcurrent(root string, largeFileChan chan<- fileEntry, fil
 				wg.Add(1)
 				go func(path string) {
 					defer wg.Done()
-					size := calculateDirSizeWithDu(path)
-					if size > 0 {
+					size, err := getDirectorySizeFromDu(path)
+					if err == nil && size > 0 {
 						atomic.AddInt64(&total, size)
 						atomic.AddInt64(bytesScanned, size)
 						atomic.AddInt64(dirsScanned, 1)
@@ -507,45 +483,6 @@ func measureOverviewSize(path string) (int64, error) {
 	return 0, fmt.Errorf("unable to measure directory size with fast methods")
 }
 
-func getDirectorySizeFromMetadata(path string) (int64, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return 0, fmt.Errorf("cannot stat path: %v", err)
-	}
-	if !info.IsDir() {
-		return 0, fmt.Errorf("not a directory")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), mdlsTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "mdls", "-raw", "-name", "kMDItemFSSize", path)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			return 0, fmt.Errorf("mdls timeout after %v", mdlsTimeout)
-		}
-		if stderr.Len() > 0 {
-			return 0, fmt.Errorf("mdls failed: %v (%s)", err, stderr.String())
-		}
-		return 0, fmt.Errorf("mdls failed: %v", err)
-	}
-	value := strings.TrimSpace(stdout.String())
-	if value == "" || value == "(null)" {
-		return 0, fmt.Errorf("metadata size unavailable")
-	}
-	size, err := strconv.ParseInt(value, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse mdls output: %v", err)
-	}
-	if size <= 0 {
-		return 0, fmt.Errorf("mdls size invalid: %d", size)
-	}
-	return size, nil
-}
 
 func getDirectorySizeFromDu(path string) (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), duTimeout)

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -448,6 +449,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		delete(m.overviewScanningSet, msg.path)
 
 		if msg.err == nil {
+			if m.overviewSizeCache == nil {
+				m.overviewSizeCache = make(map[string]int64)
+			}
 			m.overviewSizeCache[msg.path] = msg.size
 		}
 
@@ -630,16 +634,20 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.showLargeFiles {
 			if len(m.largeFiles) > 0 {
 				selected := m.largeFiles[m.largeSelected]
-				go func() {
-					_ = exec.Command("open", selected.path).Run()
-				}()
+				go func(path string) {
+					ctx, cancel := context.WithTimeout(context.Background(), openCommandTimeout)
+					defer cancel()
+					_ = exec.CommandContext(ctx, "open", path).Run()
+				}(selected.path)
 				m.status = fmt.Sprintf("Opening %s...", selected.name)
 			}
 		} else if len(m.entries) > 0 {
 			selected := m.entries[m.selected]
-			go func() {
-				_ = exec.Command("open", selected.path).Run()
-			}()
+			go func(path string) {
+				ctx, cancel := context.WithTimeout(context.Background(), openCommandTimeout)
+				defer cancel()
+				_ = exec.CommandContext(ctx, "open", path).Run()
+			}(selected.path)
 			m.status = fmt.Sprintf("Opening %s...", selected.name)
 		}
 	case "f", "F":
@@ -648,14 +656,18 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if len(m.largeFiles) > 0 {
 				selected := m.largeFiles[m.largeSelected]
 				go func(path string) {
-					_ = exec.Command("open", "-R", path).Run()
+					ctx, cancel := context.WithTimeout(context.Background(), openCommandTimeout)
+					defer cancel()
+					_ = exec.CommandContext(ctx, "open", "-R", path).Run()
 				}(selected.path)
 				m.status = fmt.Sprintf("Revealing %s in Finder...", selected.name)
 			}
 		} else if len(m.entries) > 0 {
 			selected := m.entries[m.selected]
 			go func(path string) {
-				_ = exec.Command("open", "-R", path).Run()
+				ctx, cancel := context.WithTimeout(context.Background(), openCommandTimeout)
+				defer cancel()
+				_ = exec.CommandContext(ctx, "open", "-R", path).Run()
 			}(selected.path)
 			m.status = fmt.Sprintf("Revealing %s in Finder...", selected.name)
 		}
@@ -934,12 +946,10 @@ func (m model) View() string {
 					displayIndex := idx + 1
 
 					// Add unused time label if applicable
-					// For overview mode, get access time on-demand if not set and cache it
+					// For overview mode, get access time on-demand if not set
 					lastAccess := entry.lastAccess
 					if lastAccess.IsZero() && entry.path != "" {
 						lastAccess = getLastAccessTime(entry.path)
-						// Cache the result to avoid repeated syscalls
-						m.entries[idx].lastAccess = lastAccess
 					}
 					unusedLabel := formatUnusedTime(lastAccess)
 					if unusedLabel == "" {

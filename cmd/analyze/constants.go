@@ -16,6 +16,13 @@ const (
 	maxConcurrentOverview = 3   // Scan up to 3 overview dirs concurrently
 	pathUpdateInterval    = 500 // Update current path every N files
 	batchUpdateSize       = 100 // Batch atomic updates every N items
+
+	// Worker pool configuration
+	minWorkers      = 16  // Minimum workers for better I/O throughput
+	maxWorkers      = 128 // Maximum workers to avoid excessive goroutines
+	cpuMultiplier   = 4   // Worker multiplier per CPU core for I/O-bound operations
+	maxDirWorkers   = 32  // Maximum concurrent subdirectory scans
+	openCommandTimeout = 10 * time.Second // Timeout for open/reveal commands
 )
 
 var foldDirs = map[string]bool{

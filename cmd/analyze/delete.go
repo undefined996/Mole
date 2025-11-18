@@ -22,9 +22,21 @@ func deletePathCmd(path string, counter *int64) tea.Cmd {
 
 func deletePathWithProgress(root string, counter *int64) (int64, error) {
 	var count int64
+	var firstErr error
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
+			// Skip permission errors but continue walking
+			if os.IsPermission(err) {
+				if firstErr == nil {
+					firstErr = err
+				}
+				return filepath.SkipDir
+			}
+			// For other errors, record and continue
+			if firstErr == nil {
+				firstErr = err
+			}
 			return nil
 		}
 
@@ -34,6 +46,9 @@ func deletePathWithProgress(root string, counter *int64) (int64, error) {
 				if counter != nil {
 					atomic.StoreInt64(counter, count)
 				}
+			} else if firstErr == nil {
+				// Record first deletion error
+				firstErr = removeErr
 			}
 		}
 
@@ -48,5 +63,6 @@ func deletePathWithProgress(root string, counter *int64) (int64, error) {
 		return count, err
 	}
 
-	return count, nil
+	// Return the first error encountered during deletion if any
+	return count, firstErr
 }
