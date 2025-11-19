@@ -256,7 +256,7 @@ safe_clean() {
 
         # Hard-coded protection for critical apps (cannot be disabled by user)
         case "$path" in
-            *clash*|*Clash*|*surge*|*Surge*|*mihomo*)
+            *clash* | *Clash* | *surge* | *Surge* | *mihomo*)
                 skip=true
                 ((skipped_count++))
                 ;;
@@ -1488,7 +1488,7 @@ perform_cleanup() {
                     # This prevents deleting backups that are currently in progress
                     local file_mtime=$(stat -f%m "$inprogress_file" 2> /dev/null || echo "0")
                     local current_time=$(date +%s)
-                    local hours_old=$(( (current_time - file_mtime) / 3600 ))
+                    local hours_old=$(((current_time - file_mtime) / 3600))
 
                     if [[ $hours_old -lt 24 ]]; then
                         continue # Skip - backup might still be in progress
@@ -1544,7 +1544,7 @@ perform_cleanup() {
                         # Safety check: only delete .inProgress backups older than 24 hours
                         local file_mtime=$(stat -f%m "$inprogress_file" 2> /dev/null || echo "0")
                         local current_time=$(date +%s)
-                        local hours_old=$(( (current_time - file_mtime) / 3600 ))
+                        local hours_old=$(((current_time - file_mtime) / 3600))
 
                         if [[ $hours_old -lt 24 ]]; then
                             continue # Skip - backup might still be in progress

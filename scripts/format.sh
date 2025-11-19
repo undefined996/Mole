@@ -37,24 +37,37 @@ if ! command -v shfmt > /dev/null 2>&1; then
     exit 1
 fi
 
-# Find all shell scripts
+# Find all shell scripts (excluding temp directories and build artifacts)
 cd "$PROJECT_ROOT"
+
+# Build list of files to format (exclude .git, node_modules, tmp directories)
+FILES=$(find . -type f \( -name "*.sh" -o -name "mole" \) \
+    -not -path "./.git/*" \
+    -not -path "*/node_modules/*" \
+    -not -path "*/tests/tmp-*/*" \
+    -not -path "*/.*" \
+    2> /dev/null)
+
+if [[ -z "$FILES" ]]; then
+    echo "No shell scripts found"
+    exit 0
+fi
 
 # shfmt options: -i 4 (4 spaces), -ci (indent switch cases), -sr (space after redirect)
 if [[ "$CHECK_ONLY" == "true" ]]; then
     echo "Checking formatting..."
-    if shfmt -i 4 -ci -sr -d . > /dev/null 2>&1; then
+    if echo "$FILES" | xargs shfmt -i 4 -ci -sr -d > /dev/null 2>&1; then
         echo "✓ All scripts properly formatted"
         exit 0
     else
         echo "✗ Some scripts need formatting:"
-        shfmt -i 4 -ci -sr -d .
+        echo "$FILES" | xargs shfmt -i 4 -ci -sr -d
         echo ""
         echo "Run './scripts/format.sh' to fix"
         exit 1
     fi
 else
     echo "Formatting scripts..."
-    shfmt -i 4 -ci -sr -w .
+    echo "$FILES" | xargs shfmt -i 4 -ci -sr -w
     echo "✓ Done"
 fi

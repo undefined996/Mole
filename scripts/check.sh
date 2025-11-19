@@ -52,10 +52,10 @@ fi
 # 3. Unit tests (if available)
 echo -e "${YELLOW}3. Running tests...${NC}"
 if command -v bats > /dev/null 2>&1 && [ -d "tests" ]; then
-    if bats tests/*.bats 2> /dev/null; then
+    if bats tests/*.bats; then
         echo -e "${GREEN}✓ Tests passed${NC}\n"
     else
-        echo -e "${RED}✗ Tests failed${NC}\n"
+        echo -e "${RED}✗ Tests failed (see output above)${NC}\n"
         exit 1
     fi
 else
@@ -88,7 +88,7 @@ fi
 
 # Check 3: Log rotation once per session
 ((TOTAL_CHECKS++))
-if grep -q "rotate_log_once" lib/common.sh && ! grep -q "rotate_log()" lib/common.sh | grep -v "rotate_log_once"; then
+if grep -q "rotate_log_once" lib/common.sh && ! grep "rotate_log()" lib/common.sh | grep -v "rotate_log_once" > /dev/null 2>&1; then
     echo -e "${GREEN}  ✓ Log rotation optimized (once per session)${NC}"
     ((OPTIMIZATION_SCORE++))
 else

@@ -246,19 +246,27 @@ create_raycast_commands() {
         log_success "Scripts ready in: $dir"
     done
 
+    echo ""
     if open "raycast://extensions/script-commands" > /dev/null 2>&1; then
-        log_step "Raycast settings opened. Run 'Reload Script Directories'."
+        log_step "Raycast settings opened."
     else
-        log_warn "Could not auto-open Raycast. Open it manually to reload scripts."
+        log_warn "Could not auto-open Raycast."
     fi
+
+    echo ""
+    echo "Next steps to activate Raycast commands:"
+    echo "  1. Open Raycast (⌘ Space)"
+    echo "  2. Search for 'Reload Script Directories'"
+    echo "  3. Press Enter to load new commands"
 }
 
 uuid() {
     if command -v uuidgen > /dev/null 2>&1; then
         uuidgen
     else
-        # Fallback pseudo UUID
-        openssl rand -hex 16 | sed 's/\(..\)/\1/g' | cut -c1-32
+        # Fallback pseudo UUID in format: 8-4-4-4-12
+        local hex=$(openssl rand -hex 16)
+        echo "${hex:0:8}-${hex:8:4}-${hex:12:4}-${hex:16:4}-${hex:20:12}"
     fi
 }
 

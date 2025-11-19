@@ -1270,10 +1270,10 @@ readonly DATA_PROTECTED_BUNDLES=(
     "com.usebruno.app"         # Bruno (API client)
 
     # Network Proxy & VPN Tools (protect all variants)
-    "*clash*"                  # All Clash variants (ClashX, ClashX Pro, Clash Verge, etc)
-    "*Clash*"                  # Capitalized variants
-    "com.nssurge.surge-mac"    # Surge
-    "mihomo*"                  # Mihomo Party and variants
+    "*clash*"               # All Clash variants (ClashX, ClashX Pro, Clash Verge, etc)
+    "*Clash*"               # Capitalized variants
+    "com.nssurge.surge-mac" # Surge
+    "mihomo*"               # Mihomo Party and variants
 
     # ============================================================================
     # Development Tools - Git & Version Control
