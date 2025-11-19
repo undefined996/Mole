@@ -98,21 +98,6 @@ func humanizeBytes(size int64) string {
 	return fmt.Sprintf("%.1f %cB", value, "KMGTPE"[exp])
 }
 
-func progressBar(value, max int64) string {
-	if max <= 0 {
-		return strings.Repeat("░", barWidth)
-	}
-	filled := int((value * int64(barWidth)) / max)
-	if filled > barWidth {
-		filled = barWidth
-	}
-	bar := strings.Repeat("█", filled)
-	if filled < barWidth {
-		bar += strings.Repeat("░", barWidth-filled)
-	}
-	return bar
-}
-
 func coloredProgressBar(value, max int64, percent float64) string {
 	if max <= 0 {
 		return colorGray + strings.Repeat("░", barWidth) + colorReset

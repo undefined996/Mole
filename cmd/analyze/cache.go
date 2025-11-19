@@ -25,20 +25,20 @@ var (
 
 func snapshotFromModel(m model) historyEntry {
 	return historyEntry{
-		path:          m.path,
-		entries:       cloneDirEntries(m.entries),
-		largeFiles:    cloneFileEntries(m.largeFiles),
-		totalSize:     m.totalSize,
-		selected:      m.selected,
-		entryOffset:   m.offset,
-		largeSelected: m.largeSelected,
-		largeOffset:   m.largeOffset,
+		Path:          m.path,
+		Entries:       cloneDirEntries(m.entries),
+		LargeFiles:    cloneFileEntries(m.largeFiles),
+		TotalSize:     m.totalSize,
+		Selected:      m.selected,
+		EntryOffset:   m.offset,
+		LargeSelected: m.largeSelected,
+		LargeOffset:   m.largeOffset,
 	}
 }
 
 func cacheSnapshot(m model) historyEntry {
 	entry := snapshotFromModel(m)
-	entry.dirty = false
+	entry.Dirty = false
 	return entry
 }
 
@@ -220,7 +220,10 @@ func loadCacheFromDisk(path string) (*cacheEntry, error) {
 	}
 
 	if info.ModTime().After(entry.ModTime) {
-		return nil, fmt.Errorf("cache expired: directory modified")
+		// Only expire cache if the directory has been newer for longer than the grace window.
+		if cacheModTimeGrace <= 0 || info.ModTime().Sub(entry.ModTime) > cacheModTimeGrace {
+			return nil, fmt.Errorf("cache expired: directory modified")
+		}
 	}
 
 	if time.Since(entry.ScanTime) > 7*24*time.Hour {
@@ -242,9 +245,9 @@ func saveCacheToDisk(path string, result scanResult) error {
 	}
 
 	entry := cacheEntry{
-		Entries:    result.entries,
-		LargeFiles: result.largeFiles,
-		TotalSize:  result.totalSize,
+		Entries:    result.Entries,
+		LargeFiles: result.LargeFiles,
+		TotalSize:  result.TotalSize,
 		ModTime:    info.ModTime(),
 		ScanTime:   time.Now(),
 	}
@@ -257,4 +260,30 @@ func saveCacheToDisk(path string, result scanResult) error {
 
 	encoder := gob.NewEncoder(file)
 	return encoder.Encode(entry)
+}
+
+func invalidateCache(path string) {
+	cachePath, err := getCachePath(path)
+	if err == nil {
+		_ = os.Remove(cachePath)
+	}
+	removeOverviewSnapshot(path)
+}
+
+func removeOverviewSnapshot(path string) {
+	if path == "" {
+		return
+	}
+	overviewSnapshotMu.Lock()
+	defer overviewSnapshotMu.Unlock()
+	if err := ensureOverviewSnapshotCacheLocked(); err != nil {
+		return
+	}
+	if overviewSnapshotCache == nil {
+		return
+	}
+	if _, ok := overviewSnapshotCache[path]; ok {
+		delete(overviewSnapshotCache, path)
+		_ = persistOverviewSnapshotLocked()
+	}
 }

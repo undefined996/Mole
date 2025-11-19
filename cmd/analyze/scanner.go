@@ -99,11 +99,11 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 					atomic.AddInt64(dirsScanned, 1)
 
 					entryChan <- dirEntry{
-						name:       name,
-						path:       path,
-						size:       size,
-						isDir:      true,
-						lastAccess: time.Time{}, // Lazy load when displayed
+						Name:       name,
+						Path:       path,
+						Size:       size,
+						IsDir:      true,
+						LastAccess: time.Time{}, // Lazy load when displayed
 					}
 				}(child.Name(), fullPath)
 				continue
@@ -121,11 +121,11 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 				atomic.AddInt64(dirsScanned, 1)
 
 				entryChan <- dirEntry{
-					name:       name,
-					path:       path,
-					size:       size,
-					isDir:      true,
-					lastAccess: time.Time{}, // Lazy load when displayed
+					Name:       name,
+					Path:       path,
+					Size:       size,
+					IsDir:      true,
+					LastAccess: time.Time{}, // Lazy load when displayed
 				}
 			}(child.Name(), fullPath)
 			continue
@@ -142,15 +142,15 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 		atomic.AddInt64(bytesScanned, size)
 
 		entryChan <- dirEntry{
-			name:       child.Name(),
-			path:       fullPath,
-			size:       size,
-			isDir:      false,
-			lastAccess: getLastAccessTimeFromInfo(info),
+			Name:       child.Name(),
+			Path:       fullPath,
+			Size:       size,
+			IsDir:      false,
+			LastAccess: getLastAccessTimeFromInfo(info),
 		}
 		// Only track large files that are not code/text files
 		if !shouldSkipFileForLargeTracking(fullPath) && size >= minLargeFileSize {
-			largeFileChan <- fileEntry{name: child.Name(), path: fullPath, size: size}
+			largeFileChan <- fileEntry{Name: child.Name(), Path: fullPath, Size: size}
 		}
 	}
 
@@ -162,7 +162,7 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 	collectorWg.Wait()
 
 	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].size > entries[j].size
+		return entries[i].Size > entries[j].Size
 	})
 	if len(entries) > maxEntries {
 		entries = entries[:maxEntries]
@@ -174,7 +174,7 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 	} else {
 		// Sort and trim large files collected from scanning
 		sort.Slice(largeFiles, func(i, j int) bool {
-			return largeFiles[i].size > largeFiles[j].size
+			return largeFiles[i].Size > largeFiles[j].Size
 		})
 		if len(largeFiles) > maxLargeFiles {
 			largeFiles = largeFiles[:maxLargeFiles]
@@ -182,17 +182,12 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 	}
 
 	return scanResult{
-		entries:    entries,
-		largeFiles: largeFiles,
-		totalSize:  total,
+		Entries:    entries,
+		LargeFiles: largeFiles,
+		TotalSize:  total,
 	}, nil
 }
 
-func shouldFoldDir(name string) bool {
-	return foldDirs[name]
-}
-
-// shouldFoldDirWithPath checks if a directory should be folded based on path context
 func shouldFoldDirWithPath(name, path string) bool {
 	// Check basic fold list first
 	if foldDirs[name] {
@@ -216,7 +211,6 @@ func shouldFoldDirWithPath(name, path string) bool {
 
 	return false
 }
-
 
 func shouldSkipFileForLargeTracking(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
@@ -338,15 +332,15 @@ func findLargeFilesWithSpotlight(root string, minSize int64) []fileEntry {
 		// Get actual disk usage for sparse files and cloud files
 		actualSize := getActualFileSize(line, info)
 		files = append(files, fileEntry{
-			name: filepath.Base(line),
-			path: line,
-			size: actualSize,
+			Name: filepath.Base(line),
+			Path: line,
+			Size: actualSize,
 		})
 	}
 
 	// Sort by size (descending)
 	sort.Slice(files, func(i, j int) bool {
-		return files[i].size > files[j].size
+		return files[i].Size > files[j].Size
 	})
 
 	// Return top N
@@ -433,7 +427,7 @@ func calculateDirSizeConcurrent(root string, largeFileChan chan<- fileEntry, fil
 
 		// Track large files
 		if !shouldSkipFileForLargeTracking(fullPath) && size >= minLargeFileSize {
-			largeFileChan <- fileEntry{name: child.Name(), path: fullPath, size: size}
+			largeFileChan <- fileEntry{Name: child.Name(), Path: fullPath, Size: size}
 		}
 
 		// Update current path
@@ -482,7 +476,6 @@ func measureOverviewSize(path string) (int64, error) {
 
 	return 0, fmt.Errorf("unable to measure directory size with fast methods")
 }
-
 
 func getDirectorySizeFromDu(path string) (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), duTimeout)

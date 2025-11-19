@@ -13,15 +13,15 @@ const (
 	overviewCacheFile     = "overview_sizes.json"
 	duTimeout             = 60 * time.Second // Increased for large directories
 	mdlsTimeout           = 5 * time.Second
-	maxConcurrentOverview = 3   // Scan up to 3 overview dirs concurrently
-	pathUpdateInterval    = 500 // Update current path every N files
-	batchUpdateSize       = 100 // Batch atomic updates every N items
+	maxConcurrentOverview = 3                // Scan up to 3 overview dirs concurrently
+	batchUpdateSize       = 100              // Batch atomic updates every N items
+	cacheModTimeGrace     = 30 * time.Minute // Ignore minor directory mtime bumps
 
 	// Worker pool configuration
-	minWorkers      = 16  // Minimum workers for better I/O throughput
-	maxWorkers      = 128 // Maximum workers to avoid excessive goroutines
-	cpuMultiplier   = 4   // Worker multiplier per CPU core for I/O-bound operations
-	maxDirWorkers   = 32  // Maximum concurrent subdirectory scans
+	minWorkers         = 32               // Minimum workers for better I/O throughput
+	maxWorkers         = 256              // Maximum workers to avoid excessive goroutines
+	cpuMultiplier      = 8                // Worker multiplier per CPU core for I/O-bound operations
+	maxDirWorkers      = 64               // Maximum concurrent subdirectory scans
 	openCommandTimeout = 10 * time.Second // Timeout for open/reveal commands
 )
 
@@ -225,7 +225,6 @@ var spinnerFrames = []string{"|", "/", "-", "\\", "|", "/", "-", "\\"}
 
 const (
 	colorPurple = "\033[0;35m"
-	colorBlue   = "\033[0;34m"
 	colorGray   = "\033[0;90m"
 	colorRed    = "\033[0;31m"
 	colorYellow = "\033[1;33m"
@@ -233,7 +232,4 @@ const (
 	colorCyan   = "\033[0;36m"
 	colorReset  = "\033[0m"
 	colorBold   = "\033[1m"
-	colorBgCyan = "\033[46m"
-	colorBgDark = "\033[100m"
-	colorInvert = "\033[7m"
 )

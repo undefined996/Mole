@@ -16,6 +16,7 @@ func deletePathCmd(path string, counter *int64) tea.Cmd {
 			done:  true,
 			err:   err,
 			count: count,
+			path:  path,
 		}
 	}
 }
