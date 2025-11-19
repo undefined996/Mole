@@ -156,7 +156,15 @@ get_source_version() {
 get_installed_version() {
     local binary="$INSTALL_DIR/mole"
     if [[ -x "$binary" ]]; then
-        "$binary" --version 2> /dev/null | awk 'NF {print $NF; exit}'
+        # Try running the binary first (preferred method)
+        local version
+        version=$("$binary" --version 2> /dev/null | awk 'NF {print $NF; exit}')
+        if [[ -n "$version" ]]; then
+            echo "$version"
+        else
+            # Fallback: parse VERSION from file (in case binary is broken)
+            sed -n 's/^VERSION="\(.*\)"$/\1/p' "$binary" | head -n1
+        fi
     fi
 }
 

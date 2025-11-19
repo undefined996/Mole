@@ -223,39 +223,35 @@ update_mole() {
         echo "Installing update..."
     fi
 
-    # Run installer with visible output (but capture for error handling)
-    local install_output
-    if install_output=$("$tmp_installer" --prefix "$install_dir" --config "$HOME/.config/mole" --update 2>&1); then
+    # Helper function to process installer output
+    process_install_output() {
+        local output="$1"
         if [[ -t 1 ]]; then stop_inline_spinner; fi
+
         local filtered_output
-        filtered_output=$(printf '%s\n' "$install_output" | sed '/^$/d')
+        filtered_output=$(printf '%s\n' "$output" | sed '/^$/d')
         if [[ -n "$filtered_output" ]]; then
             printf '\n%s\n' "$filtered_output"
         fi
+
         # Only show success message if installer didn't already do so
-        if ! printf '%s\n' "$install_output" | grep -Eq "Updated to latest version|Already on latest version"; then
+        if ! printf '%s\n' "$output" | grep -Eq "Updated to latest version|Already on latest version"; then
             local new_version
             new_version=$("$mole_path" --version 2> /dev/null | awk 'NF {print $NF}' || echo "")
             printf '\n%s\n\n' "${GREEN}${ICON_SUCCESS}${NC} Updated to latest version (${new_version:-unknown})"
         else
             printf '\n'
         fi
+    }
+
+    # Run installer with visible output (but capture for error handling)
+    local install_output
+    if install_output=$("$tmp_installer" --prefix "$install_dir" --config "$HOME/.config/mole" --update 2>&1); then
+        process_install_output "$install_output"
     else
         # Retry without --update flag
         if install_output=$("$tmp_installer" --prefix "$install_dir" --config "$HOME/.config/mole" 2>&1); then
-            if [[ -t 1 ]]; then stop_inline_spinner; fi
-            local filtered_output
-            filtered_output=$(printf '%s\n' "$install_output" | sed '/^$/d')
-            if [[ -n "$filtered_output" ]]; then
-                printf '\n%s\n' "$filtered_output"
-            fi
-            if ! printf '%s\n' "$install_output" | grep -Eq "Updated to latest version|Already on latest version"; then
-                local new_version
-                new_version=$("$mole_path" --version 2> /dev/null | awk 'NF {print $NF}' || echo "")
-                printf '\n%s\n\n' "${GREEN}${ICON_SUCCESS}${NC} Updated to latest version (${new_version:-unknown})"
-            else
-                printf '\n'
-            fi
+            process_install_output "$install_output"
         else
             if [[ -t 1 ]]; then stop_inline_spinner; fi
             rm -f "$tmp_installer"
@@ -287,15 +283,25 @@ remove_mole() {
         is_homebrew=true
     fi
 
-    # Check common manual install locations
-    local -a common_paths=(
+    # Find mole installations using which/command
+    local found_mole
+    found_mole=$(command -v mole 2>/dev/null || true)
+    if [[ -n "$found_mole" && -f "$found_mole" ]]; then
+        # Check if it's not a Homebrew symlink
+        if [[ ! -L "$found_mole" ]] || ! readlink "$found_mole" | grep -q "Cellar/mole"; then
+            manual_installs+=("$found_mole")
+        fi
+    fi
+
+    # Also check common locations as fallback
+    local -a fallback_paths=(
         "/usr/local/bin/mole"
         "$HOME/.local/bin/mole"
         "/opt/local/bin/mole"
     )
 
-    for path in "${common_paths[@]}"; do
-        if [[ -f "$path" ]]; then
+    for path in "${fallback_paths[@]}"; do
+        if [[ -f "$path" && "$path" != "$found_mole" ]]; then
             # Check if it's not a Homebrew symlink
             if [[ ! -L "$path" ]] || ! readlink "$path" | grep -q "Cellar/mole"; then
                 manual_installs+=("$path")
@@ -303,14 +309,22 @@ remove_mole() {
         fi
     done
 
-    local -a alias_candidates=(
+    # Find mo alias
+    local found_mo
+    found_mo=$(command -v mo 2>/dev/null || true)
+    if [[ -n "$found_mo" && -f "$found_mo" ]]; then
+        alias_installs+=("$found_mo")
+    fi
+
+    # Also check common locations for mo
+    local -a alias_fallback=(
         "/usr/local/bin/mo"
         "$HOME/.local/bin/mo"
         "/opt/local/bin/mo"
     )
 
-    for alias in "${alias_candidates[@]}"; do
-        if [[ -f "$alias" ]]; then
+    for alias in "${alias_fallback[@]}"; do
+        if [[ -f "$alias" && "$alias" != "$found_mo" ]]; then
             alias_installs+=("$alias")
         fi
     done
@@ -477,7 +491,9 @@ interactive_main_menu() {
         tty_name=$(tty 2> /dev/null || echo "")
         if [[ -n "$tty_name" ]]; then
             local flag_file
-            flag_file="/tmp/mole_intro_$(echo "$tty_name" | tr -c '[:alnum:]_' '_')"
+            local cache_dir="$HOME/.cache/mole"
+            mkdir -p "$cache_dir" 2> /dev/null
+            flag_file="$cache_dir/intro_$(echo "$tty_name" | tr -c '[:alnum:]_' '_')"
             if [[ ! -f "$flag_file" ]]; then
                 animate_mole_intro
                 touch "$flag_file" 2> /dev/null || true
