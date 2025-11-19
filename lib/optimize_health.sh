@@ -231,7 +231,6 @@ EOF
 
     # Always-on items
     items+=('system_maintenance|System Maintenance|Rebuild system databases & flush caches|true')
-    items+=('network_services|Network Services|Reset network services|true')
     items+=('maintenance_scripts|Maintenance Scripts|Run daily/weekly/monthly scripts & rotate logs|true')
     items+=('radio_refresh|Bluetooth & Wi-Fi Refresh|Reset wireless preference caches|true')
     items+=('recent_items|Recent Items|Clear recent apps/documents/servers lists|true')
