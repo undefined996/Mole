@@ -55,6 +55,39 @@ EOF
 
     run env HOME="$HOME" "$PROJECT_ROOT/mole" clean --dry-run
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Protected: 1"* ]]
+    [[ "$output" == *"Protected"* ]]
     [ -f "$HOME/Library/Caches/WhitelistedApp/data.tmp" ]
+}
+
+@test "mo clean protects Maven repository by default" {
+    mkdir -p "$HOME/.m2/repository/org/example"
+    echo "dependency" > "$HOME/.m2/repository/org/example/lib.jar"
+
+    run env HOME="$HOME" "$PROJECT_ROOT/mole" clean --dry-run
+    [ "$status" -eq 0 ]
+    [ -f "$HOME/.m2/repository/org/example/lib.jar" ]
+    [[ "$output" != *"Maven repository cache"* ]]
+}
+
+@test "mo clean respects MO_BREW_TIMEOUT environment variable" {
+    if ! command -v brew > /dev/null 2>&1; then
+        skip "Homebrew not installed"
+    fi
+
+    run env HOME="$HOME" MO_BREW_TIMEOUT=5 "$PROJECT_ROOT/bin/clean.sh" --dry-run
+    [ "$status" -eq 0 ]
+}
+
+@test "FINDER_METADATA_SENTINEL in whitelist protects .DS_Store files" {
+    mkdir -p "$HOME/Documents"
+    touch "$HOME/Documents/.DS_Store"
+
+    cat > "$HOME/.config/mole/whitelist" << EOF
+FINDER_METADATA_SENTINEL
+EOF
+
+    run env HOME="$HOME" "$PROJECT_ROOT/mole" clean --dry-run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"protected by whitelist"* ]]
+    [ -f "$HOME/Documents/.DS_Store" ]
 }

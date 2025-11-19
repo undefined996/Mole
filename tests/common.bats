@@ -171,3 +171,37 @@ EOF
     [[ "$joined" == *" third "* ]]
     rm -f "$output_file" "$output_file.sorted"
 }
+
+@test "should_protect_data protects system and critical apps" {
+    # System apps should be protected
+    result=$(HOME="$HOME" bash --noprofile --norc -c "source '$PROJECT_ROOT/lib/common.sh'; should_protect_data 'com.apple.Safari' && echo 'protected' || echo 'not-protected'")
+    [ "$result" = "protected" ]
+
+    # Critical network apps should be protected
+    result=$(HOME="$HOME" bash --noprofile --norc -c "source '$PROJECT_ROOT/lib/common.sh'; should_protect_data 'com.clash.app' && echo 'protected' || echo 'not-protected'")
+    [ "$result" = "protected" ]
+
+    # Regular apps should not be protected
+    result=$(HOME="$HOME" bash --noprofile --norc -c "source '$PROJECT_ROOT/lib/common.sh'; should_protect_data 'com.example.RegularApp' && echo 'protected' || echo 'not-protected'")
+    [ "$result" = "not-protected" ]
+}
+
+@test "print_summary_block formats output correctly" {
+    result=$(HOME="$HOME" bash --noprofile --norc -c "source '$PROJECT_ROOT/lib/common.sh'; print_summary_block 'success' 'Test Summary' 'Detail 1' 'Detail 2'")
+    [[ "$result" == *"Test Summary"* ]]
+    [[ "$result" == *"Detail 1"* ]]
+    [[ "$result" == *"Detail 2"* ]]
+}
+
+@test "start_inline_spinner and stop_inline_spinner work in non-TTY" {
+    # Should not hang in non-interactive mode
+    result=$(HOME="$HOME" bash --noprofile --norc << 'EOF'
+source "$PROJECT_ROOT/lib/common.sh"
+MOLE_SPINNER_PREFIX="  " start_inline_spinner "Testing..."
+sleep 0.1
+stop_inline_spinner
+echo "done"
+EOF
+)
+    [[ "$result" == *"done"* ]]
+}
