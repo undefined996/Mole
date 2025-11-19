@@ -638,10 +638,10 @@ perform_cleanup() {
     if [[ "$SYSTEM_CLEAN" == "true" ]]; then
         start_section "Deep system"
 
-        # Clean system caches more safely
-        sudo find /Library/Caches -name "*.cache" -delete 2> /dev/null || true
-        sudo find /Library/Caches -name "*.tmp" -delete 2> /dev/null || true
-        sudo find /Library/Caches -type f -name "*.log" -delete 2> /dev/null || true
+        # Clean system caches more safely (only old files to avoid breaking running apps)
+        sudo find /Library/Caches -name "*.cache" -mtime +7 -delete 2> /dev/null || true
+        sudo find /Library/Caches -name "*.tmp" -mtime +7 -delete 2> /dev/null || true
+        sudo find /Library/Caches -type f -name "*.log" -mtime +30 -delete 2> /dev/null || true
 
         # Clean old temp files only (avoid breaking running processes)
         local tmp_cleaned=0
@@ -911,15 +911,15 @@ perform_cleanup() {
         if [[ "$DRY_RUN" != "true" ]]; then
             if [[ -t 1 ]]; then MOLE_SPINNER_PREFIX="  " start_inline_spinner "Homebrew cleanup..."; fi
 
-            # Run brew cleanup with timeout (45 seconds max)
+            # Run brew cleanup with timeout
             local brew_output=""
             local brew_success=false
-            local timeout_seconds=60
+            local timeout_seconds=${MO_BREW_TIMEOUT:-120}
             local brew_tmp_file
             brew_tmp_file=$(create_temp_file)
 
             # Run brew cleanup in background with manual timeout
-            # Deep clean with -s --prune=all (1 minute timeout)
+            # Deep clean with -s --prune=all (default 2 minutes, configurable via MO_BREW_TIMEOUT)
             (brew cleanup -s --prune=all > "$brew_tmp_file" 2>&1) &
             local brew_pid=$!
             local elapsed=0
@@ -1063,7 +1063,7 @@ perform_cleanup() {
     safe_clean ~/.rustup/toolchains/*/share/doc/* "Rust documentation cache"
     safe_clean ~/.rustup/downloads/* "Rust downloads cache"
     safe_clean ~/.gradle/caches/* "Gradle caches"
-    safe_clean ~/.m2/repository/* "Maven repository cache"
+    # Skip: Maven repository is not cache, it's dependency storage (protected by whitelist)
     safe_clean ~/.sbt/* "SBT cache"
     safe_clean ~/.docker/buildx/cache/* "Docker BuildX cache"
     safe_clean ~/.cache/terraform/* "Terraform cache"
@@ -1283,7 +1283,7 @@ perform_cleanup() {
     # Skip protected vendors, keep Preferences/Application Support
     start_section "Orphaned app data"
 
-    local -r ORPHAN_AGE_THRESHOLD=60 # 2 months - good balance between safety and cleanup
+    local -r ORPHAN_AGE_THRESHOLD=60 # 60 days - good balance between safety and cleanup
 
     # Build list of installed application bundle identifiers
     MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning installed applications..."
@@ -1618,7 +1618,7 @@ perform_cleanup() {
             ((node_modules_size += size_kb))
             ((node_modules_count++))
         fi
-    done < <(find "${search_paths[@]}" -type d -name "node_modules" -maxdepth 4 -mtime +60 \
+    done < <(find "${search_paths[@]}" -maxdepth 4 -type d -name "node_modules" -mtime +60 \
         -not -path "*/Library/*" \
         -not -path "*/.Trash/*" \
         -print0 2> /dev/null |
@@ -1632,7 +1632,7 @@ perform_cleanup() {
             ((venv_size += size_kb))
             ((venv_count++))
         fi
-    done < <(find "${search_paths[@]}" -type d \( -name "venv" -o -name ".venv" -o -name "env" \) -maxdepth 4 -mtime +60 \
+    done < <(find "${search_paths[@]}" -maxdepth 4 -type d \( -name "venv" -o -name ".venv" -o -name "env" \) -mtime +60 \
         -not -path "*/Library/*" \
         -not -path "*/.Trash/*" \
         -not -path "*/node_modules/*" \
