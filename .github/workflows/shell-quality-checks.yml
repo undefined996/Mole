@@ -20,6 +20,19 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.24.6"
+          cache: true
+
+      - name: Cache Homebrew packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            /usr/local/Cellar/bats-core
+            /usr/local/Cellar/shfmt
+            /usr/local/Cellar/shellcheck
+          key: ${{ runner.os }}-brew-${{ hashFiles('.github/workflows/shell-quality-checks.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-brew-
 
       - name: Install shell linting and testing tools
         run: brew install bats-core shfmt shellcheck
@@ -28,10 +41,33 @@ jobs:
         run: ./scripts/format.sh
 
       - name: Run shellcheck linter and bats tests
-        run: ./scripts/check.sh
+        run: |
+          ./scripts/check.sh
+          echo "✓ All quality checks passed"
+
+      - name: Run all bats tests with summary
+        run: |
+          echo "Running all test suites..."
+          bats tests/*.bats --formatter tap
+          echo ""
+          echo "Test summary:"
+          echo "  Total test files: $(ls tests/*.bats | wc -l | tr -d ' ')"
+          echo "  Total tests: $(grep -c "^@test" tests/*.bats | awk -F: '{sum+=$2} END {print sum}')"
 
       - name: Build Universal Binary for disk analyzer
         run: ./scripts/build-analyze.sh
+
+      - name: Verify binary is valid
+        run: |
+          if [[ ! -x bin/analyze-go ]]; then
+            echo "Error: bin/analyze-go is not executable"
+            exit 1
+          fi
+          echo "Binary info:"
+          file bin/analyze-go
+          ls -lh bin/analyze-go
+          echo ""
+          echo "✓ Universal binary built successfully"
 
       - name: Commit analyzer binary if updated
         if: github.event_name != 'pull_request'
