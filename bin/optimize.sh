@@ -12,7 +12,6 @@ source "$SCRIPT_DIR/lib/optimize_health.sh"
 print_header() {
     echo ""
     echo -e "${PURPLE}Optimize Your Mac${NC}"
-    echo ""
 }
 
 show_system_health() {
@@ -26,8 +25,8 @@ show_system_health() {
     local disk_percent=$(echo "$health_json" | jq -r '.disk_used_percent')
     local uptime=$(echo "$health_json" | jq -r '.uptime_days')
 
-    # Compact one-line format
-    printf "System: %.0f/%.0f GB RAM | %.0f/%.0f GB Disk (%.0f%%) | Uptime %.0fd\n" \
+    # Compact one-line format with icon
+    printf "${ICON_ADMIN} System: %.0f/%.0f GB RAM | %.0f/%.0f GB Disk (%.0f%%) | Uptime %.0fd\n" \
         "$mem_used" "$mem_total" "$disk_used" "$disk_total" "$disk_percent" "$uptime"
     echo ""
 }
@@ -195,14 +194,6 @@ execute_optimization() {
             echo -e "${BLUE}${ICON_ARROW}${NC} Rebuilding Spotlight index..."
             sudo mdutil -E / > /dev/null 2>&1 || true
             echo -e "${GREEN}${ICON_SUCCESS}${NC} Spotlight index rebuilt"
-            ;;
-
-        startup_items)
-            echo -e "${BLUE}${ICON_ARROW}${NC} Opening Launch Agents directory..."
-            open ~/Library/LaunchAgents
-            open /Library/LaunchAgents
-            echo -e "${GREEN}${ICON_SUCCESS}${NC} Please review and disable unnecessary startup items"
-            echo -e "${GRAY}   Tip: Move unwanted .plist files to trash${NC}"
             ;;
 
         cache_refresh)
@@ -463,40 +454,8 @@ main() {
         exit 1
     fi
 
-    # Collect system health data using pure Bash implementation
-    local health_json
-    if ! health_json=$(generate_health_json 2> /dev/null); then
-        log_error "Failed to collect system health data"
-        exit 1
-    fi
-
-    # Show system health
-    show_system_health "$health_json"
-
-    # Parse and display optimizations
-    local -a safe_items=()
-    local -a confirm_items=()
-
-    while IFS= read -r opt_json; do
-        [[ -z "$opt_json" ]] && continue
-
-        local name=$(echo "$opt_json" | jq -r '.name')
-        local desc=$(echo "$opt_json" | jq -r '.description')
-        local action=$(echo "$opt_json" | jq -r '.action')
-        local path=$(echo "$opt_json" | jq -r '.path // ""')
-        local safe=$(echo "$opt_json" | jq -r '.safe')
-
-        local item="${name}|${desc}|${action}|${path}"
-
-        if [[ "$safe" == "true" ]]; then
-            safe_items+=("$item")
-        else
-            confirm_items+=("$item")
-        fi
-    done < <(parse_optimizations "$health_json")
-
-    # Simple confirmation with sudo context
-    echo -ne "${PURPLE}${ICON_ARROW}${NC} System optimizations need admin access — ${GREEN}Enter${NC} Touch ID/password, ${GRAY}ESC${NC} cancel: "
+    # Simple confirmation first
+    echo -ne "${PURPLE}${ICON_ARROW}${NC} Admin access required  ${GREEN}Enter${NC} confirm, ${GRAY}ESC${NC} cancel: "
 
     IFS= read -r -s -n1 key || key=""
     drain_pending_input # Clean up any escape sequence remnants
@@ -525,6 +484,39 @@ main() {
             exit 0
             ;;
     esac
+
+    # Collect system health data after confirmation
+    local health_json
+    if ! health_json=$(generate_health_json 2> /dev/null); then
+        echo ""
+        log_error "Failed to collect system health data"
+        exit 1
+    fi
+
+    # Show system health
+    show_system_health "$health_json"
+
+    # Parse and display optimizations
+    local -a safe_items=()
+    local -a confirm_items=()
+
+    while IFS= read -r opt_json; do
+        [[ -z "$opt_json" ]] && continue
+
+        local name=$(echo "$opt_json" | jq -r '.name')
+        local desc=$(echo "$opt_json" | jq -r '.description')
+        local action=$(echo "$opt_json" | jq -r '.action')
+        local path=$(echo "$opt_json" | jq -r '.path // ""')
+        local safe=$(echo "$opt_json" | jq -r '.safe')
+
+        local item="${name}|${desc}|${action}|${path}"
+
+        if [[ "$safe" == "true" ]]; then
+            safe_items+=("$item")
+        else
+            confirm_items+=("$item")
+        fi
+    done < <(parse_optimizations "$health_json")
 
     # Execute all optimizations
     local first_heading=true
