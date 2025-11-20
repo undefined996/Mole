@@ -356,7 +356,7 @@ paginated_multi_select() {
                 for ((i = 0; i < items_per_page + 2; i++)); do
                     printf "${clear_line}\n" >&2
                 done
-                printf "${clear_line}Type to filter  |  Delete  |  Enter  |  / Exit  |  ESC\n" >&2
+                printf "${clear_line}${GRAY}Type to filter  |  Delete  |  Enter  |  / Exit  |  ESC${NC}\n" >&2
                 printf "${clear_line}" >&2
                 return
             else
@@ -365,7 +365,7 @@ paginated_multi_select() {
                     for ((i = 0; i < items_per_page + 2; i++)); do
                         printf "${clear_line}\n" >&2
                     done
-                    printf "${clear_line}${ICON_NAV_UP}/${ICON_NAV_DOWN}  |  Space  |  Enter  |  / Filter  |  Q Exit\n" >&2
+                    printf "${clear_line}${GRAY}${ICON_NAV_UP}${ICON_NAV_DOWN}  |  Space  |  Enter  |  / Filter  |  Q Exit${NC}\n" >&2
                     printf "${clear_line}" >&2
                     return
                 else
@@ -374,7 +374,7 @@ paginated_multi_select() {
                     for ((i = 0; i < items_per_page + 2; i++)); do
                         printf "${clear_line}\n" >&2
                     done
-                    printf "${clear_line}${ICON_NAV_UP}/${ICON_NAV_DOWN}  |  Space  |  Enter  |  / Filter  |  Q Exit\n" >&2
+                    printf "${clear_line}${GRAY}${ICON_NAV_UP}${ICON_NAV_DOWN}  |  Space  |  Enter  |  / Filter  |  Q Exit${NC}\n" >&2
                     printf "${clear_line}" >&2
                     return
                 fi
@@ -431,15 +431,15 @@ paginated_multi_select() {
         fi
 
         # Footer: single line with controls
-        local sep="  |  "
+        local sep="  ${GRAY}|${NC}  "
         if [[ "$filter_mode" == "true" ]]; then
             # Filter mode: simple controls without sort
             local -a _segs_filter=(
-                "Filter: ${filter_status}"
-                "Delete"
-                "Enter"
-                "/ Exit"
-                "ESC"
+                "${GRAY}Filter: ${filter_status}${NC}"
+                "${GRAY}Delete${NC}"
+                "${GRAY}Enter${NC}"
+                "${GRAY}/ Exit${NC}"
+                "${GRAY}ESC${NC}"
             )
             _print_wrapped_controls "$sep" "${_segs_filter[@]}"
         else
@@ -455,34 +455,34 @@ paginated_multi_select() {
                 if [[ -n "$applied_query" ]]; then
                     # Filtering: hide sort controls
                     local -a _segs_all=(
-                        "${ICON_NAV_UP}/${ICON_NAV_DOWN}"
-                        "Space"
-                        "Enter"
-                        "${filter_text}"
-                        "Q Exit"
+                        "${GRAY}${ICON_NAV_UP}${ICON_NAV_DOWN}${NC}"
+                        "${GRAY}Space${NC}"
+                        "${GRAY}Enter${NC}"
+                        "${GRAY}${filter_text}${NC}"
+                        "${GRAY}Q Exit${NC}"
                     )
                     _print_wrapped_controls "$sep" "${_segs_all[@]}"
                 else
                     # Normal: show full controls
                     local -a _segs_all=(
-                        "${ICON_NAV_UP}/${ICON_NAV_DOWN}"
-                        "Space"
-                        "Enter"
-                        "${filter_text}"
-                        "S ${sort_status}"
-                        "R ${reverse_arrow}"
-                        "Q Exit"
+                        "${GRAY}${ICON_NAV_UP}${ICON_NAV_DOWN}${NC}"
+                        "${GRAY}Space${NC}"
+                        "${GRAY}Enter${NC}"
+                        "${GRAY}${filter_text}${NC}"
+                        "${GRAY}S ${sort_status}${NC}"
+                        "${GRAY}R ${reverse_arrow}${NC}"
+                        "${GRAY}Q Exit${NC}"
                     )
                     _print_wrapped_controls "$sep" "${_segs_all[@]}"
                 fi
             else
                 # Without metadata: basic controls
                 local -a _segs_simple=(
-                    "${ICON_NAV_UP}/${ICON_NAV_DOWN}"
-                    "Space"
-                    "Enter"
-                    "${filter_text}"
-                    "Q Exit"
+                    "${GRAY}${ICON_NAV_UP}${ICON_NAV_DOWN}${NC}"
+                    "${GRAY}Space${NC}"
+                    "${GRAY}Enter${NC}"
+                    "${GRAY}${filter_text}${NC}"
+                    "${GRAY}Q Exit${NC}"
                 )
                 _print_wrapped_controls "$sep" "${_segs_simple[@]}"
             fi

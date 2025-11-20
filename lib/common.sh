@@ -287,6 +287,7 @@ read_key() {
         ' ') echo "SPACE" ;;
         'q' | 'Q') echo "QUIT" ;;
         'h' | 'H') echo "HELP" ;;
+        'v' | 'V') echo "VERSION" ;;
         'R') echo "RETRY" ;;
         'o' | 'O') echo "OPEN" ;;
         '/') echo "FILTER" ;;

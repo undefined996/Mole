@@ -1042,15 +1042,15 @@ func (m model) View() string {
 
 	fmt.Fprintln(&b)
 	if m.inOverviewMode() {
-		fmt.Fprintf(&b, "%s↑/↓ Nav  |  Enter  |  O Open  |  F Reveal  |  Q Quit%s\n", colorGray, colorReset)
+		fmt.Fprintf(&b, "%s↑↓→  |  Enter  |  O Open  |  F Reveal  |  Q Quit%s\n", colorGray, colorReset)
 	} else if m.showLargeFiles {
-		fmt.Fprintf(&b, "%s↑/↓ Nav  |  O Open  |  F Reveal  |  ⌫ Delete  |  L Back  |  Q Quit%s\n", colorGray, colorReset)
+		fmt.Fprintf(&b, "%s↑↓  |  O Open  |  F Reveal  |  ⌫ Delete  |  L Back  |  Q Quit%s\n", colorGray, colorReset)
 	} else {
 		largeFileCount := len(m.largeFiles)
 		if largeFileCount > 0 {
-			fmt.Fprintf(&b, "%s↑/↓/←/→ Nav  |  Enter  |  O Open  |  F Reveal  |  ⌫ Delete  |  L Large(%d)  |  Q Quit%s\n", colorGray, largeFileCount, colorReset)
+			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  O Open  |  F Reveal  |  ⌫ Delete  |  L Large(%d)  |  Q Quit%s\n", colorGray, largeFileCount, colorReset)
 		} else {
-			fmt.Fprintf(&b, "%s↑/↓/←/→ Nav  |  Enter  |  O Open  |  F Reveal  |  ⌫ Delete  |  Q Quit%s\n", colorGray, colorReset)
+			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  O Open  |  F Reveal  |  ⌫ Delete  |  Q Quit%s\n", colorGray, colorReset)
 		}
 	}
 	if m.deleteConfirm && m.deleteTarget != nil {
