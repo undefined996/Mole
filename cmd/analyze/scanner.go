@@ -75,6 +75,27 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 	for _, child := range children {
 		fullPath := filepath.Join(root, child.Name())
 
+		// Skip symlinks to avoid following them into unexpected locations
+		// Use Type() instead of IsDir() to check without following symlinks
+		if child.Type()&fs.ModeSymlink != 0 {
+			// For symlinks, get their target info but mark them specially
+			info, err := child.Info()
+			if err != nil {
+				continue
+			}
+			size := getActualFileSize(fullPath, info)
+			atomic.AddInt64(&total, size)
+
+			entryChan <- dirEntry{
+				Name:       child.Name() + " →",  // Add arrow to indicate symlink
+				Path:       fullPath,
+				Size:       size,
+				IsDir:      false,  // Don't allow navigation into symlinks
+				LastAccess: getLastAccessTimeFromInfo(info),
+			}
+			continue
+		}
+
 		if child.IsDir() {
 			// In root directory, skip system directories completely
 			if isRootDir && skipSystemDirs[child.Name()] {
@@ -382,6 +403,20 @@ func calculateDirSizeConcurrent(root string, largeFileChan chan<- fileEntry, fil
 
 	for _, child := range children {
 		fullPath := filepath.Join(root, child.Name())
+
+		// Skip symlinks to avoid following them into unexpected locations
+		if child.Type()&fs.ModeSymlink != 0 {
+			// For symlinks, just count their size without following
+			info, err := child.Info()
+			if err != nil {
+				continue
+			}
+			size := getActualFileSize(fullPath, info)
+			total += size
+			atomic.AddInt64(filesScanned, 1)
+			atomic.AddInt64(bytesScanned, size)
+			continue
+		}
 
 		if child.IsDir() {
 			// Check if this is a folded directory
