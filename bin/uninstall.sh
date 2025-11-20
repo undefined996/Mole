@@ -381,8 +381,11 @@ load_applications() {
     apps_data=()
     selection_state=()
 
-    # Read apps into array
+    # Read apps into array, skip non-existent apps
     while IFS='|' read -r epoch app_path app_name bundle_id size last_used size_kb; do
+        # Skip if app path no longer exists
+        [[ ! -e "$app_path" ]] && continue
+
         apps_data+=("$epoch|$app_path|$app_name|$bundle_id|$size|$last_used|${size_kb:-0}")
         selection_state+=(false)
     done < "$apps_file"

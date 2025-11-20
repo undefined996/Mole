@@ -92,29 +92,6 @@ format_size_kb() {
     fi
 }
 
-# Check startup items count
-check_startup_items() {
-    local count=0
-    local dirs=(
-        "$HOME/Library/LaunchAgents"
-        "/Library/LaunchAgents"
-    )
-
-    for dir in "${dirs[@]}"; do
-        if [[ -d "$dir" ]]; then
-            local dir_count
-            dir_count=$(find "$dir" -maxdepth 1 -type f -name "*.plist" 2> /dev/null | wc -l)
-            count=$((count + dir_count))
-        fi
-    done
-
-    if [[ $count -gt 5 ]]; then
-        local suggested=$((count / 2))
-        [[ $suggested -lt 1 ]] && suggested=1
-        echo "startup_items|Startup Items|${count} items (suggest disable ${suggested})|false"
-    fi
-}
-
 # Check cache size
 check_cache_refresh() {
     local cache_dir="$HOME/Library/Caches"
@@ -240,8 +217,6 @@ EOF
 
     # Conditional items
     local item
-    item=$(check_startup_items || true)
-    [[ -n "$item" ]] && items+=("$item")
     item=$(check_cache_refresh || true)
     [[ -n "$item" ]] && items+=("$item")
     item=$(check_mail_downloads || true)

@@ -136,6 +136,7 @@ batch_uninstall_applications() {
     fi
     echo -ne "${PURPLE}${ICON_ARROW}${NC} ${removal_note}  ${GREEN}Enter${NC} confirm, ${GRAY}ESC${NC} cancel: "
 
+    drain_pending_input # Clean up any pending input before confirmation
     IFS= read -r -s -n1 key || key=""
     drain_pending_input # Clean up any escape sequence remnants
     case "$key" in
@@ -314,6 +315,12 @@ batch_uninstall_applications() {
         kill "$sudo_keepalive_pid" 2> /dev/null || true
         wait "$sudo_keepalive_pid" 2> /dev/null || true
         sudo_keepalive_pid=""
+    fi
+
+    # Invalidate cache if any apps were successfully uninstalled
+    if [[ $success_count -gt 0 ]]; then
+        local cache_file="$HOME/.cache/mole/app_scan_cache"
+        rm -f "$cache_file" 2> /dev/null || true
     fi
 
     ((total_size_cleaned += total_size_freed))
