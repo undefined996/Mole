@@ -399,6 +399,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				// Refresh the view
 				m.scanning = true
+				// Reset scan counters for rescan
+				atomic.StoreInt64(m.filesScanned, 0)
+				atomic.StoreInt64(m.dirsScanned, 0)
+				atomic.StoreInt64(m.bytesScanned, 0)
+				if m.currentPath != nil {
+					*m.currentPath = ""
+				}
 				return m, tea.Batch(m.scanCmd(m.path), tickCmd())
 			}
 		}
@@ -614,6 +621,13 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "r":
 		m.status = "Refreshing..."
 		m.scanning = true
+		// Reset scan counters for refresh
+		atomic.StoreInt64(m.filesScanned, 0)
+		atomic.StoreInt64(m.dirsScanned, 0)
+		atomic.StoreInt64(m.bytesScanned, 0)
+		if m.currentPath != nil {
+			*m.currentPath = ""
+		}
 		return m, tea.Batch(m.scanCmd(m.path), tickCmd())
 	case "l":
 		m.showLargeFiles = !m.showLargeFiles
