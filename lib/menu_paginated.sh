@@ -493,8 +493,6 @@ paginated_multi_select() {
     # Main interaction loop
     while true; do
         draw_menu
-        # Drain any pending input to prevent mouse wheel scroll issues
-        drain_pending_input
         local key
         key=$(read_key)
 
@@ -698,6 +696,10 @@ paginated_multi_select() {
                 # Removed help screen, users can explore the interface
                 ;;
         esac
+
+        # Drain any accumulated input after processing (e.g., mouse wheel events)
+        # This prevents buffered events from causing jumps, without blocking keyboard input
+        drain_pending_input
     done
 }
 

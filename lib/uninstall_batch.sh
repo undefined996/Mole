@@ -60,7 +60,6 @@ batch_uninstall_applications() {
     local -a app_details=()
     local -a dock_cleanup_paths=()
 
-    echo ""
     # Silent analysis without spinner output (avoid visual flicker)
     for selected_app in "${selected_apps[@]}"; do
         [[ -z "$selected_app" ]] && continue
@@ -94,6 +93,7 @@ batch_uninstall_applications() {
     local size_display=$(bytes_to_human "$((total_estimated_size * 1024))")
 
     # Display detailed file list for each app before confirmation
+    echo ""
     echo -e "${PURPLE}Files to be removed:${NC}"
     echo ""
     for detail in "${app_details[@]}"; do

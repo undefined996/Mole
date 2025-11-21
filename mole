@@ -559,9 +559,6 @@ interactive_main_menu() {
             first_draw=false
         fi
 
-        # Drain any pending input to prevent touchpad scroll issues
-        drain_pending_input
-
         local key
         if ! key=$(read_key); then
             continue
@@ -609,6 +606,9 @@ interactive_main_menu() {
                 ;;
             "QUIT") cleanup_and_exit ;;
         esac
+
+        # Drain any accumulated input after processing (e.g., touchpad scroll events)
+        drain_pending_input
     done
 }
 
