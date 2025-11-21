@@ -18,13 +18,11 @@
 
 ## Features
 
-1. Mole bundles the power of CleanMyMac + AppCleaner + DaisyDisk + Sensei + iStat into one trusted open-source binary.
-2. Fast terminal UI with arrow keys, pagination, and Touch ID approvals keeps every workflow lightweight and safe.
-3. `mo clean` digs into caches, temp files, orphaned leftovers, and browser cruft to free tens of gigabytes.
-4. `mo uninstall` removes apps plus launch agents, preference panes, and config debris spread across 20+ locations.
-5. `mo optimize` rebuilds caches, trims swap, refreshes services, and tidies login items for instant stability.
-6. `mo analyze` visualizes disk usage so you can drill into folders and pinpoint the giant files worth deleting.
-7. `mo status` streams live disk, battery, network, process, and proxy stats to show your Mac’s real-time health.
+1. All-in-one maintenance toolkit roughly equal to CleanMyMac + AppCleaner + DaisyDisk + Sensei + iStat in one trusted binary.
+2. Deep system cleanup digs through caches, temp files, browser leftovers, and other junk to reclaim tens of gigabytes quickly.
+3. Smart uninstall hunts down app bundles plus their launch agents, preference panes, caches, logs, and hidden debris.
+4. Disk insight and optimization reveal storage hogs, visualize folder sizes, rebuild caches, trim swap, and refresh core services.
+5. Live system status surfaces CPU, GPU, memory, disk, network, battery, and proxy telemetry so you always know Mac health.
 
 ## Quick Start
 
@@ -44,13 +42,13 @@ brew install tw93/tap/mole
 
 ```bash
 mo                      # Interactive menu
-mo clean                # System cleanup
-mo clean --dry-run      # Preview mode
-mo clean --whitelist    # Manage protected caches
-mo uninstall            # Uninstall apps
-mo optimize             # System optimization
-mo analyze              # Disk analyzer
-mo status               # Live system status dashboard
+mo clean                # Deep cleanup
+mo clean --dry-run      # Preview cleanup plan
+mo clean --whitelist    # Adjust protected caches
+mo uninstall            # Remove apps + leftovers
+mo optimize             # Refresh caches & services
+mo analyze              # Visual disk explorer
+mo status               # Live system health dashboard
 
 mo touchid              # Configure Touch ID for sudo
 mo update               # Update Mole
