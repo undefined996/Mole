@@ -7,8 +7,8 @@ const (
 	maxLargeFiles         = 30
 	barWidth              = 24
 	minLargeFileSize      = 100 << 20 // 100 MB
-	entryViewport         = 10
-	largeViewport         = 10
+	entryViewport         = 12
+	largeViewport         = 12
 	overviewCacheTTL      = 7 * 24 * time.Hour // 7 days
 	overviewCacheFile     = "overview_sizes.json"
 	duTimeout             = 60 * time.Second // Increased for large directories

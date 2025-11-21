@@ -137,6 +137,9 @@ func main() {
 		isOverview = false
 	}
 
+	// Prefetch overview cache in background (non-blocking)
+	go prefetchOverviewCache()
+
 	p := tea.NewProgram(newModel(abs, isOverview), tea.WithAltScreen())
 	if err := p.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "analyzer error: %v\n", err)
@@ -848,7 +851,7 @@ func (m model) View() string {
 			currentPath := *m.currentPath
 			if currentPath != "" {
 				shortPath := displayPath(currentPath)
-				shortPath = truncateMiddle(shortPath, 60)
+				shortPath = truncateMiddle(shortPath, 50)
 				fmt.Fprintf(&b, "%s%s%s\n", colorGray, shortPath, colorReset)
 			}
 		}
@@ -957,22 +960,29 @@ func (m model) View() string {
 					}
 					displayIndex := idx + 1
 
-					// Add unused time label if applicable
-					// For overview mode, get access time on-demand if not set
-					lastAccess := entry.LastAccess
-					if lastAccess.IsZero() && entry.Path != "" {
-						lastAccess = getLastAccessTime(entry.Path)
+					// Priority: cleanable > unused time
+					var hintLabel string
+					if entry.IsDir && isCleanableDir(entry.Path) {
+						hintLabel = fmt.Sprintf("%s🧹%s", colorYellow, colorReset)
+					} else {
+						// For overview mode, get access time on-demand if not set
+						lastAccess := entry.LastAccess
+						if lastAccess.IsZero() && entry.Path != "" {
+							lastAccess = getLastAccessTime(entry.Path)
+						}
+						if unusedTime := formatUnusedTime(lastAccess); unusedTime != "" {
+							hintLabel = fmt.Sprintf("%s%s%s", colorGray, unusedTime, colorReset)
+						}
 					}
-					unusedLabel := formatUnusedTime(lastAccess)
-					if unusedLabel == "" {
+
+					if hintLabel == "" {
 						fmt.Fprintf(&b, "%s%s%2d.%s %s %s%s%s  |  %s %s%10s%s\n",
 							entryPrefix, numColor, displayIndex, colorReset, bar, percentColor, percentStr, colorReset,
 							nameSegment, sizeColor, sizeText, colorReset)
 					} else {
-						fmt.Fprintf(&b, "%s%s%2d.%s %s %s%s%s  |  %s %s%10s%s  %s%s%s\n",
+						fmt.Fprintf(&b, "%s%s%2d.%s %s %s%s%s  |  %s %s%10s%s  %s\n",
 							entryPrefix, numColor, displayIndex, colorReset, bar, percentColor, percentStr, colorReset,
-							nameSegment, sizeColor, sizeText, colorReset,
-							colorGray, unusedLabel, colorReset)
+							nameSegment, sizeColor, sizeText, colorReset, hintLabel)
 					}
 				}
 			} else {
@@ -1037,17 +1047,29 @@ func (m model) View() string {
 
 					displayIndex := idx + 1
 
-					// Add unused time label if applicable
-					unusedLabel := formatUnusedTime(entry.LastAccess)
-					if unusedLabel == "" {
+					// Priority: cleanable > unused time
+					var hintLabel string
+					if entry.IsDir && isCleanableDir(entry.Path) {
+						hintLabel = fmt.Sprintf("%s🧹%s", colorYellow, colorReset)
+					} else {
+						// Get access time on-demand if not set
+						lastAccess := entry.LastAccess
+						if lastAccess.IsZero() && entry.Path != "" {
+							lastAccess = getLastAccessTime(entry.Path)
+						}
+						if unusedTime := formatUnusedTime(lastAccess); unusedTime != "" {
+							hintLabel = fmt.Sprintf("%s%s%s", colorGray, unusedTime, colorReset)
+						}
+					}
+
+					if hintLabel == "" {
 						fmt.Fprintf(&b, "%s%s%2d.%s %s %s%s%s  |  %s %s%10s%s\n",
 							entryPrefix, numColor, displayIndex, colorReset, bar, percentColor, percentStr, colorReset,
 							nameSegment, sizeColor, size, colorReset)
 					} else {
-						fmt.Fprintf(&b, "%s%s%2d.%s %s %s%s%s  |  %s %s%10s%s  %s%s%s\n",
+						fmt.Fprintf(&b, "%s%s%2d.%s %s %s%s%s  |  %s %s%10s%s  %s\n",
 							entryPrefix, numColor, displayIndex, colorReset, bar, percentColor, percentStr, colorReset,
-							nameSegment, sizeColor, size, colorReset,
-							colorGray, unusedLabel, colorReset)
+							nameSegment, sizeColor, size, colorReset, hintLabel)
 					}
 				}
 			}
@@ -1069,7 +1091,7 @@ func (m model) View() string {
 	}
 	if m.deleteConfirm && m.deleteTarget != nil {
 		fmt.Fprintln(&b)
-		fmt.Fprintf(&b, "%sDelete:%s %s (%s)  %sConfirm: Delete  |  Cancel: ESC%s\n",
+		fmt.Fprintf(&b, "%sDelete:%s %s (%s)  %sPress ⌫ again  |  ESC cancel%s\n",
 			colorRed, colorReset,
 			m.deleteTarget.Name, humanizeBytes(m.deleteTarget.Size),
 			colorGray, colorReset)
@@ -1204,22 +1226,3 @@ func scanOverviewPathCmd(path string, index int) tea.Cmd {
 		}
 	}
 }
-
-// deletePathCmd deletes a path recursively with progress tracking
-
-// measureOverviewSize calculates the size of a directory using multiple strategies:
-// 1. Check JSON cache (fast)
-// 2. Try du command (fast and accurate)
-// 3. Walk the directory to get logical size (accurate but slower)
-// 4. Check gob cache (fallback)
-
-// getDirectorySizeFromMetadata attempts to retrieve directory size using macOS Spotlight metadata.
-// This is much faster than filesystem traversal but may not be available for all directories.
-
-// getDirectorySizeFromDu calculates directory size using the du command.
-// Uses -s to summarize total size including all subdirectories.
-
-// getDirectoryLogicalSize walks the directory tree and sums file sizes to estimate
-// the logical (Finder-style) usage.
-
-// Persistent cache functions
