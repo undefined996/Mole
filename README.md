@@ -1,6 +1,6 @@
 <div align="center">
   <h1>Mole</h1>
-  <p><em>Dig deep like a mole to clean your Mac.</em></p>
+  <p><em>Dig deep like a mole to optimize your Mac.</em></p>
 </div>
 
 <p align="center">
@@ -18,13 +18,13 @@
 
 ## Features
 
-- All-in-one toolkit that roughly equals CleanMyMac + AppCleaner + DaisyDisk + Sensei + iStat in a single open-source binary.
-- `mo clean` digs through caches, temporary files, orphaned leftovers, and browser cruft to reclaim tens of gigabytes on first run.
-- `mo uninstall` wipes an app plus its launch agents, preference panes, caches, and registration files so nothing lingers in 20+ locations.
-- `mo optimize` refreshes services, rebuilds caches, trims swap, and checks login items for a one-tap performance tune-up.
-- `mo analyze` visualizes disk usage so you can drill down into folders and spot giant files that pair nicely with the cleanup flow.
-- `mo status` surfaces live disk, battery, network, process, and proxy data so you know how healthy your Mac is before and after maintenance.
-- **Fast & Lightweight** - Terminal-based with arrow-key navigation, pagination, and Touch ID support.
+1. Mole bundles the power of CleanMyMac + AppCleaner + DaisyDisk + Sensei + iStat into one trusted open-source binary.
+2. Fast terminal UI with arrow keys, pagination, and Touch ID approvals keeps every workflow lightweight and safe.
+3. `mo clean` digs into caches, temp files, orphaned leftovers, and browser cruft to free tens of gigabytes.
+4. `mo uninstall` removes apps plus launch agents, preference panes, and config debris spread across 20+ locations.
+5. `mo optimize` rebuilds caches, trims swap, refreshes services, and tidies login items for instant stability.
+6. `mo analyze` visualizes disk usage so you can drill into folders and pinpoint the giant files worth deleting.
+7. `mo status` streams live disk, battery, network, process, and proxy stats to show your Mac’s real-time health.
 
 ## Quick Start
 
