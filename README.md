@@ -19,10 +19,10 @@
 ## Features
 
 1. All-in-one toolkit equal to CleanMyMac + AppCleaner + DaisyDisk + Sensei + iStat in one trusted binary.
-2. Deep cleanup digs through caches, temp files, browser leftovers, and junk to reclaim tens of gigabytes quickly.
+2. Deep cleanup digs through caches, temp files, browser leftovers, and junk to reclaim tens of gigabytes.
 3. Smart uninstall hunts down app bundles plus launch agents, preference panes, caches, logs, and debris.
 4. Disk insight + optimization reveal storage hogs, visualize folders, rebuild caches, trim swap, refresh services.
-5. Live status surfaces CPU, GPU, memory, disk, network, battery, and proxy telemetry so you always know health.
+5. Live status surfaces CPU, GPU, memory, disk, network, battery, and proxy telemetry so you always know status.
 
 ## Quick Start
 
