@@ -24,7 +24,7 @@ paginated_multi_select() {
     fi
 
     local total_items=${#items[@]}
-    local items_per_page=15
+    local items_per_page=12
     local cursor_pos=0
     local top_index=0
     local -a selected=()
