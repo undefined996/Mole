@@ -287,3 +287,32 @@ func removeOverviewSnapshot(path string) {
 		_ = persistOverviewSnapshotLocked()
 	}
 }
+
+// prefetchOverviewCache scans overview directories in background
+// to populate cache for faster overview mode access
+func prefetchOverviewCache() {
+	entries := createOverviewEntries()
+
+	// Check which entries need refresh
+	var needScan []string
+	for _, entry := range entries {
+		// Skip if we have fresh cache
+		if size, err := loadStoredOverviewSize(entry.Path); err == nil && size > 0 {
+			continue
+		}
+		needScan = append(needScan, entry.Path)
+	}
+
+	// Nothing to scan
+	if len(needScan) == 0 {
+		return
+	}
+
+	// Scan and cache in background
+	for _, path := range needScan {
+		size, err := measureOverviewSize(path)
+		if err == nil && size > 0 {
+			_ = storeOverviewSize(path, size)
+		}
+	}
+}
