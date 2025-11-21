@@ -10,8 +10,9 @@ source "$SCRIPT_DIR/lib/optimize_health.sh"
 # Colors and icons from common.sh
 
 print_header() {
-    echo ""
+    printf '\n'
     echo -e "${PURPLE}Optimize Your Mac${NC}"
+    echo ""
 }
 
 show_system_health() {

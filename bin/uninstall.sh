@@ -690,19 +690,24 @@ main() {
             unset MOLE_ALT_SCREEN_ACTIVE
             unset MOLE_INLINE_LOADING MOLE_MANAGED_ALT_SCREEN
         fi
+        show_cursor
+        clear_screen
+        printf '\033[2J\033[H' >&2  # Also clear stderr
         rm -f "$apps_file"
         return 0
     fi
 
+    # Always clear on exit from selection, regardless of alt screen state
     if [[ "${MOLE_ALT_SCREEN_ACTIVE:-}" == "1" ]]; then
         leave_alt_screen
         unset MOLE_ALT_SCREEN_ACTIVE
         unset MOLE_INLINE_LOADING MOLE_MANAGED_ALT_SCREEN
     fi
 
-    # Restore cursor and show a concise summary before confirmation
+    # Restore cursor and clear screen (output to both stdout and stderr for reliability)
     show_cursor
-    clear
+    clear_screen
+    printf '\033[2J\033[H' >&2  # Also clear stderr in case of mixed output
     local selection_count=${#selected_apps[@]}
     if [[ $selection_count -eq 0 ]]; then
         echo "No apps selected"
@@ -717,7 +722,7 @@ main() {
     local name_trunc_limit=30
 
     for selected_app in "${selected_apps[@]}"; do
-        IFS='|' read -r epoch app_path app_name bundle_id size last_used <<< "$selected_app"
+        IFS='|' read -r epoch app_path app_name bundle_id size last_used size_kb <<< "$selected_app"
 
         local display_name="$app_name"
         if [[ ${#display_name} -gt $name_trunc_limit ]]; then
@@ -743,10 +748,9 @@ main() {
     local index=1
     for row in "${summary_rows[@]}"; do
         IFS='|' read -r name_cell size_cell last_cell <<< "$row"
-        printf "  %2d. %-*s  %*s  |  Last: %s\n" "$index" "$max_name_width" "$name_cell" "$max_size_width" "$size_cell" "$last_cell"
+        printf "%d. %-*s  %*s  |  Last: %s\n" "$index" "$max_name_width" "$name_cell" "$max_size_width" "$size_cell" "$last_cell"
         ((index++))
     done
-    echo ""
 
     # Execute batch uninstallation (handles confirmation)
     batch_uninstall_applications

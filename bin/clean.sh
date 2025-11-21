@@ -486,14 +486,13 @@ start_cleanup() {
     clear
     printf '\n'
     echo -e "${PURPLE}Clean Your Mac${NC}"
+    echo ""
 
     if [[ "$DRY_RUN" != "true" && -t 0 ]]; then
-        echo ""
         echo -e "${YELLOW}☻${NC} First time? Run ${GRAY}mo clean --dry-run${NC} first to preview changes"
     fi
 
     if [[ "$DRY_RUN" == "true" ]]; then
-        echo ""
         echo -e "${YELLOW}Dry Run Mode${NC} - Preview only, no deletions"
         echo ""
         SYSTEM_CLEAN=false
@@ -501,7 +500,6 @@ start_cleanup() {
     fi
 
     if [[ -t 0 ]]; then
-        echo ""
         echo -ne "${PURPLE}${ICON_ARROW}${NC} System caches need sudo — ${GREEN}Enter${NC} continue, ${GRAY}Space${NC} skip: "
 
         # Use read_key to properly handle all key inputs
