@@ -44,3 +44,5 @@ copilot-instructions.md
 
 # Go build artifacts
 cmd/analyze/analyze
+cmd/status/status
+/status

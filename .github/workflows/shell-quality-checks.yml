@@ -57,15 +57,24 @@ jobs:
       - name: Build Universal Binary for disk analyzer
         run: ./scripts/build-analyze.sh
 
+      - name: Build Universal Binary for system status
+        run: ./scripts/build-status.sh
+
       - name: Verify binary is valid
         run: |
           if [[ ! -x bin/analyze-go ]]; then
             echo "Error: bin/analyze-go is not executable"
             exit 1
           fi
+          if [[ ! -x bin/status-go ]]; then
+            echo "Error: bin/status-go is not executable"
+            exit 1
+          fi
           echo "Binary info:"
           file bin/analyze-go
           ls -lh bin/analyze-go
+          file bin/status-go
+          ls -lh bin/status-go
           echo ""
           echo "✓ Universal binary built successfully"
 
@@ -74,11 +83,19 @@ jobs:
         run: |
           if git diff --quiet -- bin/analyze-go; then
             echo "bin/analyze-go unchanged; nothing to commit."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add bin/analyze-go
+            git commit -m "chore: update analyzer binary"
+            git push origin HEAD:${GITHUB_REF#refs/heads/}
+          fi
+          if git diff --quiet -- bin/status-go; then
+            echo "bin/status-go unchanged; nothing to commit."
             exit 0
           fi
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add bin/analyze-go
-          git commit -m "chore: update analyzer binary"
+          git add bin/status-go
+          git commit -m "chore: update status binary"
           git push origin HEAD:${GITHUB_REF#refs/heads/}
