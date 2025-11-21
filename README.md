@@ -14,17 +14,17 @@
 
 <p align="center">
   <img src="https://cdn.tw93.fun/img/mole.jpeg" alt="Mole - 95.50GB freed" width="800" />
-  <p align="center">由于 Mole 还在中级版本，如果这台 Mac 对你非常重要，建议再等等。</p>
 </p>
 
 ## Features
 
-- **Deep System Cleanup** - Cleans way more junk than CleanMyMac/Lemon - caches, logs, temp files
-- **Thorough Uninstall** - Scans 22+ locations to remove app leftovers, not just the .app file
-- **System Optimization** - Rebuilds caches, resets services, and trims swap/network cruft with one run
-- **Interactive Disk Analyzer** - Navigate folders with arrow keys, find and delete large files quickly
-- **System Status Dashboard** - Real-time health score with live CPU/GPU/Memory/Disk/Network/Battery metrics
-- **Fast & Lightweight** - Terminal-based with arrow-key navigation, pagination, and Touch ID support
+- All-in-one toolkit that roughly equals CleanMyMac + AppCleaner + DaisyDisk + Sensei + iStat in a single open-source binary.
+- `mo clean` digs through caches, temporary files, orphaned leftovers, and browser cruft to reclaim tens of gigabytes on first run.
+- `mo uninstall` wipes an app plus its launch agents, preference panes, caches, and registration files so nothing lingers in 20+ locations.
+- `mo optimize` refreshes services, rebuilds caches, trims swap, and checks login items for a one-tap performance tune-up.
+- `mo analyze` visualizes disk usage so you can drill down into folders and spot giant files that pair nicely with the cleanup flow.
+- `mo status` surfaces live disk, battery, network, process, and proxy data so you know how healthy your Mac is before and after maintenance.
+- **Fast & Lightweight** - Terminal-based with arrow-key navigation, pagination, and Touch ID support.
 
 ## Quick Start
 
