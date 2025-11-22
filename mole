@@ -25,6 +25,12 @@ source "$SCRIPT_DIR/lib/common.sh"
 VERSION="1.10.1"
 MOLE_TAGLINE="can dig deep to clean your Mac."
 
+# Check if Touch ID is already configured
+is_touchid_configured() {
+    local pam_sudo_file="/etc/pam.d/sudo"
+    [[ -f "$pam_sudo_file" ]] && grep -q "pam_tid.so" "$pam_sudo_file" 2> /dev/null
+}
+
 # Get latest version from remote repository
 get_latest_version() {
     curl -fsSL --connect-timeout 2 --max-time 3 -H "Cache-Control: no-cache" \
@@ -508,7 +514,15 @@ show_main_menu() {
 
     if [[ -t 0 ]]; then
         printf '\r\033[2K\n'
-        printf '\r\033[2K%s\n' "${GRAY}↑↓  |  Enter  |  H Help  |  V Version  |  Q Quit${NC}"
+        # Show TouchID if not configured, otherwise show Update
+        local controls="${GRAY}↑↓  |  Enter  |  H Help  |  "
+        if ! is_touchid_configured; then
+            controls="${controls}T TouchID"
+        else
+            controls="${controls}U Update"
+        fi
+        controls="${controls}  |  Q Quit${NC}"
+        printf '\r\033[2K%s\n' "$controls"
         printf '\r\033[2K\n'
     fi
 
@@ -609,6 +623,16 @@ interactive_main_menu() {
                 show_cursor
                 clear
                 show_version
+                exit 0
+                ;;
+            "TOUCHID")
+                show_cursor
+                exec "$SCRIPT_DIR/bin/touchid.sh"
+                ;;
+            "UPDATE")
+                show_cursor
+                clear
+                update_mole
                 exit 0
                 ;;
             "QUIT") cleanup_and_exit ;;

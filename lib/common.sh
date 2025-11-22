@@ -288,6 +288,8 @@ read_key() {
         'q' | 'Q') echo "QUIT" ;;
         'h' | 'H') echo "HELP" ;;
         'v' | 'V') echo "VERSION" ;;
+        't' | 'T') echo "TOUCHID" ;;
+        'u' | 'U') echo "UPDATE" ;;
         'R') echo "RETRY" ;;
         'o' | 'O') echo "OPEN" ;;
         '/') echo "FILTER" ;;
