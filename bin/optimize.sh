@@ -272,21 +272,16 @@ execute_optimization() {
             echo -e "${BLUE}${ICON_ARROW}${NC} Clearing recent items lists..."
             local shared_dir="$HOME/Library/Application Support/com.apple.sharedfilelist"
             if [[ -d "$shared_dir" ]]; then
-                # Count files first, then delete (safer than -print -delete)
-                local removed
-                removed=$(find "$shared_dir" -name "*.sfl2" -type f 2> /dev/null | wc -l | tr -d ' ')
+                # Delete shared file lists
                 find "$shared_dir" -name "*.sfl2" -type f -delete 2> /dev/null || true
-                echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Reset $removed shared file lists"
-            else
-                echo -e "  ${GRAY}-${NC} Recent item caches already clean"
+                echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Shared file lists cleared"
             fi
 
+            # Clear recent items preferences
             rm -f "$HOME/Library/Preferences/com.apple.recentitems.plist" 2> /dev/null || true
-            # Check if key exists before trying to delete
-            if defaults read NSGlobalDomain NSRecentDocumentsLimit > /dev/null 2>&1; then
-                defaults delete NSGlobalDomain NSRecentDocumentsLimit 2> /dev/null || true
-            fi
-            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Finder/Apple menu recent items cleared"
+            defaults delete NSGlobalDomain NSRecentDocumentsLimit 2> /dev/null || true
+
+            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Recent items cleared"
             ;;
 
         radio_refresh)
