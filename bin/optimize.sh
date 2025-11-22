@@ -283,7 +283,7 @@ execute_optimization() {
 
             rm -f "$HOME/Library/Preferences/com.apple.recentitems.plist" 2> /dev/null || true
             # Check if key exists before trying to delete
-            if defaults read NSGlobalDomain NSRecentDocumentsLimit &> /dev/null; then
+            if defaults read NSGlobalDomain NSRecentDocumentsLimit > /dev/null 2>&1; then
                 defaults delete NSGlobalDomain NSRecentDocumentsLimit 2> /dev/null || true
             fi
             echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Finder/Apple menu recent items cleared"
