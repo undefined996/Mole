@@ -27,7 +27,7 @@ show_system_health() {
     local uptime=$(echo "$health_json" | jq -r '.uptime_days')
 
     # Compact one-line format with icon
-    printf "${ICON_ADMIN} System: %.0f/%.0f GB RAM | %.0f/%.0f GB Disk (%.0f%%) | Uptime %.0fd\n" \
+    printf "${ICON_ADMIN} System  %.0f/%.0f GB RAM | %.0f/%.0f GB Disk (%.0f%%) | Uptime %.0fd\n" \
         "$mem_used" "$mem_total" "$disk_used" "$disk_total" "$disk_percent" "$uptime"
     echo ""
 }
@@ -451,17 +451,19 @@ main() {
 
     # Check dependencies
     if ! command -v jq > /dev/null 2>&1; then
-        log_error "jq is required but not installed. Install with: brew install jq"
+        echo -e "${RED}${ICON_ERROR}${NC} Missing dependency: jq"
+        echo -e "${GRAY}Install with: ${GREEN}brew install jq${NC}"
         exit 1
     fi
 
     if ! command -v bc > /dev/null 2>&1; then
-        log_error "bc is required but not installed. Install with: brew install bc"
+        echo -e "${RED}${ICON_ERROR}${NC} Missing dependency: bc"
+        echo -e "${GRAY}Install with: ${GREEN}brew install bc${NC}"
         exit 1
     fi
 
     # Simple confirmation first
-    echo -ne "${PURPLE}${ICON_ARROW}${NC} Admin access required  ${GREEN}Enter${NC} confirm, ${GRAY}ESC${NC} cancel: "
+    echo -ne "${PURPLE}${ICON_ARROW}${NC} System optimization needs admin access  ${GREEN}Enter${NC} continue / ${GRAY}ESC${NC} cancel: "
 
     IFS= read -r -s -n1 key || key=""
     drain_pending_input # Clean up any escape sequence remnants
@@ -554,7 +556,7 @@ main() {
     if ((${#login_items_list[@]} > 0)); then
         local display_count=${#login_items_list[@]}
         echo ""
-        echo -e "${BLUE}${ICON_ARROW}${NC} Login items (${display_count}) auto-start at login:"
+        echo -e "${BLUE}${ICON_ARROW}${NC} Found ${display_count} items that auto-start at login:"
         local preview_limit=5
         ((preview_limit > display_count)) && preview_limit=$display_count
         for ((i = 0; i < preview_limit; i++)); do
@@ -564,27 +566,27 @@ main() {
             local remaining=$((display_count - preview_limit))
             echo "    • …and $remaining more"
         fi
-        echo -e "${GRAY}Review System Settings → General → Login Items to trim extras.${NC}"
+        echo -e "${GRAY}Review in System Settings → Login Items to remove unnecessary ones${NC}"
     fi
 
     echo ""
-    local summary_title="System optimization completed"
+    local summary_title="System optimization complete"
     local -a summary_details=()
 
     local safe_count=${#safe_items[@]}
     local confirm_count=${#confirm_items[@]}
     if ((safe_count > 0)); then
-        summary_details+=("Automations: ${GREEN}${safe_count}${NC} sections optimized end-to-end.")
+        summary_details+=("Applied ${GREEN}${safe_count}${NC} optimizations")
     else
-        summary_details+=("Automations: No automated changes were necessary.")
+        summary_details+=("System already optimized")
     fi
 
     if ((confirm_count > 0)); then
-        summary_details+=("Follow-ups: ${YELLOW}${confirm_count}${NC} manual checks suggested (see log).")
+        summary_details+=("${YELLOW}${confirm_count}${NC} manual checks suggested")
     fi
 
-    summary_details+=("Highlights: caches refreshed, services restarted, startup assets rebuilt.")
-    summary_details+=("Result: system responsiveness should feel lighter.")
+    summary_details+=("Caches cleared, databases rebuilt, services refreshed")
+    summary_details+=("System should feel faster and more responsive")
 
     local show_touchid_tip="false"
     if touchid_supported && ! touchid_configured; then
