@@ -169,7 +169,7 @@ Write  ▮▮▮▯▯  18.3 MB/s                    58°C · 1200 RPM
 ⇅ Network ───────────────────            ▶ Processes ───────────────────
 Down   ▮▮▯▯▯  3.2 MB/s                     Code      ▮▮▮▮▯  42.1%
 Up     ▮▯▯▯▯  0.8 MB/s                     Chrome    ▮▮▮▯▯  28.3%
-Proxy: HTTP · 192.168.1.100               Terminal  ▮▯▯▯▯  12.5%
+Proxy: HTTP · 192.168.1.100                Terminal  ▮▯▯▯▯  12.5%
 ```
 
 Health score is calculated from CPU usage, memory pressure, disk space, temperature, and I/O load. Color-coded: 90-100 green, 75-89 light green, 60-74 yellow, 40-59 orange, 0-39 red.
