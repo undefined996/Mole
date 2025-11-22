@@ -917,8 +917,8 @@ perform_cleanup() {
             brew_tmp_file=$(create_temp_file)
 
             # Run brew cleanup in background with manual timeout
-            # Deep clean with -s --prune=all (default 2 minutes, configurable via MO_BREW_TIMEOUT)
-            (brew cleanup -s --prune=all > "$brew_tmp_file" 2>&1) &
+            # Clean old versions with --prune=all (default 2 minutes, configurable via MO_BREW_TIMEOUT)
+            (brew cleanup --prune=all > "$brew_tmp_file" 2>&1) &
             local brew_pid=$!
             local elapsed=0
 
