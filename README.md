@@ -19,10 +19,10 @@
 ## Features
 
 1. All-in-one toolkit equal to CleanMyMac + AppCleaner + DaisyDisk + Sensei + iStat in one trusted binary.
-2. Deep cleanup digs through caches, temp files, browser leftovers, and junk to reclaim tens of gigabytes.
-3. Smart uninstall hunts down app bundles plus launch agents, preference panes, caches, logs, and debris.
-4. Disk insight + optimization reveal storage hogs, visualize folders, rebuild caches, trim swap, refresh services.
-5. Live status surfaces CPU, GPU, memory, disk, network, battery, and proxy telemetry so you spot bottlenecks.
+2. Deep cleanup finds and removes caches, temp files, browser leftovers, and junk to free up tens of gigabytes.
+3. Smart uninstall finds app bundles plus launch agents, settings, caches, logs, and leftover files.
+4. Disk insight + optimization show large files, display folders, rebuild caches, clean swap, refresh services.
+5. Live status shows CPU, GPU, memory, disk, network, battery, and proxy data so you can find problems.
 
 ## Quick Start
 
@@ -60,8 +60,8 @@ mo --version            # Show installed version
 
 ## Tips
 
-- Safety first, if your Mac is mission-critical, wait for Mole to mature before full cleanups.
-- Preview the cleanup by running `mo clean --dry-run` and reviewing the generated list.
+- Safety first, if your Mac is very important, wait for Mole to become stable before full cleanups.
+- Preview the cleanup by running `mo clean --dry-run` and reviewing the list.
 - Use `mo clean --whitelist` to manage protected caches.
 - Use `mo touchid` to approve sudo with Touch ID instead of typing your password.
 
@@ -117,11 +117,11 @@ $ mo optimize
 
 System: 5/32 GB RAM | 333/460 GB Disk (72%) | Uptime 6d
 
-  ✓ Rebuild system databases and flush caches
+  ✓ Rebuild system databases and clear caches
   ✓ Reset network services
   ✓ Refresh Finder and Dock
   ✓ Clean diagnostic and crash logs
-  ✓ Purge swap files and restart dynamic pager
+  ✓ Remove swap files and restart dynamic pager
   ✓ Rebuild launch services and spotlight index
 
 ====================================================================
@@ -142,7 +142,7 @@ Analyze Disk  ~/Documents  |  Total: 156.8GB
     4. ███░░░░░░░░░░░░░░░░  10.8%  |  📁 Documents                   16.9GB
     5. ██░░░░░░░░░░░░░░░░░   5.2%  |  📄 backup_2023.zip              8.2GB
 
-  ↑↓←→ Navigate  |  O Open  |  F Reveal  |  ⌫ Delete  |  L Large(24)  |  Q Quit
+  ↑↓←→ Navigate  |  O Open  |  F Show  |  ⌫ Delete  |  L Large(24)  |  Q Quit
 ```
 
 ### Live System Status
@@ -182,7 +182,7 @@ Launch Mole commands instantly from Raycast or Alfred:
 curl -fsSL https://raw.githubusercontent.com/tw93/Mole/main/scripts/setup-quick-launchers.sh | bash
 ```
 
-Adds 5 commands: `clean`, `uninstall`, `optimize`, `analyze`, `status`. Auto-detects your terminal or set `MO_LAUNCHER_APP=<name>` to override.
+Adds 5 commands: `clean`, `uninstall`, `optimize`, `analyze`, `status`. Finds your terminal automatically or set `MO_LAUNCHER_APP=<name>` to override.
 
 Reload Raycast by running `Reload Script Directories`, or simply restarting Raycast.
 
@@ -190,8 +190,8 @@ Reload Raycast by running `Reload Script Directories`, or simply restarting Rayc
 
 <a href="https://miaoyan.app/cats.html?name=Mole"><img src="https://miaoyan.app/assets/sponsors.svg" width="1000px" /></a>
 
-- If Mole reclaimed storage for you, consider starring the repo or sharing it with friends needing a cleaner Mac.
-- Have ideas or fixes? Open an issue or PR and help shape Mole's roadmap together with the community.
+- If Mole freed storage for you, consider starring the repo or sharing it with friends needing a cleaner Mac.
+- Have ideas or fixes? Open an issue or PR and help shape Mole's future together with the community.
 - Love cats? Treat Tangyuan and Cola to canned food via <a href="https://miaoyan.app/cats.html?name=Mole" target="_blank">this link</a> and keep the mascots purring.
 
 ## License

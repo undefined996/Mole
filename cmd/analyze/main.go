@@ -181,7 +181,7 @@ func newModel(path string, isOverview bool) model {
 		m.offset = 0
 		if nextPendingOverviewIndex(m.entries) >= 0 {
 			m.overviewScanning = true
-			m.status = "Estimating system roots..."
+			m.status = "Checking system folders..."
 		} else {
 			m.status = "Ready"
 		}
@@ -669,7 +669,7 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					defer cancel()
 					_ = exec.CommandContext(ctx, "open", "-R", path).Run()
 				}(selected.Path)
-				m.status = fmt.Sprintf("Revealing %s in Finder...", selected.Name)
+				m.status = fmt.Sprintf("Showing %s in Finder...", selected.Name)
 			}
 		} else if len(m.entries) > 0 {
 			selected := m.entries[m.selected]
@@ -678,7 +678,7 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				defer cancel()
 				_ = exec.CommandContext(ctx, "open", "-R", path).Run()
 			}(selected.Path)
-			m.status = fmt.Sprintf("Revealing %s in Finder...", selected.Name)
+			m.status = fmt.Sprintf("Showing %s in Finder...", selected.Name)
 		}
 	case "delete", "backspace":
 		// Delete selected file or directory
@@ -1078,15 +1078,15 @@ func (m model) View() string {
 
 	fmt.Fprintln(&b)
 	if m.inOverviewMode() {
-		fmt.Fprintf(&b, "%s↑↓→  |  Enter  |  O Open  |  F Reveal  |  Q Quit%s\n", colorGray, colorReset)
+		fmt.Fprintf(&b, "%s↑↓→  |  Enter  |  O Open  |  F Show  |  Q Quit%s\n", colorGray, colorReset)
 	} else if m.showLargeFiles {
-		fmt.Fprintf(&b, "%s↑↓  |  O Open  |  F Reveal  |  ⌫ Delete  |  L Back  |  Q Quit%s\n", colorGray, colorReset)
+		fmt.Fprintf(&b, "%s↑↓  |  O Open  |  F Show  |  ⌫ Delete  |  L Back  |  Q Quit%s\n", colorGray, colorReset)
 	} else {
 		largeFileCount := len(m.largeFiles)
 		if largeFileCount > 0 {
-			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  O Open  |  F Reveal  |  ⌫ Delete  |  L Large(%d)  |  Q Quit%s\n", colorGray, largeFileCount, colorReset)
+			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  O Open  |  F Show  |  ⌫ Delete  |  L Large(%d)  |  Q Quit%s\n", colorGray, largeFileCount, colorReset)
 		} else {
-			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  O Open  |  F Reveal  |  ⌫ Delete  |  Q Quit%s\n", colorGray, colorReset)
+			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  O Open  |  F Show  |  ⌫ Delete  |  Q Quit%s\n", colorGray, colorReset)
 		}
 	}
 	if m.deleteConfirm && m.deleteTarget != nil {

@@ -221,7 +221,7 @@ start_section() {
 
 end_section() {
     if [[ $TRACK_SECTION -eq 1 && $SECTION_ACTIVITY -eq 0 ]]; then
-        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Nothing to tidy"
+        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Nothing to clean"
     fi
     TRACK_SECTION=0
 }
@@ -1240,7 +1240,7 @@ perform_cleanup() {
     end_section
 
     # ===== 10. Virtualization tools =====
-    start_section "Virtualization tools"
+    start_section "Virtual machine tools"
     safe_clean ~/Library/Caches/com.vmware.fusion "VMware Fusion cache"
     safe_clean ~/Library/Caches/com.parallels.* "Parallels cache"
     safe_clean ~/VirtualBox\ VMs/.cache "VirtualBox cache"
@@ -1279,7 +1279,7 @@ perform_cleanup() {
     # ===== 12. Orphaned app data cleanup =====
     # Only touch apps missing from scan + 60+ days inactive
     # Skip protected vendors, keep Preferences/Application Support
-    start_section "Orphaned app data"
+    start_section "Leftover app data"
 
     local -r ORPHAN_AGE_THRESHOLD=60 # 60 days - good balance between safety and cleanup
 
@@ -1419,14 +1419,14 @@ perform_cleanup() {
     done
 
     stop_inline_spinner
-    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $orphaned_count orphaned app resources"
+    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $orphaned_count leftover app files"
 
     if [[ $orphaned_count -gt 0 ]]; then
         local orphaned_mb=$(echo "$total_orphaned_kb" | awk '{printf "%.1f", $1/1024}')
-        echo "  ${GREEN}${ICON_SUCCESS}${NC} Cleaned $orphaned_count orphaned items (~${orphaned_mb}MB)"
+        echo "  ${GREEN}${ICON_SUCCESS}${NC} Cleaned $orphaned_count leftover items (~${orphaned_mb}MB)"
         note_activity
     else
-        echo "  ${GREEN}${ICON_SUCCESS}${NC} No orphaned app data found"
+        echo "  ${GREEN}${ICON_SUCCESS}${NC} No leftover app data found"
     fi
 
     rm -f "$installed_bundles"
@@ -1435,7 +1435,7 @@ perform_cleanup() {
 
     # ===== 13. Apple Silicon optimizations =====
     if [[ "$IS_M_SERIES" == "true" ]]; then
-        start_section "Apple Silicon optimizations"
+        start_section "Apple Silicon updates"
         safe_clean /Library/Apple/usr/share/rosetta/rosetta_update_bundle "Rosetta 2 cache"
         safe_clean ~/Library/Caches/com.apple.rosetta.update "Rosetta 2 user cache"
         safe_clean ~/Library/Caches/com.apple.amp.mediasevicesd "Apple Silicon media service cache"

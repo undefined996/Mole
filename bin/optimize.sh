@@ -174,18 +174,18 @@ execute_optimization() {
             timeout 10 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user > /dev/null 2>&1 || true
             echo -e "${GREEN}${ICON_SUCCESS}${NC} LaunchServices database rebuilt"
 
-            echo -e "${BLUE}${ICON_ARROW}${NC} Flushing DNS cache..."
+            echo -e "${BLUE}${ICON_ARROW}${NC} Clearing DNS cache..."
             if sudo dscacheutil -flushcache 2> /dev/null && sudo killall -HUP mDNSResponder 2> /dev/null; then
-                echo -e "${GREEN}${ICON_SUCCESS}${NC} DNS cache flushed"
+                echo -e "${GREEN}${ICON_SUCCESS}${NC} DNS cache cleared"
             else
-                echo -e "${RED}${ICON_ERROR}${NC} Failed to flush DNS cache"
+                echo -e "${RED}${ICON_ERROR}${NC} Failed to clear DNS cache"
             fi
 
-            echo -e "${BLUE}${ICON_ARROW}${NC} Purging memory cache..."
+            echo -e "${BLUE}${ICON_ARROW}${NC} Clearing memory cache..."
             if sudo purge 2> /dev/null; then
-                echo -e "${GREEN}${ICON_SUCCESS}${NC} Memory cache purged"
+                echo -e "${GREEN}${ICON_SUCCESS}${NC} Memory cache cleared"
             else
-                echo -e "${RED}${ICON_ERROR}${NC} Failed to purge memory"
+                echo -e "${RED}${ICON_ERROR}${NC} Failed to clear memory"
             fi
 
             echo -e "${BLUE}${ICON_ARROW}${NC} Rebuilding font cache..."
@@ -215,7 +215,7 @@ execute_optimization() {
                 cleanup_path "$target_path" "$label"
             done
 
-            echo -e "${GREEN}${ICON_SUCCESS}${NC} Finder and Safari caches refreshed"
+            echo -e "${GREEN}${ICON_SUCCESS}${NC} Finder and Safari caches updated"
             ;;
 
         maintenance_scripts)
@@ -231,9 +231,9 @@ execute_optimization() {
                 fi
             fi
 
-            echo -e "${BLUE}${ICON_ARROW}${NC} Rotating system logs..."
+            echo -e "${BLUE}${ICON_ARROW}${NC} Moving old system logs..."
             if sudo newsyslog > /dev/null 2>&1; then
-                echo -e "${GREEN}${ICON_SUCCESS}${NC} Log rotation complete"
+                echo -e "${GREEN}${ICON_SUCCESS}${NC} Log move complete"
             else
                 echo -e "${YELLOW}!${NC} newsyslog reported an issue"
             fi
@@ -295,7 +295,7 @@ execute_optimization() {
             sudo rm -f /Library/Preferences/com.apple.Bluetooth.plist 2> /dev/null || true
             echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Bluetooth caches refreshed"
 
-            echo -e "${BLUE}${ICON_ARROW}${NC} Resetting Wi-Fi configuration..."
+            echo -e "${BLUE}${ICON_ARROW}${NC} Resetting Wi-Fi settings..."
             local sysconfig="/Library/Preferences/SystemConfiguration"
             if [[ -d "$sysconfig" ]]; then
                 sudo cp "$sysconfig"/com.apple.airport.preferences.plist "$sysconfig"/com.apple.airport.preferences.plist.bak 2> /dev/null || true
@@ -325,7 +325,7 @@ execute_optimization() {
             ;;
 
         saved_state_cleanup)
-            echo -e "${BLUE}${ICON_ARROW}${NC} Purging saved application states..."
+            echo -e "${BLUE}${ICON_ARROW}${NC} Removing saved application states..."
             local state_dir="$HOME/Library/Saved Application State"
             cleanup_path "$state_dir" "Saved Application State"
             ensure_directory "$state_dir"
