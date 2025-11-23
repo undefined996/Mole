@@ -575,11 +575,42 @@ update_via_homebrew() {
     else
         echo "Updating Homebrew..."
     fi
-    # Filter out common noise but show important info
-    brew update 2>&1 | grep -Ev "^(==>|Already up-to-date)" || true
+
+    # Run brew update with timeout to prevent hanging
+    # Use background process to allow interruption
+    local brew_update_timeout="${MO_BREW_UPDATE_TIMEOUT:-300}"
+    local brew_tmp_file
+    brew_tmp_file=$(mktemp -t mole-brew-update 2>/dev/null || echo "/tmp/mole-brew-update.$$")
+
+    (brew update > "$brew_tmp_file" 2>&1) &
+    local brew_pid=$!
+    local elapsed=0
+
+    # Wait for completion or timeout
+    while kill -0 $brew_pid 2>/dev/null; do
+        if [[ $elapsed -ge $brew_update_timeout ]]; then
+            kill -TERM $brew_pid 2>/dev/null || true
+            wait $brew_pid 2>/dev/null || true
+            if [[ -t 1 ]]; then stop_inline_spinner; fi
+            rm -f "$brew_tmp_file"
+            log_error "Homebrew update timed out (${brew_update_timeout}s)"
+            return 1
+        fi
+        sleep 1
+        ((elapsed++))
+    done
+
+    wait $brew_pid 2>/dev/null || {
+        if [[ -t 1 ]]; then stop_inline_spinner; fi
+        rm -f "$brew_tmp_file"
+        log_error "Homebrew update failed"
+        return 1
+    }
+
     if [[ -t 1 ]]; then
         stop_inline_spinner
     fi
+    rm -f "$brew_tmp_file"
 
     if [[ -t 1 ]]; then
         start_inline_spinner "Upgrading Mole..."

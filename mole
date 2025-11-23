@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
 # Version info
-VERSION="1.10.5"
+VERSION="1.10.6"
 MOLE_TAGLINE="can dig deep to clean your Mac."
 
 # Check if Touch ID is already configured
@@ -186,6 +186,10 @@ show_help() {
 
 # Simple update function
 update_mole() {
+    # Set up cleanup trap for update process
+    local update_interrupted=false
+    trap 'update_interrupted=true; echo ""; log_error "Update interrupted by user"; exit 130' INT TERM
+
     # Check if installed via Homebrew
     if is_homebrew_install; then
         update_via_homebrew "$VERSION"
@@ -198,6 +202,8 @@ update_mole() {
 
     if [[ -z "$latest" ]]; then
         log_error "Unable to check for updates. Check network connection."
+        echo -e "${YELLOW}Tip:${NC} Check if you can access GitHub (https://github.com)"
+        echo -e "${YELLOW}Tip:${NC} Try again with: ${GRAY}mo update${NC}"
         exit 1
     fi
 
@@ -222,25 +228,40 @@ update_mole() {
         exit 1
     }
 
-    # Download installer with progress
+    # Download installer with progress and better error handling
+    local download_error=""
     if command -v curl > /dev/null 2>&1; then
-        if ! curl -fsSL --connect-timeout 10 --max-time 60 "$installer_url" -o "$tmp_installer" 2>&1; then
+        download_error=$(curl -fsSL --connect-timeout 10 --max-time 60 "$installer_url" -o "$tmp_installer" 2>&1) || {
+            local curl_exit=$?
             if [[ -t 1 ]]; then stop_inline_spinner; fi
             rm -f "$tmp_installer"
-            log_error "Update failed. Check network connection."
+            log_error "Update failed (curl error: $curl_exit)"
+
+            # Provide helpful error messages based on curl exit codes
+            case $curl_exit in
+                6) echo -e "${YELLOW}Tip:${NC} Could not resolve host. Check DNS or network connection." ;;
+                7) echo -e "${YELLOW}Tip:${NC} Failed to connect. Check network or proxy settings." ;;
+                22) echo -e "${YELLOW}Tip:${NC} HTTP 404 Not Found. The installer may have moved." ;;
+                28) echo -e "${YELLOW}Tip:${NC} Connection timed out. Try again or check firewall." ;;
+                *) echo -e "${YELLOW}Tip:${NC} Check network connection and try again." ;;
+            esac
+            echo -e "${YELLOW}Tip:${NC} URL: $installer_url"
             exit 1
-        fi
+        }
     elif command -v wget > /dev/null 2>&1; then
-        if ! wget --timeout=10 --tries=3 -qO "$tmp_installer" "$installer_url" 2>&1; then
+        download_error=$(wget --timeout=10 --tries=3 -qO "$tmp_installer" "$installer_url" 2>&1) || {
             if [[ -t 1 ]]; then stop_inline_spinner; fi
             rm -f "$tmp_installer"
-            log_error "Update failed. Check network connection."
+            log_error "Update failed (wget error)"
+            echo -e "${YELLOW}Tip:${NC} Check network connection and try again."
+            echo -e "${YELLOW}Tip:${NC} URL: $installer_url"
             exit 1
-        fi
+        }
     else
         if [[ -t 1 ]]; then stop_inline_spinner; fi
         rm -f "$tmp_installer"
         log_error "curl or wget required"
+        echo -e "${YELLOW}Tip:${NC} Install curl with: ${GRAY}brew install curl${NC}"
         exit 1
     fi
 

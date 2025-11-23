@@ -917,8 +917,9 @@ perform_cleanup() {
             brew_tmp_file=$(create_temp_file)
 
             # Run brew cleanup in background with manual timeout
-            # Clean old versions with --prune=all (default 2 minutes, configurable via MO_BREW_TIMEOUT)
-            (brew cleanup --prune=all > "$brew_tmp_file" 2>&1) &
+            # Clean old versions only (default 2 minutes, configurable via MO_BREW_TIMEOUT)
+            # Uses default 120-day threshold to avoid breaking zsh completions
+            (brew cleanup > "$brew_tmp_file" 2>&1) &
             local brew_pid=$!
             local elapsed=0
 
@@ -1002,17 +1003,38 @@ perform_cleanup() {
         MOLE_SPINNER_PREFIX="  "
         start_inline_spinner "Searching Next.js caches..."
     fi
-    while IFS= read -r next_dir; do
-        if [[ -d "$next_dir/cache" ]]; then
-            safe_clean "$next_dir/cache"/* "Next.js build cache" || true
-        fi
-    done < <(
-        find "$HOME" -type d -name ".next" -maxdepth 4 \
+
+    # Use timeout to prevent hanging on problematic directories
+    local nextjs_tmp_file
+    nextjs_tmp_file=$(create_temp_file)
+    (
+        find "$HOME" -P -mount -type d -name ".next" -maxdepth 3 \
             -not -path "*/Library/*" \
             -not -path "*/.Trash/*" \
             -not -path "*/node_modules/*" \
+            -not -path "*/.*" \
             2> /dev/null || true
-    )
+    ) > "$nextjs_tmp_file" 2>&1 &
+    local find_pid=$!
+    local find_timeout=10
+    local elapsed=0
+
+    while kill -0 $find_pid 2>/dev/null && [[ $elapsed -lt $find_timeout ]]; do
+        sleep 1
+        ((elapsed++))
+    done
+
+    if kill -0 $find_pid 2>/dev/null; then
+        kill -TERM $find_pid 2>/dev/null || true
+        wait $find_pid 2>/dev/null || true
+    else
+        wait $find_pid 2>/dev/null || true
+    fi
+
+    while IFS= read -r next_dir; do
+        [[ -d "$next_dir/cache" ]] && safe_clean "$next_dir/cache"/* "Next.js build cache" || true
+    done < "$nextjs_tmp_file"
+
     if [[ -t 1 ]]; then
         stop_inline_spinner
     fi
@@ -1022,15 +1044,38 @@ perform_cleanup() {
         MOLE_SPINNER_PREFIX="  "
         start_inline_spinner "Searching Python caches..."
     fi
-    while IFS= read -r pycache; do
-        safe_clean "$pycache"/* "Python bytecode cache" || true
-    done < <(
-        find "$HOME" -type d -name "__pycache__" -maxdepth 5 \
+
+    # Use timeout to prevent hanging on problematic directories
+    local pycache_tmp_file
+    pycache_tmp_file=$(create_temp_file)
+    (
+        find "$HOME" -P -mount -type d -name "__pycache__" -maxdepth 3 \
             -not -path "*/Library/*" \
             -not -path "*/.Trash/*" \
             -not -path "*/node_modules/*" \
+            -not -path "*/.*" \
             2> /dev/null || true
-    )
+    ) > "$pycache_tmp_file" 2>&1 &
+    local find_pid=$!
+    local find_timeout=10
+    local elapsed=0
+
+    while kill -0 $find_pid 2>/dev/null && [[ $elapsed -lt $find_timeout ]]; do
+        sleep 1
+        ((elapsed++))
+    done
+
+    if kill -0 $find_pid 2>/dev/null; then
+        kill -TERM $find_pid 2>/dev/null || true
+        wait $find_pid 2>/dev/null || true
+    else
+        wait $find_pid 2>/dev/null || true
+    fi
+
+    while IFS= read -r pycache; do
+        [[ -d "$pycache" ]] && safe_clean "$pycache"/* "Python bytecode cache" || true
+    done < "$pycache_tmp_file"
+
     if [[ -t 1 ]]; then
         stop_inline_spinner
     fi
