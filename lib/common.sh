@@ -437,6 +437,24 @@ get_directory_size_bytes() {
     du -sk "$path" 2> /dev/null | cut -f1 | awk '{print $1 * 1024}' || echo "0"
 }
 
+# List login items (one per line)
+list_login_items() {
+    if ! command -v osascript > /dev/null 2>&1; then
+        return
+    fi
+
+    local raw_items
+    raw_items=$(osascript -e 'tell application "System Events" to get the name of every login item' 2> /dev/null || echo "")
+    [[ -z "$raw_items" || "$raw_items" == "missing value" ]] && return
+
+    IFS=',' read -ra login_items_array <<< "$raw_items"
+    for entry in "${login_items_array[@]}"; do
+        local trimmed
+        trimmed=$(echo "$entry" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+        [[ -n "$trimmed" ]] && printf "%s\n" "$trimmed"
+    done
+}
+
 # Permission checks
 check_sudo() {
     if ! sudo -n true 2> /dev/null; then
@@ -458,33 +476,81 @@ check_touchid_support() {
 # Usage: request_sudo_access "prompt message" [optional: force_password]
 request_sudo_access() {
     local prompt_msg="${1:-Admin access required}"
-    local force_password="${2:-false}"
 
-    # Check if already has sudo access
     if sudo -n true 2> /dev/null; then
         return 0
     fi
 
-    # If Touch ID is supported and not forced to use password
-    if [[ "$force_password" != "true" ]] && check_touchid_support; then
-        echo -e "${PURPLE}${ICON_ARROW}${NC} ${prompt_msg} ${GRAY}(Touch ID or password)${NC}"
-        if sudo -v 2> /dev/null; then
-            return 0
-        else
-            return 1
+    echo -e "${PURPLE}${ICON_ARROW}${NC} ${prompt_msg} ${GRAY}(Touch ID or password)${NC}"
+    sudo -k
+
+    # Use default sudo prompt (Touch ID behaves more reliably without a custom prompt)
+    local sudo_cmd=(sudo -v)
+
+    # Optional timeout command to prevent hangs
+    local timeout_cmd=""
+    for t in gtimeout timeout; do
+        if command -v "$t" > /dev/null 2>&1; then
+            timeout_cmd="$t"
+            break
         fi
-    else
-        # Traditional password method
-        echo -e "${PURPLE}${ICON_ARROW}${NC} ${prompt_msg}"
-        echo -ne "${PURPLE}${ICON_ARROW}${NC} Password: "
-        IFS= read -r -s password
-        echo ""
-        if [[ -n "$password" ]] && echo "$password" | sudo -S true 2> /dev/null; then
-            return 0
+    done
+
+    # Helper to attempt sudo with optional IO redirection and timeout
+    _run_sudo_attempt() {
+        local in="$1"
+        local out="$2"
+        local err="${3:-$2}"
+
+        local cmd=("${sudo_cmd[@]}")
+        if [[ -n "$timeout_cmd" ]]; then
+            cmd=("$timeout_cmd" 20 "${cmd[@]}")
+        fi
+
+        if [[ -n "$in" ]]; then
+            if [[ -n "$out" ]]; then
+                "${cmd[@]}" < "$in" > "$out" 2> "${err:-$out}"
+            else
+                "${cmd[@]}" < "$in"
+            fi
         else
-            return 1
+            "${cmd[@]}"
+        fi
+    }
+
+    # Try current TTY first
+    if _run_sudo_attempt "" ""; then
+        sudo -n true 2> /dev/null || true
+        return 0
+    fi
+
+    # Always talk to the real terminal so Touch ID/password prompts show up
+    local sudo_tty="/dev/tty"
+    if [[ -r "$sudo_tty" ]]; then
+        if _run_sudo_attempt "$sudo_tty" "$sudo_tty" "$sudo_tty"; then
+            sudo -n true 2> /dev/null || true
+            return 0
         fi
     fi
+
+    # Last resort: spawn a fresh pty (helps when stdin/out were redirected)
+    if command -v script > /dev/null 2>&1; then
+        local script_cmd=(script -q /dev/null)
+        if [[ -n "$timeout_cmd" ]]; then
+            script_cmd=("$timeout_cmd" 20 "${script_cmd[@]}")
+        fi
+        if "${script_cmd[@]}" "${sudo_cmd[@]}"; then
+            sudo -n true 2> /dev/null || true
+            return 0
+        fi
+    fi
+
+    # Fallback for environments without /dev/tty or script
+    if _run_sudo_attempt "" ""; then
+        sudo -n true 2> /dev/null || true
+        return 0
+    fi
+    return 1
 }
 
 request_sudo() {
@@ -1095,7 +1161,7 @@ start_sudo_keepalive() {
     (
         local retry_count=0
         while true; do
-            if ! sudo -n true 2> /dev/null; then
+            if ! sudo -n -v 2> /dev/null; then
                 ((retry_count++))
                 if [[ $retry_count -ge 3 ]]; then
                     exit 1
