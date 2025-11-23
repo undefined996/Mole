@@ -1178,13 +1178,15 @@ perform_cleanup() {
     safe_clean ~/Library/Application\ Support/Code/Cache/* "VS Code cache"
     safe_clean ~/Library/Application\ Support/Code/CachedExtensions/* "VS Code extension cache"
     safe_clean ~/Library/Application\ Support/Code/CachedData/* "VS Code data cache"
-    safe_clean ~/Library/Logs/IntelliJIdea*/* "IntelliJ IDEA logs"
-    safe_clean ~/Library/Logs/PhpStorm*/* "PhpStorm logs"
-    safe_clean ~/Library/Logs/PyCharm*/* "PyCharm logs"
-    safe_clean ~/Library/Logs/WebStorm*/* "WebStorm logs"
-    safe_clean ~/Library/Logs/GoLand*/* "GoLand logs"
-    safe_clean ~/Library/Logs/CLion*/* "CLion logs"
-    safe_clean ~/Library/Logs/DataGrip*/* "DataGrip logs"
+    # Skip all JetBrains IDE logs to prevent potential data loss
+    # (User reported DataGrip connections were lost after cleaning logs)
+    # safe_clean ~/Library/Logs/IntelliJIdea*/* "IntelliJ IDEA logs"
+    # safe_clean ~/Library/Logs/PhpStorm*/* "PhpStorm logs"
+    # safe_clean ~/Library/Logs/PyCharm*/* "PyCharm logs"
+    # safe_clean ~/Library/Logs/WebStorm*/* "WebStorm logs"
+    # safe_clean ~/Library/Logs/GoLand*/* "GoLand logs"
+    # safe_clean ~/Library/Logs/CLion*/* "CLion logs"
+    # safe_clean ~/Library/Logs/DataGrip*/* "DataGrip logs"
     safe_clean ~/Library/Caches/JetBrains/* "JetBrains cache"
     safe_clean ~/Library/Application\ Support/discord/Cache/* "Discord cache"
     safe_clean ~/Library/Application\ Support/Slack/Cache/* "Slack cache"
@@ -1303,7 +1305,7 @@ perform_cleanup() {
 
         # Skip system and protected apps
         case "$app_name" in
-            com.apple.* | Adobe* | 1Password | Claude | *ClashX* | *clash* | mihomo* | *Surge*)
+            com.apple.* | Adobe* | JetBrains* | 1Password | Claude | *ClashX* | *clash* | mihomo* | *Surge*)
                 continue
                 ;;
         esac
