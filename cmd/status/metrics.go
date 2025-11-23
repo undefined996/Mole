@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -365,18 +366,37 @@ func formatUptime(secs uint64) string {
 }
 
 func collectCPU() (CPUStatus, error) {
+	counts, countsErr := cpu.Counts(false)
+	if countsErr != nil || counts == 0 {
+		counts = runtime.NumCPU()
+	}
+
+	logical, logicalErr := cpu.Counts(true)
+	if logicalErr != nil || logical == 0 {
+		logical = runtime.NumCPU()
+	}
+	if logical <= 0 {
+		logical = 1
+	}
+
 	percents, err := cpu.Percent(cpuSampleInterval, true)
-	if err != nil {
-		return CPUStatus{}, err
+	var totalPercent float64
+	if err != nil || len(percents) == 0 {
+		fallbackUsage, fallbackPerCore, fallbackErr := fallbackCPUUtilization(logical)
+		if fallbackErr != nil {
+			if err != nil {
+				return CPUStatus{}, err
+			}
+			return CPUStatus{}, fallbackErr
+		}
+		totalPercent = fallbackUsage
+		percents = fallbackPerCore
+	} else {
+		for _, v := range percents {
+			totalPercent += v
+		}
+		totalPercent /= float64(len(percents))
 	}
-	if len(percents) == 0 {
-		return CPUStatus{}, errors.New("cannot read CPU utilization")
-	}
-	totalPercent := 0.0
-	for _, v := range percents {
-		totalPercent += v
-	}
-	totalPercent /= float64(len(percents))
 
 	loadStats, loadErr := load.Avg()
 	var loadAvg load.AvgStat
@@ -387,16 +407,6 @@ func collectCPU() (CPUStatus, error) {
 		if fallback, err := fallbackLoadAvgFromUptime(); err == nil {
 			loadAvg = fallback
 		}
-	}
-
-	counts, countsErr := cpu.Counts(false)
-	if countsErr != nil || counts == 0 {
-		counts = runtime.NumCPU()
-	}
-
-	logical, logicalErr := cpu.Counts(true)
-	if logicalErr != nil || logical == 0 {
-		logical = runtime.NumCPU()
 	}
 
 	return CPUStatus{
@@ -464,6 +474,60 @@ func fallbackLoadAvgFromUptime() (load.AvgStat, error) {
 		Load5:  values[1],
 		Load15: values[2],
 	}, nil
+}
+
+func fallbackCPUUtilization(logical int) (float64, []float64, error) {
+	if logical <= 0 {
+		logical = runtime.NumCPU()
+	}
+	if logical <= 0 {
+		logical = 1
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	out, err := runCmd(ctx, "ps", "-Aceo", "pcpu")
+	if err != nil {
+		return 0, nil, err
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(out))
+	total := 0.0
+	lineIndex := 0
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		lineIndex++
+		if lineIndex == 1 && (strings.Contains(strings.ToLower(line), "cpu") || strings.Contains(line, "%")) {
+			continue
+		}
+
+		val, parseErr := strconv.ParseFloat(line, 64)
+		if parseErr != nil {
+			continue
+		}
+		total += val
+	}
+	if scanErr := scanner.Err(); scanErr != nil {
+		return 0, nil, scanErr
+	}
+
+	maxTotal := float64(logical * 100)
+	if total < 0 {
+		total = 0
+	} else if total > maxTotal {
+		total = maxTotal
+	}
+
+	perCore := make([]float64, logical)
+	avg := total / float64(logical)
+	for i := range perCore {
+		perCore[i] = avg
+	}
+	return total, perCore, nil
 }
 
 func collectMemory() (MemoryStatus, error) {
