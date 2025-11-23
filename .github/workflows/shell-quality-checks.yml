@@ -30,7 +30,7 @@ jobs:
             /usr/local/Cellar/bats-core
             /usr/local/Cellar/shfmt
             /usr/local/Cellar/shellcheck
-          key: ${{ runner.os }}-brew-${{ hashFiles('.github/workflows/shell-quality-checks.yml') }}
+          key: ${{ runner.os }}-brew-v1
           restore-keys: |
             ${{ runner.os }}-brew-
 
