@@ -29,8 +29,8 @@ type MetricsSnapshot struct {
 	Uptime         string
 	Procs          uint64
 	Hardware       HardwareInfo
-	HealthScore    int     // 0-100 system health score
-	HealthScoreMsg string  // Brief explanation
+	HealthScore    int    // 0-100 system health score
+	HealthScoreMsg string // Brief explanation
 
 	CPU          CPUStatus
 	GPU          []GPUStatus
@@ -47,11 +47,11 @@ type MetricsSnapshot struct {
 }
 
 type HardwareInfo struct {
-	Model      string // MacBook Pro 14-inch, 2021
-	CPUModel   string // Apple M1 Pro / Intel Core i7
-	TotalRAM   string // 16GB
-	DiskSize   string // 512GB
-	OSVersion  string // macOS Sonoma 14.5
+	Model     string // MacBook Pro 14-inch, 2021
+	CPUModel  string // Apple M1 Pro / Intel Core i7
+	TotalRAM  string // 16GB
+	DiskSize  string // 512GB
+	OSVersion string // macOS Sonoma 14.5
 }
 
 type DiskIOStatus struct {
@@ -94,10 +94,12 @@ type MemoryStatus struct {
 
 type DiskStatus struct {
 	Mount       string
+	Device      string
 	Used        uint64
 	Total       uint64
 	UsedPercent float64
 	Fstype      string
+	External    bool
 }
 
 type NetworkStatus struct {
@@ -157,6 +159,7 @@ const (
 	systemProfilerTimeout = 4 * time.Second
 	bluetoothctlTimeout   = 1500 * time.Millisecond
 	macGPUInfoTTL         = 10 * time.Minute
+	cpuSampleInterval     = 200 * time.Millisecond
 )
 
 var skipDiskMounts = map[string]bool{
@@ -362,7 +365,7 @@ func formatUptime(secs uint64) string {
 }
 
 func collectCPU() (CPUStatus, error) {
-	percents, err := cpu.Percent(0, true)
+	percents, err := cpu.Percent(cpuSampleInterval, true)
 	if err != nil {
 		return CPUStatus{}, err
 	}
@@ -375,9 +378,26 @@ func collectCPU() (CPUStatus, error) {
 	}
 	totalPercent /= float64(len(percents))
 
-	loadAvg, _ := load.Avg()
-	counts, _ := cpu.Counts(false)
-	logical, _ := cpu.Counts(true)
+	loadStats, loadErr := load.Avg()
+	var loadAvg load.AvgStat
+	if loadStats != nil {
+		loadAvg = *loadStats
+	}
+	if loadErr != nil || isZeroLoad(loadAvg) {
+		if fallback, err := fallbackLoadAvgFromUptime(); err == nil {
+			loadAvg = fallback
+		}
+	}
+
+	counts, countsErr := cpu.Counts(false)
+	if countsErr != nil || counts == 0 {
+		counts = runtime.NumCPU()
+	}
+
+	logical, logicalErr := cpu.Counts(true)
+	if logicalErr != nil || logical == 0 {
+		logical = runtime.NumCPU()
+	}
 
 	return CPUStatus{
 		Usage:      totalPercent,
@@ -387,6 +407,62 @@ func collectCPU() (CPUStatus, error) {
 		Load15:     loadAvg.Load15,
 		CoreCount:  counts,
 		LogicalCPU: logical,
+	}, nil
+}
+
+func isZeroLoad(avg load.AvgStat) bool {
+	return avg.Load1 == 0 && avg.Load5 == 0 && avg.Load15 == 0
+}
+
+func fallbackLoadAvgFromUptime() (load.AvgStat, error) {
+	if !commandExists("uptime") {
+		return load.AvgStat{}, errors.New("uptime command unavailable")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	out, err := runCmd(ctx, "uptime")
+	if err != nil {
+		return load.AvgStat{}, err
+	}
+
+	markers := []string{"load averages:", "load average:"}
+	idx := -1
+	for _, marker := range markers {
+		if pos := strings.LastIndex(out, marker); pos != -1 {
+			idx = pos + len(marker)
+			break
+		}
+	}
+	if idx == -1 {
+		return load.AvgStat{}, errors.New("load averages not found in uptime output")
+	}
+
+	segment := strings.TrimSpace(out[idx:])
+	fields := strings.Fields(segment)
+	var values []float64
+	for _, field := range fields {
+		field = strings.Trim(field, ",;")
+		if field == "" {
+			continue
+		}
+		val, err := strconv.ParseFloat(field, 64)
+		if err != nil {
+			continue
+		}
+		values = append(values, val)
+		if len(values) == 3 {
+			break
+		}
+	}
+	if len(values) < 3 {
+		return load.AvgStat{}, errors.New("could not parse load averages from uptime output")
+	}
+
+	return load.AvgStat{
+		Load1:  values[0],
+		Load5:  values[1],
+		Load15: values[2],
 	}, nil
 }
 
@@ -476,6 +552,7 @@ func collectDisks() ([]DiskStatus, error) {
 		}
 		disks = append(disks, DiskStatus{
 			Mount:       part.Mountpoint,
+			Device:      part.Device,
 			Used:        usage.Used,
 			Total:       usage.Total,
 			UsedPercent: usage.UsedPercent,
@@ -484,6 +561,8 @@ func collectDisks() ([]DiskStatus, error) {
 		seenDevice[part.Device] = true
 		seenVolume[volKey] = true
 	}
+
+	annotateDiskTypes(disks)
 
 	sort.Slice(disks, func(i, j int) bool {
 		return disks[i].Total > disks[j].Total
@@ -494,6 +573,72 @@ func collectDisks() ([]DiskStatus, error) {
 	}
 
 	return disks, nil
+}
+
+func annotateDiskTypes(disks []DiskStatus) {
+	if len(disks) == 0 || runtime.GOOS != "darwin" || !commandExists("diskutil") {
+		return
+	}
+	cache := make(map[string]bool)
+	for i := range disks {
+		base := baseDeviceName(disks[i].Device)
+		if base == "" {
+			base = disks[i].Device
+		}
+		if val, ok := cache[base]; ok {
+			disks[i].External = val
+			continue
+		}
+		external, err := isExternalDisk(base)
+		if err != nil {
+			external = strings.HasPrefix(disks[i].Mount, "/Volumes/")
+		}
+		disks[i].External = external
+		cache[base] = external
+	}
+}
+
+func baseDeviceName(device string) string {
+	device = strings.TrimPrefix(device, "/dev/")
+	if !strings.HasPrefix(device, "disk") {
+		return device
+	}
+	for i := 4; i < len(device); i++ {
+		if device[i] == 's' {
+			return device[:i]
+		}
+	}
+	return device
+}
+
+func isExternalDisk(device string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	out, err := runCmd(ctx, "diskutil", "info", device)
+	if err != nil {
+		return false, err
+	}
+	var (
+		found    bool
+		external bool
+	)
+	for _, line := range strings.Split(out, "\n") {
+		trim := strings.TrimSpace(line)
+		if strings.HasPrefix(trim, "Internal:") {
+			found = true
+			external = strings.Contains(trim, "No")
+			break
+		}
+		if strings.HasPrefix(trim, "Device Location:") {
+			found = true
+			external = strings.Contains(trim, "External")
+		}
+	}
+	if !found {
+		return false, errors.New("diskutil info missing Internal field")
+	}
+	return external, nil
 }
 
 func (c *Collector) collectDiskIO(now time.Time) DiskIOStatus {
@@ -1247,4 +1392,3 @@ func collectHardware(totalRAM uint64, disks []DiskStatus) HardwareInfo {
 		OSVersion: osVersion,
 	}
 }
-

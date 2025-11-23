@@ -28,6 +28,8 @@ temp/
 # Cache
 .cache/
 *.cache
+.gocache/
+.gomod/
 
 # Backup files
 *.bak
