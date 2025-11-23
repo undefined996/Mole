@@ -23,6 +23,25 @@ readonly MAX_PARALLEL_JOBS=15 # Maximum parallel background jobs
 readonly TEMP_FILE_AGE_DAYS=7 # Age threshold for temp file cleanup
 readonly ORPHAN_AGE_DAYS=60   # Age threshold for orphaned data
 
+# Timeout helper (GNU timeout isn't available on stock macOS)
+TIMEOUT_BIN=""
+for candidate in gtimeout timeout; do
+    if command -v "$candidate" > /dev/null 2>&1; then
+        TIMEOUT_BIN="$candidate"
+        break
+    fi
+done
+
+run_with_timeout() {
+    local duration="$1"
+    shift
+    if [[ -n "$TIMEOUT_BIN" ]]; then
+        "$TIMEOUT_BIN" "$duration" "$@"
+    else
+        "$@"
+    fi
+}
+
 # Protected Service Worker domains (web-based editing tools)
 readonly PROTECTED_SW_DOMAINS=(
     "capcut.com"
@@ -618,6 +637,53 @@ clean_service_worker_cache() {
 
 perform_cleanup() {
     echo -e "${BLUE}${ICON_ADMIN}${NC} $(detect_architecture) | Free space: $(get_free_space)"
+
+    # Pre-check permissions to trigger all TCC dialogs at once (iTerm2/Terminal)
+    # This prevents permission dialogs from appearing randomly throughout the cleanup
+    # Only run this check once per installation
+    local permission_flag="$HOME/.cache/mole/permissions_granted"
+
+    if [[ -t 1 && ! -f "$permission_flag" ]]; then
+        # Key protected directories that require TCC approval
+        local -a tcc_dirs=(
+            "$HOME/Library/Caches"
+            "$HOME/Library/Logs"
+            "$HOME/Library/Application Support"
+            "$HOME/Library/Containers"
+            "$HOME/.cache"
+        )
+
+        # Quick permission test - if first directory is accessible, likely others are too
+        # Use simple ls test instead of find to avoid triggering permission dialogs prematurely
+        local needs_permission_check=false
+        if ! ls "$HOME/Library/Caches" > /dev/null 2>&1; then
+            needs_permission_check=true
+        fi
+
+        if [[ "$needs_permission_check" == "true" ]]; then
+            echo ""
+            echo -e "${BLUE}First-time setup${NC}"
+            echo -e "${GRAY}macOS will request permissions to access Library folders.${NC}"
+            echo -e "${GRAY}You may see ${GREEN}${#tcc_dirs[@]} permission dialogs${NC}${GRAY} - please approve them all.${NC}"
+            echo ""
+            echo -ne "${PURPLE}${ICON_ARROW}${NC} Press ${GREEN}Enter${NC} to continue: "
+            read -r
+
+            MOLE_SPINNER_PREFIX="" start_inline_spinner "Requesting permissions..."
+
+            # Trigger all TCC prompts upfront
+            for dir in "${tcc_dirs[@]}"; do
+                [[ -d "$dir" ]] && find "$dir" -maxdepth 1 -type d > /dev/null 2>&1
+            done
+
+            stop_inline_spinner
+            echo ""
+        fi
+
+        # Mark permissions as granted (won't prompt again)
+        mkdir -p "$(dirname "$permission_flag")" 2>/dev/null || true
+        touch "$permission_flag" 2>/dev/null || true
+    fi
 
     # Show whitelist info if patterns are active
     local active_count=${#WHITELIST_PATTERNS[@]}
@@ -1298,6 +1364,10 @@ perform_cleanup() {
     # ===== 11. Application Support logs cleanup =====
     start_section "Application Support logs"
 
+    # Check if we have permission to access Application Support
+    # Use simple ls test instead of find to avoid hanging
+    if [[ -d "$HOME/Library/Application Support" ]] && ls "$HOME/Library/Application Support" > /dev/null 2>&1; then
+
     # Clean log directories for apps that store logs in Application Support
     for app_dir in ~/Library/Application\ Support/*; do
         [[ -d "$app_dir" ]] || continue
@@ -1305,7 +1375,7 @@ perform_cleanup() {
 
         # Skip system and protected apps
         case "$app_name" in
-            com.apple.* | Adobe* | JetBrains* | 1Password | Claude | *ClashX* | *clash* | mihomo* | *Surge*)
+            com.apple.* | Adobe* | JetBrains* | 1Password | Claude | *ClashX* | *clash* | mihomo* | *Surge* | iTerm* | *iterm* | Warp* | Kitty* | Alacritty* | WezTerm* | Ghostty*)
                 continue
                 ;;
         esac
@@ -1322,12 +1392,30 @@ perform_cleanup() {
         fi
     done
 
+    else
+        note_activity
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Skipped: No permission to access Application Support"
+    fi
+
     end_section
 
     # ===== 12. Orphaned app data cleanup =====
     # Only touch apps missing from scan + 60+ days inactive
     # Skip protected vendors, keep Preferences/Application Support
     start_section "Leftover app data"
+
+    # Check if we have permission to access Library folders
+    # Use simple ls test instead of find to avoid hanging
+    local has_library_access=true
+    if ! ls "$HOME/Library/Caches" > /dev/null 2>&1; then
+        has_library_access=false
+    fi
+
+    if [[ "$has_library_access" == "false" ]]; then
+        note_activity
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Skipped: No permission to access Library folders"
+        echo -e "  ${GRAY}Tip: Grant 'Full Disk Access' to iTerm2/Terminal in System Settings${NC}"
+    else
 
     local -r ORPHAN_AGE_THRESHOLD=60 # 60 days - good balance between safety and cleanup
 
@@ -1341,21 +1429,21 @@ perform_cleanup() {
         "$HOME/Applications"
     )
 
-    # Scan for .app bundles
+    # Scan for .app bundles with timeout protection
     for search_path in "${search_paths[@]}"; do
         [[ -d "$search_path" ]] || continue
         while IFS= read -r app; do
             [[ -f "$app/Contents/Info.plist" ]] || continue
             bundle_id=$(defaults read "$app/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "")
             [[ -n "$bundle_id" ]] && echo "$bundle_id" >> "$installed_bundles"
-        done < <(find "$search_path" -maxdepth 2 -type d -name "*.app" 2> /dev/null || true)
+        done < <(run_with_timeout 10 find "$search_path" -maxdepth 2 -type d -name "*.app" 2> /dev/null || true)
     done
 
-    # Get running applications and LaunchAgents
-    local running_apps=$(osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null || echo "")
-    echo "$running_apps" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | grep -v '^$' >> "$installed_bundles"
+    # Get running applications and LaunchAgents with timeout protection
+    local running_apps=$(run_with_timeout 5 osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null || echo "")
+    echo "$running_apps" | tr ',' '\n' | sed -e 's/^ *//;s/ *$//' -e '/^$/d' >> "$installed_bundles"
 
-    find ~/Library/LaunchAgents /Library/LaunchAgents \
+    run_with_timeout 5 find ~/Library/LaunchAgents /Library/LaunchAgents \
         -name "*.plist" -type f 2> /dev/null | while IFS= read -r plist; do
         basename "$plist" .plist
     done >> "$installed_bundles" 2> /dev/null || true
@@ -1434,7 +1522,15 @@ perform_cleanup() {
     for resource_type in "${resource_types[@]}"; do
         IFS='|' read -r base_path label patterns <<< "$resource_type"
 
-        [[ -d "$base_path" ]] || continue
+        # Check both existence and permission to avoid hanging
+        if [[ ! -d "$base_path" ]]; then
+            continue
+        fi
+
+        # Quick permission check - if we can't ls the directory, skip it
+        if ! ls "$base_path" > /dev/null 2>&1; then
+            continue
+        fi
 
         # Build file pattern array
         local -a file_patterns=()
@@ -1446,8 +1542,18 @@ perform_cleanup() {
         # Scan and clean orphaned items
         for item_path in "${file_patterns[@]}"; do
             # Use shell glob (no ls needed)
+            # Limit iterations to prevent hanging on directories with too many files
+            local iteration_count=0
+            local max_iterations=100
+
             for match in $item_path; do
                 [[ -e "$match" ]] || continue
+
+                # Safety: limit iterations to prevent infinite loops on massive directories
+                ((iteration_count++))
+                if [[ $iteration_count -gt $max_iterations ]]; then
+                    break
+                fi
 
                 # Extract bundle ID from filename
                 local bundle_id=$(basename "$match")
@@ -1455,12 +1561,15 @@ perform_cleanup() {
                 bundle_id="${bundle_id%.binarycookies}"
 
                 if is_orphaned "$bundle_id" "$match"; then
-                    local size_kb=$(du -sk "$match" 2> /dev/null | awk '{print $1}' || echo "0")
-                    if [[ "$size_kb" -gt 0 ]]; then
-                        safe_clean "$match" "Orphaned $label: $bundle_id"
-                        ((orphaned_count++))
-                        ((total_orphaned_kb += size_kb))
+                    # Use timeout to prevent du from hanging on large/problematic directories
+                    local size_kb
+                    size_kb=$(run_with_timeout 2 du -sk "$match" 2> /dev/null | awk '{print $1}' || echo "0")
+                    if [[ -z "$size_kb" || "$size_kb" == "0" ]]; then
+                        continue
                     fi
+                    safe_clean "$match" "Orphaned $label: $bundle_id"
+                    ((orphaned_count++))
+                    ((total_orphaned_kb += size_kb))
                 fi
             done
         done
@@ -1478,6 +1587,8 @@ perform_cleanup() {
     fi
 
     rm -f "$installed_bundles"
+
+    fi # end of has_library_access check
 
     end_section
 
