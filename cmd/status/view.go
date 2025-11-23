@@ -254,14 +254,25 @@ func renderMemoryCard(mem MemoryStatus) cardData {
 
 func renderDiskCard(disks []DiskStatus, io DiskIOStatus) cardData {
 	var lines []string
-	// Show main disk
-	if len(disks) > 0 {
-		d := disks[0]
-		freeSpace := d.Total - d.Used
-		bar := diskBar(d.UsedPercent)
-		lines = append(lines, fmt.Sprintf("Used   %s  %4.0f%%  (%s free)", bar, d.UsedPercent, humanBytes(freeSpace)))
+	if len(disks) == 0 {
+		lines = append(lines, subtleStyle.Render("Collecting..."))
+	} else {
+		internal, external := splitDisks(disks)
+		addGroup := func(prefix string, list []DiskStatus) {
+			if len(list) == 0 {
+				return
+			}
+			for i, d := range list {
+				label := diskLabel(prefix, i, len(list))
+				lines = append(lines, formatDiskLine(label, d))
+			}
+		}
+		addGroup("INTR", internal)
+		addGroup("EXTR", external)
+		if len(lines) == 0 {
+			lines = append(lines, subtleStyle.Render("No disks detected"))
+		}
 	}
-	// IO
 	readBar := ioBar(io.ReadRate)
 	writeBar := ioBar(io.WriteRate)
 	lines = append(lines, fmt.Sprintf("Read   %s  %.1f MB/s", readBar, io.ReadRate))
@@ -269,14 +280,32 @@ func renderDiskCard(disks []DiskStatus, io DiskIOStatus) cardData {
 	return cardData{icon: iconDisk, title: "Disk", lines: lines}
 }
 
-func diskBar(percent float64) string {
-	total := 16
-	filled := int(percent / 100 * float64(total))
-	if filled > total {
-		filled = total
+func splitDisks(disks []DiskStatus) (internal, external []DiskStatus) {
+	for _, d := range disks {
+		if d.External {
+			external = append(external, d)
+		} else {
+			internal = append(internal, d)
+		}
 	}
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", total-filled)
-	return colorizePercent(percent, bar)
+	return internal, external
+}
+
+func diskLabel(prefix string, index int, total int) string {
+	if total <= 1 {
+		return prefix
+	}
+	return fmt.Sprintf("%s%d", prefix, index+1)
+}
+
+func formatDiskLine(label string, d DiskStatus) string {
+	if label == "" {
+		label = "DISK"
+	}
+	bar := progressBar(d.UsedPercent)
+	used := humanBytesShort(d.Used)
+	total := humanBytesShort(d.Total)
+	return fmt.Sprintf("%-6s %s  %5.1f%% (%s/%s)", label, bar, d.UsedPercent, used, total)
 }
 
 func ioBar(rate float64) string {
@@ -459,7 +488,6 @@ func renderSensorsCard(sensors []SensorReading) cardData {
 	return cardData{icon: iconSensors, title: "Sensors", lines: lines}
 }
 
-
 func renderCard(data cardData, width int, height int) string {
 	titleText := data.icon + " " + data.title
 	lineLen := width - lipgloss.Width(titleText) - 1
@@ -551,6 +579,21 @@ func humanBytes(v uint64) string {
 	}
 }
 
+func humanBytesShort(v uint64) string {
+	switch {
+	case v >= 1<<40:
+		return fmt.Sprintf("%.0fT", float64(v)/(1<<40))
+	case v >= 1<<30:
+		return fmt.Sprintf("%.0fG", float64(v)/(1<<30))
+	case v >= 1<<20:
+		return fmt.Sprintf("%.0fM", float64(v)/(1<<20))
+	case v >= 1<<10:
+		return fmt.Sprintf("%.0fK", float64(v)/(1<<10))
+	default:
+		return strconv.FormatUint(v, 10)
+	}
+}
+
 func shorten(s string, max int) string {
 	if len(s) <= max {
 		return s
@@ -591,4 +634,3 @@ func maxInt(a, b int) int {
 	}
 	return b
 }
-
