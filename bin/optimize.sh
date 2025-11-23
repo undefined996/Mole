@@ -176,14 +176,23 @@ cleanup_path() {
         size_display=$(bytes_to_human "$((size_kb * 1024))")
     fi
 
-    if rm -rf "$expanded_path"; then
+    local removed=false
+    if rm -rf "$expanded_path" 2> /dev/null; then
+        removed=true
+    elif request_sudo_access "Removing $label requires admin access"; then
+        if sudo rm -rf "$expanded_path" 2> /dev/null; then
+            removed=true
+        fi
+    fi
+
+    if [[ "$removed" == "true" ]]; then
         if [[ -n "$size_display" ]]; then
             echo -e "${GREEN}${ICON_SUCCESS}${NC} $label ${GREEN}(${size_display})${NC}"
         else
             echo -e "${GREEN}${ICON_SUCCESS}${NC} $label"
         fi
     else
-        echo -e "${RED}${ICON_ERROR}${NC} Failed to remove $label"
+        echo -e "${YELLOW}${ICON_WARNING}${NC} Skipped $label ${GRAY}(grant Full Disk Access to your terminal and retry)${NC}"
     fi
 }
 
