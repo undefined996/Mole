@@ -38,6 +38,7 @@ declare -a DEFAULT_WHITELIST_PATTERNS=(
     "$HOME/.ollama/models/*"
     "$HOME/Library/Caches/com.nssurge.surge-mac/*"
     "$HOME/Library/Application Support/com.nssurge.surge-mac/*"
+    "$HOME/Library/Caches/org.R-project.R/R/renv/*"
     "$FINDER_METADATA_SENTINEL"
 )
 declare -a WHITELIST_PATTERNS=()

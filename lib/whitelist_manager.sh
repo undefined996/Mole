@@ -20,6 +20,7 @@ declare -a DEFAULT_WHITELIST_PATTERNS=(
     "$HOME/.ollama/models/*"
     "$HOME/Library/Caches/com.nssurge.surge-mac/*"
     "$HOME/Library/Application Support/com.nssurge.surge-mac/*"
+    "$HOME/Library/Caches/org.R-project.R/R/renv/*"
     "FINDER_METADATA"
 )
 
@@ -31,7 +32,7 @@ save_whitelist_patterns() {
 
     cat > "$WHITELIST_CONFIG" << 'EOF'
 # Mole Whitelist - Protected paths won't be deleted
-# Default protections: Playwright browsers, HuggingFace models, Maven repo, Ollama models, Surge Mac, Finder metadata
+# Default protections: Playwright browsers, HuggingFace models, Maven repo, Ollama models, Surge Mac, R renv, Finder metadata
 # Add one pattern per line to keep items safe.
 EOF
 
@@ -104,6 +105,7 @@ CocoaPods cache (iOS dependencies)|$HOME/Library/Caches/CocoaPods/*|package_mana
 npm package cache|$HOME/.npm/_cacache/*|package_manager
 pip Python package cache|$HOME/.cache/pip/*|package_manager
 uv Python package cache|$HOME/.cache/uv/*|package_manager
+R renv global cache (virtual environments)|$HOME/Library/Caches/org.R-project.R/R/renv/*|package_manager
 Homebrew downloaded packages|$HOME/Library/Caches/Homebrew/*|package_manager
 Yarn package manager cache|$HOME/.cache/yarn/*|package_manager
 pnpm package store|$HOME/.pnpm-store/*|package_manager
