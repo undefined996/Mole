@@ -1402,7 +1402,7 @@ perform_cleanup() {
     # ===== 12. Orphaned app data cleanup =====
     # Only touch apps missing from scan + 60+ days inactive
     # Skip protected vendors, keep Preferences/Application Support
-    start_section "Leftover app data"
+    start_section "Uninstalled app data"
 
     # Check if we have permission to access Library folders
     # Use simple ls test instead of find to avoid hanging
@@ -1576,14 +1576,11 @@ perform_cleanup() {
     done
 
     stop_inline_spinner
-    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $orphaned_count leftover app files"
 
     if [[ $orphaned_count -gt 0 ]]; then
         local orphaned_mb=$(echo "$total_orphaned_kb" | awk '{printf "%.1f", $1/1024}')
-        echo "  ${GREEN}${ICON_SUCCESS}${NC} Cleaned $orphaned_count leftover items (~${orphaned_mb}MB)"
+        echo "  ${GREEN}${ICON_SUCCESS}${NC} Cleaned $orphaned_count items (~${orphaned_mb}MB)"
         note_activity
-    else
-        echo "  ${GREEN}${ICON_SUCCESS}${NC} No leftover app data found"
     fi
 
     rm -f "$installed_bundles"
