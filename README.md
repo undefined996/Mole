@@ -64,6 +64,7 @@ mo --version            # Show installed version
 - Preview the cleanup by running `mo clean --dry-run` and reviewing the list.
 - Use `mo clean --whitelist` to manage protected caches.
 - Use `mo touchid` to approve sudo with Touch ID instead of typing your password.
+- Prefer Vim-style navigation? All menus understand `h/j/k/l` in addition to the arrow keys.
 
 ## Features in Detail
 

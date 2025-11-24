@@ -733,9 +733,6 @@ paginated_multi_select() {
                 restore_terminal
                 return 0
                 ;;
-            "HELP")
-                # Removed help screen, users can explore the interface
-                ;;
         esac
 
         # Drain any accumulated input after processing (e.g., mouse wheel events)

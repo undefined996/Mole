@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
 # Version info
-VERSION="1.10.8"
+VERSION="1.10.9"
 MOLE_TAGLINE="can dig deep to clean your Mac."
 
 # Check if Touch ID is already configured
@@ -534,7 +534,7 @@ show_main_menu() {
     if [[ -t 0 ]]; then
         printf '\r\033[2K\n'
         # Show TouchID if not configured, otherwise show Update
-        local controls="${GRAY}↑↓  |  Enter  |  H Help  |  "
+        local controls="${GRAY}↑↓  |  Enter  |  M More  |  "
         if ! is_touchid_configured; then
             controls="${controls}T TouchID"
         else
@@ -632,7 +632,7 @@ interactive_main_menu() {
                 show_cursor
                 exec "$SCRIPT_DIR/bin/status.sh"
                 ;;
-            "HELP")
+            "MORE")
                 show_cursor
                 clear
                 show_help

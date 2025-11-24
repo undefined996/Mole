@@ -286,7 +286,11 @@ read_key() {
         $'\n' | $'\r') echo "ENTER" ;;
         ' ') echo "SPACE" ;;
         'q' | 'Q') echo "QUIT" ;;
-        'h' | 'H') echo "HELP" ;;
+        'h') echo "LEFT" ;;
+        'j') echo "DOWN" ;;
+        'k') echo "UP" ;;
+        'l') echo "RIGHT" ;;
+        'm' | 'M') echo "MORE" ;;
         'v' | 'V') echo "VERSION" ;;
         't' | 'T') echo "TOUCHID" ;;
         'u' | 'U') echo "UPDATE" ;;

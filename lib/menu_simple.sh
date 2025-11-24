@@ -216,23 +216,6 @@ paginated_multi_select() {
         printf "${clear_line}" >&2
     }
 
-    # Show help screen
-    show_help() {
-        printf "\033[H\033[J" >&2
-        cat >&2 << EOF
-Help - Navigation Controls
-==========================
-
-  ${ICON_NAV_UP} / ${ICON_NAV_DOWN}      Navigate up/down
-  Space              Select/deselect item
-  Enter              Confirm selection
-  Q / ESC            Exit
-
-Press any key to continue...
-EOF
-        read -n 1 -s >&2
-    }
-
     # Main interaction loop
     while true; do
         draw_menu
@@ -294,7 +277,6 @@ EOF
                     selected[i]=false
                 done
                 ;;
-            "HELP") show_help ;;
             "ENTER")
                 # Store result in global variable instead of returning via stdout
                 local -a selected_indices=()

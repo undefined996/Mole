@@ -578,17 +578,12 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.offset = m.selected - viewport + 1
 			}
 		}
-	case "enter":
+	case "enter", "right", "l":
 		if m.showLargeFiles {
 			return m, nil
 		}
 		return m.enterSelectedDir()
-	case "right":
-		if m.showLargeFiles {
-			return m, nil
-		}
-		return m.enterSelectedDir()
-	case "b", "left":
+	case "b", "left", "h":
 		if m.showLargeFiles {
 			m.showLargeFiles = false
 			return m, nil
@@ -640,7 +635,7 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			*m.currentPath = ""
 		}
 		return m, tea.Batch(m.scanCmd(m.path), tickCmd())
-	case "l":
+	case "L":
 		m.showLargeFiles = !m.showLargeFiles
 		if m.showLargeFiles {
 			m.largeSelected = 0
