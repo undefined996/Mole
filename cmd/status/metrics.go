@@ -67,13 +67,14 @@ type ProcessInfo struct {
 }
 
 type CPUStatus struct {
-	Usage      float64
-	PerCore    []float64
-	Load1      float64
-	Load5      float64
-	Load15     float64
-	CoreCount  int
-	LogicalCPU int
+	Usage            float64
+	PerCore          []float64
+	PerCoreEstimated bool
+	Load1            float64
+	Load5            float64
+	Load15           float64
+	CoreCount        int
+	LogicalCPU       int
 }
 
 type GPUStatus struct {
@@ -381,6 +382,7 @@ func collectCPU() (CPUStatus, error) {
 
 	percents, err := cpu.Percent(cpuSampleInterval, true)
 	var totalPercent float64
+	perCoreEstimated := false
 	if err != nil || len(percents) == 0 {
 		fallbackUsage, fallbackPerCore, fallbackErr := fallbackCPUUtilization(logical)
 		if fallbackErr != nil {
@@ -391,6 +393,7 @@ func collectCPU() (CPUStatus, error) {
 		}
 		totalPercent = fallbackUsage
 		percents = fallbackPerCore
+		perCoreEstimated = true
 	} else {
 		for _, v := range percents {
 			totalPercent += v
@@ -410,13 +413,14 @@ func collectCPU() (CPUStatus, error) {
 	}
 
 	return CPUStatus{
-		Usage:      totalPercent,
-		PerCore:    percents,
-		Load1:      loadAvg.Load1,
-		Load5:      loadAvg.Load5,
-		Load15:     loadAvg.Load15,
-		CoreCount:  counts,
-		LogicalCPU: logical,
+		Usage:            totalPercent,
+		PerCore:          percents,
+		PerCoreEstimated: perCoreEstimated,
+		Load1:            loadAvg.Load1,
+		Load5:            loadAvg.Load5,
+		Load15:           loadAvg.Load15,
+		CoreCount:        counts,
+		LogicalCPU:       logical,
 	}, nil
 }
 
@@ -597,7 +601,11 @@ func collectDisks() ([]DiskStatus, error) {
 		if strings.HasPrefix(part.Mountpoint, "/private/") {
 			continue
 		}
-		if seenDevice[part.Device] {
+		baseDevice := baseDeviceName(part.Device)
+		if baseDevice == "" {
+			baseDevice = part.Device
+		}
+		if seenDevice[baseDevice] {
 			continue
 		}
 		usage, err := disk.Usage(part.Mountpoint)
@@ -622,7 +630,7 @@ func collectDisks() ([]DiskStatus, error) {
 			UsedPercent: usage.UsedPercent,
 			Fstype:      part.Fstype,
 		})
-		seenDevice[part.Device] = true
+		seenDevice[baseDevice] = true
 		seenVolume[volKey] = true
 	}
 

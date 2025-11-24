@@ -188,24 +188,28 @@ func renderCPUCard(cpu CPUStatus) cardData {
 	lines = append(lines, fmt.Sprintf("Total  %s  %5.1f%%", progressBar(cpu.Usage), cpu.Usage))
 	lines = append(lines, subtleStyle.Render(fmt.Sprintf("%.2f / %.2f / %.2f  (%d cores)", cpu.Load1, cpu.Load5, cpu.Load15, cpu.LogicalCPU)))
 
-	// Show top 3 busiest cores
-	type coreUsage struct {
-		idx int
-		val float64
-	}
-	var cores []coreUsage
-	for i, v := range cpu.PerCore {
-		cores = append(cores, coreUsage{i, v})
-	}
-	sort.Slice(cores, func(i, j int) bool { return cores[i].val > cores[j].val })
+	if cpu.PerCoreEstimated {
+		lines = append(lines, subtleStyle.Render("Per-core data unavailable (using averaged load)"))
+	} else if len(cpu.PerCore) > 0 {
+		// Show top 3 busiest cores
+		type coreUsage struct {
+			idx int
+			val float64
+		}
+		var cores []coreUsage
+		for i, v := range cpu.PerCore {
+			cores = append(cores, coreUsage{i, v})
+		}
+		sort.Slice(cores, func(i, j int) bool { return cores[i].val > cores[j].val })
 
-	maxCores := 3
-	if len(cores) < maxCores {
-		maxCores = len(cores)
-	}
-	for i := 0; i < maxCores; i++ {
-		c := cores[i]
-		lines = append(lines, fmt.Sprintf("Core%-2d %s  %5.1f%%", c.idx+1, progressBar(c.val), c.val))
+		maxCores := 3
+		if len(cores) < maxCores {
+			maxCores = len(cores)
+		}
+		for i := 0; i < maxCores; i++ {
+			c := cores[i]
+			lines = append(lines, fmt.Sprintf("Core%-2d %s  %5.1f%%", c.idx+1, progressBar(c.val), c.val))
+		}
 	}
 
 	return cardData{icon: iconCPU, title: "CPU", lines: lines}
@@ -232,12 +236,20 @@ func renderMemoryCard(mem MemoryStatus) cardData {
 	var lines []string
 	lines = append(lines, fmt.Sprintf("Used   %s  %5.1f%%", progressBar(mem.UsedPercent), mem.UsedPercent))
 	lines = append(lines, subtleStyle.Render(fmt.Sprintf("%s / %s total", humanBytes(mem.Used), humanBytes(mem.Total))))
-	lines = append(lines, "")
-	// Show available memory
 	available := mem.Total - mem.Used
 	freePercent := 100 - mem.UsedPercent
 	lines = append(lines, fmt.Sprintf("Free   %s  %5.1f%%", progressBar(freePercent), freePercent))
 	lines = append(lines, subtleStyle.Render(fmt.Sprintf("%s available", humanBytes(available))))
+	if mem.SwapTotal > 0 || mem.SwapUsed > 0 {
+		var swapPercent float64
+		if mem.SwapTotal > 0 {
+			swapPercent = (float64(mem.SwapUsed) / float64(mem.SwapTotal)) * 100.0
+		}
+		swapText := subtleStyle.Render(fmt.Sprintf("%s / %s swap", humanBytes(mem.SwapUsed), humanBytes(mem.SwapTotal)))
+		lines = append(lines, fmt.Sprintf("Swap   %s  %5.1f%%  %s", progressBar(swapPercent), swapPercent, swapText))
+	} else {
+		lines = append(lines, fmt.Sprintf("Swap   %s", subtleStyle.Render("not in use")))
+	}
 	// Memory pressure
 	if mem.Pressure != "" {
 		pressureStyle := okStyle
