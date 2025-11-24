@@ -202,12 +202,6 @@ manage_whitelist() {
 }
 
 manage_whitelist_categories() {
-    clear
-    echo ""
-    echo -e "${PURPLE}Whitelist Manager${NC}"
-    echo ""
-    echo ""
-
     # Load currently enabled patterns from both sources
     load_whitelist
 

@@ -108,6 +108,8 @@ type model struct {
 	overviewCurrentPath  *string
 	overviewScanning     bool
 	overviewScanningSet  map[string]bool // Track which paths are currently being scanned
+	width                int             // Terminal width
+	height               int             // Terminal height
 }
 
 func (m model) inOverviewMode() bool {
@@ -379,6 +381,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m.updateKey(msg)
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
 	case deleteProgressMsg:
 		if msg.done {
 			m.deleting = false
@@ -560,14 +566,16 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.showLargeFiles {
 			if m.largeSelected < len(m.largeFiles)-1 {
 				m.largeSelected++
-				if m.largeSelected >= m.largeOffset+largeViewport {
-					m.largeOffset = m.largeSelected - largeViewport + 1
+				viewport := calculateViewport(m.height, true)
+				if m.largeSelected >= m.largeOffset+viewport {
+					m.largeOffset = m.largeSelected - viewport + 1
 				}
 			}
 		} else if len(m.entries) > 0 && m.selected < len(m.entries)-1 {
 			m.selected++
-			if m.selected >= m.offset+entryViewport {
-				m.offset = m.selected - entryViewport + 1
+			viewport := calculateViewport(m.height, false)
+			if m.selected >= m.offset+viewport {
+				m.offset = m.selected - viewport + 1
 			}
 		}
 	case "enter":
@@ -863,11 +871,12 @@ func (m model) View() string {
 		if len(m.largeFiles) == 0 {
 			fmt.Fprintln(&b, "  No large files found (>=100MB)")
 		} else {
+			viewport := calculateViewport(m.height, true)
 			start := m.largeOffset
 			if start < 0 {
 				start = 0
 			}
-			end := start + largeViewport
+			end := start + viewport
 			if end > len(m.largeFiles) {
 				end = len(m.largeFiles)
 			}
@@ -994,11 +1003,12 @@ func (m model) View() string {
 					}
 				}
 
+				viewport := calculateViewport(m.height, false)
 				start := m.offset
 				if start < 0 {
 					start = 0
 				}
-				end := start + entryViewport
+				end := start + viewport
 				if end > len(m.entries) {
 					end = len(m.entries)
 				}
@@ -1111,7 +1121,8 @@ func (m *model) clampEntrySelection() {
 	if m.selected < 0 {
 		m.selected = 0
 	}
-	maxOffset := len(m.entries) - entryViewport
+	viewport := calculateViewport(m.height, false)
+	maxOffset := len(m.entries) - viewport
 	if maxOffset < 0 {
 		maxOffset = 0
 	}
@@ -1121,8 +1132,8 @@ func (m *model) clampEntrySelection() {
 	if m.selected < m.offset {
 		m.offset = m.selected
 	}
-	if m.selected >= m.offset+entryViewport {
-		m.offset = m.selected - entryViewport + 1
+	if m.selected >= m.offset+viewport {
+		m.offset = m.selected - viewport + 1
 	}
 }
 
@@ -1138,7 +1149,8 @@ func (m *model) clampLargeSelection() {
 	if m.largeSelected < 0 {
 		m.largeSelected = 0
 	}
-	maxOffset := len(m.largeFiles) - largeViewport
+	viewport := calculateViewport(m.height, true)
+	maxOffset := len(m.largeFiles) - viewport
 	if maxOffset < 0 {
 		maxOffset = 0
 	}
@@ -1148,8 +1160,8 @@ func (m *model) clampLargeSelection() {
 	if m.largeSelected < m.largeOffset {
 		m.largeOffset = m.largeSelected
 	}
-	if m.largeSelected >= m.largeOffset+largeViewport {
-		m.largeOffset = m.largeSelected - largeViewport + 1
+	if m.largeSelected >= m.largeOffset+viewport {
+		m.largeOffset = m.largeSelected - viewport + 1
 	}
 }
 
@@ -1225,4 +1237,30 @@ func scanOverviewPathCmd(path string, index int) tea.Cmd {
 			Err:   err,
 		}
 	}
+}
+
+// calculateViewport dynamically calculates the viewport size based on terminal height
+func calculateViewport(termHeight int, isLargeFiles bool) int {
+	if termHeight <= 0 {
+		// Terminal height unknown, use default
+		return defaultViewport
+	}
+
+	// Calculate reserved space for UI elements
+	reserved := 6 // header (3-4 lines) + footer (2 lines)
+	if isLargeFiles {
+		reserved = 5 // Large files view has less overhead
+	}
+
+	available := termHeight - reserved
+
+	// Ensure minimum and maximum bounds
+	if available < 1 {
+		return 1 // Minimum 1 line for very short terminals
+	}
+	if available > 30 {
+		return 30 // Maximum 30 lines to avoid information overload
+	}
+
+	return available
 }

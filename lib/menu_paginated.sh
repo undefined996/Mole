@@ -15,6 +15,44 @@ leave_alt_screen() {
     fi
 }
 
+# Get terminal height with fallback
+_pm_get_terminal_height() {
+    local height=0
+
+    # Try stty size first (most reliable, real-time)
+    # Use </dev/tty to ensure we read from terminal even if stdin is redirected
+    if [[ -t 0 ]] || [[ -t 2 ]]; then
+        height=$(stty size </dev/tty 2>/dev/null | awk '{print $1}')
+    fi
+
+    # Fallback to tput
+    if [[ -z "$height" || $height -le 0 ]]; then
+        if command -v tput > /dev/null 2>&1; then
+            height=$(tput lines 2>/dev/null || echo "24")
+        else
+            height=24
+        fi
+    fi
+
+    echo "$height"
+}
+
+# Calculate dynamic items per page based on terminal height
+_pm_calculate_items_per_page() {
+    local term_height=$(_pm_get_terminal_height)
+    local reserved=6  # header(2) + footer(3) + spacing(1)
+    local available=$((term_height - reserved))
+
+    # Ensure minimum and maximum bounds
+    if [[ $available -lt 1 ]]; then
+        echo 1
+    elif [[ $available -gt 50 ]]; then
+        echo 50
+    else
+        echo "$available"
+    fi
+}
+
 # Parse CSV into newline list (Bash 3.2)
 _pm_parse_csv_to_array() {
     local csv="${1:-}"
@@ -44,7 +82,7 @@ paginated_multi_select() {
     fi
 
     local total_items=${#items[@]}
-    local items_per_page=12
+    local items_per_page=$(_pm_calculate_items_per_page)
     local cursor_pos=0
     local top_index=0
     local filter_query=""
@@ -336,6 +374,9 @@ paginated_multi_select() {
 
     # Draw the complete menu
     draw_menu() {
+        # Recalculate items_per_page dynamically to handle window resize
+        items_per_page=$(_pm_calculate_items_per_page)
+
         printf "\033[H" >&2
         local clear_line="\r\033[2K"
 
@@ -353,7 +394,7 @@ paginated_multi_select() {
         if [[ $visible_total -eq 0 ]]; then
             if [[ "$filter_mode" == "true" ]]; then
                 # While editing: do not show "No items available"
-                for ((i = 0; i < items_per_page + 2; i++)); do
+                for ((i = 0; i < items_per_page; i++)); do
                     printf "${clear_line}\n" >&2
                 done
                 printf "${clear_line}${GRAY}Type to filter  |  Delete  |  Enter  |  / Exit  |  ESC${NC}\n" >&2
@@ -362,7 +403,7 @@ paginated_multi_select() {
             else
                 if [[ "$searching" == "true" ]]; then
                     printf "${clear_line}Searching…\n" >&2
-                    for ((i = 0; i < items_per_page + 2; i++)); do
+                    for ((i = 0; i < items_per_page; i++)); do
                         printf "${clear_line}\n" >&2
                     done
                     printf "${clear_line}${GRAY}${ICON_NAV_UP}${ICON_NAV_DOWN}  |  Space  |  Enter  |  / Filter  |  Q Exit${NC}\n" >&2
@@ -371,7 +412,7 @@ paginated_multi_select() {
                 else
                     # Post-search: truly empty list
                     printf "${clear_line}No items available\n" >&2
-                    for ((i = 0; i < items_per_page + 2; i++)); do
+                    for ((i = 0; i < items_per_page; i++)); do
                         printf "${clear_line}\n" >&2
                     done
                     printf "${clear_line}${GRAY}${ICON_NAV_UP}${ICON_NAV_DOWN}  |  Space  |  Enter  |  / Filter  |  Q Exit${NC}\n" >&2
