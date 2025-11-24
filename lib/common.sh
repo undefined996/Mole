@@ -1378,6 +1378,9 @@ readonly DATA_PROTECTED_BUNDLES=(
     "*Clash*"               # Capitalized variants
     "com.nssurge.surge-mac" # Surge
     "mihomo*"               # Mihomo Party and variants
+    "*openvpn*"             # OpenVPN Connect and variants
+    "*OpenVPN*"             # OpenVPN capitalized variants
+    "net.openvpn.*"         # OpenVPN bundle IDs
 
     # ============================================================================
     # Development Tools - Git & Version Control

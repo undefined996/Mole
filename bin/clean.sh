@@ -276,7 +276,7 @@ safe_clean() {
 
         # Hard-coded protection for critical apps (cannot be disabled by user)
         case "$path" in
-            *clash* | *Clash* | *surge* | *Surge* | *mihomo*)
+            *clash* | *Clash* | *surge* | *Surge* | *mihomo* | *openvpn* | *OpenVPN*)
                 skip=true
                 ((skipped_count++))
                 ;;
