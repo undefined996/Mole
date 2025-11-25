@@ -20,7 +20,10 @@ format_brew_update_label() {
 
     local detail_str="(${total} updates)"
     if ((${#details[@]} > 0)); then
-        detail_str="($(IFS=', '; printf '%s' "${details[*]}"))"
+        detail_str="($(
+            IFS=', '
+            printf '%s' "${details[*]}"
+        ))"
     fi
     printf "  • Homebrew %s" "$detail_str"
 }
@@ -271,7 +274,7 @@ perform_updates() {
 _perform_appstore_update() {
     echo -e "${BLUE}Updating App Store apps...${NC}"
     local appstore_log
-    appstore_log=$(mktemp -t mole-appstore 2>/dev/null || echo "/tmp/mole-appstore.log")
+    appstore_log=$(mktemp -t mole-appstore 2> /dev/null || echo "/tmp/mole-appstore.log")
 
     if [[ "$appstore_needs_fallback" == "true" ]]; then
         echo -e "  ${GRAY}Installing all available updates${NC}"
@@ -293,7 +296,7 @@ _perform_appstore_update() {
             echo -e "${RED}✗${NC} App Store update failed"
         fi
     fi
-    rm -f "$appstore_log" 2>/dev/null || true
+    rm -f "$appstore_log" 2> /dev/null || true
     reset_softwareupdate_cache
     echo ""
 }
@@ -304,7 +307,7 @@ _perform_macos_update() {
     echo -e "${YELLOW}Note:${NC} System update may require restart"
 
     local macos_log
-    macos_log=$(mktemp -t mole-macos 2>/dev/null || echo "/tmp/mole-macos.log")
+    macos_log=$(mktemp -t mole-macos 2> /dev/null || echo "/tmp/mole-macos.log")
 
     if [[ "$macos_needs_fallback" == "true" ]]; then
         if sudo softwareupdate -i -r 2>&1 | tee "$macos_log" | grep -v "^$"; then
@@ -322,11 +325,11 @@ _perform_macos_update() {
         fi
     fi
 
-    if grep -qi "restart" "$macos_log" 2>/dev/null; then
+    if grep -qi "restart" "$macos_log" 2> /dev/null; then
         echo -e "${YELLOW}${ICON_WARNING}${NC} Restart required to complete update"
     fi
 
-    rm -f "$macos_log" 2>/dev/null || true
+    rm -f "$macos_log" 2> /dev/null || true
     reset_softwareupdate_cache
     echo ""
 }

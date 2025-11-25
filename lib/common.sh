@@ -532,14 +532,14 @@ is_clamshell_mode() {
 
     # Check if lid is closed; ignore pipeline failures so set -e doesn't exit
     local clamshell_state=""
-    clamshell_state=$( (ioreg -r -k AppleClamshellState -d 4 2>/dev/null \
-        | grep "AppleClamshellState" \
-        | head -1) || true )
+    clamshell_state=$( (ioreg -r -k AppleClamshellState -d 4 2> /dev/null |
+        grep "AppleClamshellState" |
+        head -1) || true)
 
     if [[ "$clamshell_state" =~ \"AppleClamshellState\"\ =\ Yes ]]; then
-        return 0  # Lid is closed
+        return 0 # Lid is closed
     fi
-    return 1  # Lid is open
+    return 1 # Lid is open
 }
 
 # Manual password input (no Touch ID)
@@ -549,7 +549,7 @@ _request_password() {
     local show_hint=true
 
     # Extra safety: ensure sudo cache is cleared before password input
-    sudo -k 2>/dev/null
+    sudo -k 2> /dev/null
 
     while ((attempts < 3)); do
         local password=""
@@ -635,13 +635,13 @@ request_sudo_access() {
 
     # Wait for sudo to complete or timeout (5 seconds)
     local elapsed=0
-    local timeout=50  # 50 * 0.1s = 5 seconds
+    local timeout=50 # 50 * 0.1s = 5 seconds
     while ((elapsed < timeout)); do
-        if ! kill -0 "$sudo_pid" 2>/dev/null; then
+        if ! kill -0 "$sudo_pid" 2> /dev/null; then
             # Process exited
-            wait "$sudo_pid" 2>/dev/null
+            wait "$sudo_pid" 2> /dev/null
             local exit_code=$?
-            if [[ $exit_code -eq 0 ]] && sudo -n true 2>/dev/null; then
+            if [[ $exit_code -eq 0 ]] && sudo -n true 2> /dev/null; then
                 # Touch ID succeeded
                 return 0
             fi
@@ -655,13 +655,13 @@ request_sudo_access() {
     # Touch ID failed/cancelled - clean up thoroughly before password input
 
     # Kill the sudo process if still running
-    if kill -0 "$sudo_pid" 2>/dev/null; then
-        kill -9 "$sudo_pid" 2>/dev/null
-        wait "$sudo_pid" 2>/dev/null || true
+    if kill -0 "$sudo_pid" 2> /dev/null; then
+        kill -9 "$sudo_pid" 2> /dev/null
+        wait "$sudo_pid" 2> /dev/null || true
     fi
 
     # Clear sudo state immediately
-    sudo -k 2>/dev/null
+    sudo -k 2> /dev/null
 
     # IMPORTANT: Wait longer for macOS to fully close Touch ID UI and SecurityAgent
     # Without this delay, subsequent sudo calls may re-trigger Touch ID
@@ -702,17 +702,17 @@ update_via_homebrew() {
     # Use background process to allow interruption
     local brew_update_timeout="${MO_BREW_UPDATE_TIMEOUT:-300}"
     local brew_tmp_file
-    brew_tmp_file=$(mktemp -t mole-brew-update 2>/dev/null || echo "/tmp/mole-brew-update.$$")
+    brew_tmp_file=$(mktemp -t mole-brew-update 2> /dev/null || echo "/tmp/mole-brew-update.$$")
 
     (brew update > "$brew_tmp_file" 2>&1) &
     local brew_pid=$!
     local elapsed=0
 
     # Wait for completion or timeout
-    while kill -0 $brew_pid 2>/dev/null; do
+    while kill -0 $brew_pid 2> /dev/null; do
         if [[ $elapsed -ge $brew_update_timeout ]]; then
-            kill -TERM $brew_pid 2>/dev/null || true
-            wait $brew_pid 2>/dev/null || true
+            kill -TERM $brew_pid 2> /dev/null || true
+            wait $brew_pid 2> /dev/null || true
             if [[ -t 1 ]]; then stop_inline_spinner; fi
             rm -f "$brew_tmp_file"
             log_error "Homebrew update timed out (${brew_update_timeout}s)"
@@ -722,7 +722,7 @@ update_via_homebrew() {
         ((elapsed++))
     done
 
-    wait $brew_pid 2>/dev/null || {
+    wait $brew_pid 2> /dev/null || {
         if [[ -t 1 ]]; then stop_inline_spinner; fi
         rm -f "$brew_tmp_file"
         log_error "Homebrew update failed"

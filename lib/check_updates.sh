@@ -5,14 +5,14 @@
 
 # Cache configuration
 CACHE_DIR="${HOME}/.cache/mole"
-CACHE_TTL=600  # 10 minutes in seconds
+CACHE_TTL=600 # 10 minutes in seconds
 
 # Ensure cache directory exists
-mkdir -p "$CACHE_DIR" 2>/dev/null || true
+mkdir -p "$CACHE_DIR" 2> /dev/null || true
 
 clear_cache_file() {
     local file="$1"
-    rm -f "$file" 2>/dev/null || true
+    rm -f "$file" 2> /dev/null || true
 }
 
 reset_brew_cache() {
@@ -37,7 +37,7 @@ is_cache_valid() {
         return 1
     fi
 
-    local cache_age=$(($(date +%s) - $(stat -f%m "$cache_file" 2>/dev/null || echo 0)))
+    local cache_age=$(($(date +%s) - $(stat -f%m "$cache_file" 2> /dev/null || echo 0)))
     [[ $cache_age -lt $ttl ]]
 }
 
@@ -51,7 +51,7 @@ check_homebrew_updates() {
     local cask_count=0
 
     if is_cache_valid "$cache_file"; then
-        read -r formula_count cask_count < "$cache_file" 2>/dev/null || true
+        read -r formula_count cask_count < "$cache_file" 2> /dev/null || true
         formula_count=${formula_count:-0}
         cask_count=${cask_count:-0}
     else
@@ -61,18 +61,18 @@ check_homebrew_updates() {
         fi
 
         local outdated_list=""
-        outdated_list=$(brew outdated --quiet 2>/dev/null || echo "")
+        outdated_list=$(brew outdated --quiet 2> /dev/null || echo "")
         if [[ -n "$outdated_list" ]]; then
             formula_count=$(echo "$outdated_list" | wc -l | tr -d ' ')
         fi
 
         local cask_list=""
-        cask_list=$(brew outdated --cask --quiet 2>/dev/null || echo "")
+        cask_list=$(brew outdated --cask --quiet 2> /dev/null || echo "")
         if [[ -n "$cask_list" ]]; then
             cask_count=$(echo "$cask_list" | wc -l | tr -d ' ')
         fi
 
-        echo "$formula_count $cask_count" > "$cache_file" 2>/dev/null || true
+        echo "$formula_count $cask_count" > "$cache_file" 2> /dev/null || true
 
         # Stop spinner before output
         if [[ -t 1 ]]; then
@@ -110,7 +110,7 @@ get_software_updates() {
     if [[ -z "$SOFTWARE_UPDATE_LIST" ]]; then
         # Check cache first
         if is_cache_valid "$cache_file"; then
-            SOFTWARE_UPDATE_LIST=$(cat "$cache_file" 2>/dev/null || echo "")
+            SOFTWARE_UPDATE_LIST=$(cat "$cache_file" 2> /dev/null || echo "")
         else
             # Show spinner while checking (only on first call)
             local show_spinner=false
@@ -120,9 +120,9 @@ get_software_updates() {
                 export SOFTWAREUPDATE_SPINNER_SHOWN="true"
             fi
 
-            SOFTWARE_UPDATE_LIST=$(softwareupdate -l 2>/dev/null || echo "")
+            SOFTWARE_UPDATE_LIST=$(softwareupdate -l 2> /dev/null || echo "")
             # Save to cache
-            echo "$SOFTWARE_UPDATE_LIST" > "$cache_file" 2>/dev/null || true
+            echo "$SOFTWARE_UPDATE_LIST" > "$cache_file" 2> /dev/null || true
 
             # Stop spinner
             if [[ "$show_spinner" == "true" ]]; then
@@ -208,7 +208,7 @@ check_mole_update() {
     # Auto-detect version from mole main script
     local current_version
     if [[ -f "${SCRIPT_DIR:-/usr/local/bin}/mole" ]]; then
-        current_version=$(grep '^VERSION=' "${SCRIPT_DIR:-/usr/local/bin}/mole" 2>/dev/null | head -1 | sed 's/VERSION="\(.*\)"/\1/' || echo "unknown")
+        current_version=$(grep '^VERSION=' "${SCRIPT_DIR:-/usr/local/bin}/mole" 2> /dev/null | head -1 | sed 's/VERSION="\(.*\)"/\1/' || echo "unknown")
     else
         current_version="${VERSION:-unknown}"
     fi
@@ -220,7 +220,7 @@ check_mole_update() {
 
     # Check cache first
     if is_cache_valid "$cache_file"; then
-        latest_version=$(cat "$cache_file" 2>/dev/null || echo "")
+        latest_version=$(cat "$cache_file" 2> /dev/null || echo "")
     else
         # Show spinner while checking
         if [[ -t 1 ]]; then
@@ -229,10 +229,10 @@ check_mole_update() {
 
         # Try to get latest version from GitHub
         if command -v curl > /dev/null 2>&1; then
-            latest_version=$(curl -fsSL https://api.github.com/repos/tw93/mole/releases/latest 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"v?([^"]+)".*/\1/' || echo "")
+            latest_version=$(curl -fsSL https://api.github.com/repos/tw93/mole/releases/latest 2> /dev/null | grep '"tag_name"' | sed -E 's/.*"v?([^"]+)".*/\1/' || echo "")
             # Save to cache
             if [[ -n "$latest_version" ]]; then
-                echo "$latest_version" > "$cache_file" 2>/dev/null || true
+                echo "$latest_version" > "$cache_file" 2> /dev/null || true
             fi
         fi
 

@@ -4,11 +4,14 @@
 
 set -euo pipefail
 
-readonly MAIL_DOWNLOADS_MIN_KB=5120  # ~5MB threshold
+readonly MAIL_DOWNLOADS_MIN_KB=5120 # ~5MB threshold
 
 _opt_get_dir_size_kb() {
     local path="$1"
-    [[ -e "$path" ]] || { echo 0; return; }
+    [[ -e "$path" ]] || {
+        echo 0
+        return
+    }
     du -sk "$path" 2> /dev/null | awk '{print $1}' || echo 0
 }
 
@@ -352,19 +355,19 @@ execute_optimization() {
     local path="${2:-}"
 
     case "$action" in
-        system_maintenance)     opt_system_maintenance ;;
-        cache_refresh)          opt_cache_refresh ;;
-        maintenance_scripts)    opt_maintenance_scripts ;;
-        log_cleanup)            opt_log_cleanup ;;
-        recent_items)           opt_recent_items ;;
-        radio_refresh)          opt_radio_refresh ;;
-        mail_downloads)         opt_mail_downloads ;;
-        saved_state_cleanup)    opt_saved_state_cleanup ;;
-        finder_dock_refresh)    opt_finder_dock_refresh ;;
-        swap_cleanup)           opt_swap_cleanup ;;
-        startup_cache)          opt_startup_cache ;;
-        local_snapshots)        opt_local_snapshots ;;
-        developer_cleanup)      opt_developer_cleanup ;;
+        system_maintenance) opt_system_maintenance ;;
+        cache_refresh) opt_cache_refresh ;;
+        maintenance_scripts) opt_maintenance_scripts ;;
+        log_cleanup) opt_log_cleanup ;;
+        recent_items) opt_recent_items ;;
+        radio_refresh) opt_radio_refresh ;;
+        mail_downloads) opt_mail_downloads ;;
+        saved_state_cleanup) opt_saved_state_cleanup ;;
+        finder_dock_refresh) opt_finder_dock_refresh ;;
+        swap_cleanup) opt_swap_cleanup ;;
+        startup_cache) opt_startup_cache ;;
+        local_snapshots) opt_local_snapshots ;;
+        developer_cleanup) opt_developer_cleanup ;;
         *)
             echo -e "${RED}${ICON_ERROR}${NC} Unknown action: $action"
             return 1

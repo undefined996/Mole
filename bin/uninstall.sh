@@ -692,7 +692,7 @@ main() {
         fi
         show_cursor
         clear_screen
-        printf '\033[2J\033[H' >&2  # Also clear stderr
+        printf '\033[2J\033[H' >&2 # Also clear stderr
         rm -f "$apps_file"
         return 0
     fi
@@ -707,7 +707,7 @@ main() {
     # Restore cursor and clear screen (output to both stdout and stderr for reliability)
     show_cursor
     clear_screen
-    printf '\033[2J\033[H' >&2  # Also clear stderr in case of mixed output
+    printf '\033[2J\033[H' >&2 # Also clear stderr in case of mixed output
     local selection_count=${#selected_apps[@]}
     if [[ $selection_count -eq 0 ]]; then
         echo "No apps selected"

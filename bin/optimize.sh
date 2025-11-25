@@ -73,7 +73,7 @@ run_system_checks() {
 show_optimization_summary() {
     local safe_count="${OPTIMIZE_SAFE_COUNT:-0}"
     local confirm_count="${OPTIMIZE_CONFIRM_COUNT:-0}"
-    if (( safe_count == 0 && confirm_count == 0 )) && [[ -z "${AUTO_FIX_SUMMARY:-}" ]]; then
+    if ((safe_count == 0 && confirm_count == 0)) && [[ -z "${AUTO_FIX_SUMMARY:-}" ]]; then
         return
     fi
     echo ""
@@ -103,7 +103,6 @@ show_optimization_summary() {
     fi
     print_summary_block "success" "$summary_title" "${summary_details[@]}"
 }
-
 
 show_system_health() {
     local health_json="$1"
@@ -314,7 +313,6 @@ perform_security_fixes() {
     fi
     SECURITY_FIXES=()
 }
-
 
 cleanup_all() {
     stop_sudo_session

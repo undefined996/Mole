@@ -90,5 +90,4 @@ main() {
     printf '\n'
 }
 
-
 main "$@"

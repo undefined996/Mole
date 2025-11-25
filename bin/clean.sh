@@ -666,8 +666,8 @@ perform_cleanup() {
         fi
 
         # Mark permissions as granted (won't prompt again)
-        mkdir -p "$(dirname "$permission_flag")" 2>/dev/null || true
-        touch "$permission_flag" 2>/dev/null || true
+        mkdir -p "$(dirname "$permission_flag")" 2> /dev/null || true
+        touch "$permission_flag" 2> /dev/null || true
     fi
 
     # Show whitelist info if patterns are active
@@ -730,7 +730,7 @@ perform_cleanup() {
 
             # Check if cache is valid (less than 2 days old)
             if [[ -f "$cask_cache" ]]; then
-                local cache_age=$(( $(date +%s) - $(stat -f%m "$cask_cache") ))
+                local cache_age=$(($(date +%s) - $(stat -f%m "$cask_cache")))
                 if [[ $cache_age -lt 172800 ]]; then
                     use_cache=true
                 fi
@@ -750,7 +750,7 @@ perform_cleanup() {
                 while IFS= read -r cask; do
                     # Get app path from cask info
                     local cask_info
-                    cask_info=$(brew info --cask "$cask" 2>/dev/null || true)
+                    cask_info=$(brew info --cask "$cask" 2> /dev/null || true)
 
                     # Extract app name from "AppName.app (App)" format
                     local app_name
@@ -764,13 +764,13 @@ perform_cleanup() {
 
                     # Check if app exists
                     [[ ! -e "/Applications/$app_name" ]] && orphaned_casks+=("$cask")
-                done < <(brew list --cask 2>/dev/null || true)
+                done < <(brew list --cask 2> /dev/null || true)
             fi
 
             # Remove orphaned casks if found
             if [[ ${#orphaned_casks[@]} -gt 0 ]]; then
                 # Check if sudo session is still valid (without prompting)
-                if sudo -n true 2>/dev/null; then
+                if sudo -n true 2> /dev/null; then
                     if [[ -t 1 ]]; then
                         stop_inline_spinner
                         MOLE_SPINNER_PREFIX="  " start_inline_spinner "Cleaning orphaned casks..."
@@ -1041,7 +1041,7 @@ perform_cleanup() {
 
             if [[ -f "$brew_cache_file" ]]; then
                 local last_cleanup
-                last_cleanup=$(cat "$brew_cache_file" 2>/dev/null || echo "0")
+                last_cleanup=$(cat "$brew_cache_file" 2> /dev/null || echo "0")
                 local current_time
                 current_time=$(date +%s)
                 local time_diff=$((current_time - last_cleanup))
@@ -1058,73 +1058,73 @@ perform_cleanup() {
 
                 local timeout_seconds=${MO_BREW_TIMEOUT:-120}
 
-            # Run brew cleanup and autoremove in parallel
-            local brew_tmp_file autoremove_tmp_file
-            brew_tmp_file=$(create_temp_file)
-            autoremove_tmp_file=$(create_temp_file)
+                # Run brew cleanup and autoremove in parallel
+                local brew_tmp_file autoremove_tmp_file
+                brew_tmp_file=$(create_temp_file)
+                autoremove_tmp_file=$(create_temp_file)
 
-            (brew cleanup > "$brew_tmp_file" 2>&1) &
-            local brew_pid=$!
+                (brew cleanup > "$brew_tmp_file" 2>&1) &
+                local brew_pid=$!
 
-            (brew autoremove > "$autoremove_tmp_file" 2>&1) &
-            local autoremove_pid=$!
+                (brew autoremove > "$autoremove_tmp_file" 2>&1) &
+                local autoremove_pid=$!
 
-            local elapsed=0
-            local brew_done=false
-            local autoremove_done=false
+                local elapsed=0
+                local brew_done=false
+                local autoremove_done=false
 
-            # Wait for both to complete or timeout
-            while [[ "$brew_done" == "false" ]] || [[ "$autoremove_done" == "false" ]]; do
-                if [[ $elapsed -ge $timeout_seconds ]]; then
-                    kill -TERM $brew_pid $autoremove_pid 2> /dev/null || true
-                    break
-                fi
-
-                kill -0 $brew_pid 2> /dev/null || brew_done=true
-                kill -0 $autoremove_pid 2> /dev/null || autoremove_done=true
-
-                sleep 1
-                ((elapsed++))
-            done
-
-            # Wait for processes to finish
-            wait $brew_pid 2> /dev/null && local brew_success=true || local brew_success=false
-            wait $autoremove_pid 2> /dev/null && local autoremove_success=true || local autoremove_success=false
-
-            if [[ -t 1 ]]; then stop_inline_spinner; fi
-
-            # Process cleanup output
-            if [[ "$brew_success" == "true" && -f "$brew_tmp_file" ]]; then
-                local brew_output
-                brew_output=$(cat "$brew_tmp_file" 2> /dev/null || echo "")
-                local removed_count freed_space
-                removed_count=$(printf '%s\n' "$brew_output" | grep -c "Removing:" 2> /dev/null || true)
-                freed_space=$(printf '%s\n' "$brew_output" | grep -o "[0-9.]*[KMGT]B freed" 2> /dev/null | tail -1 || true)
-
-                if [[ $removed_count -gt 0 ]] || [[ -n "$freed_space" ]]; then
-                    if [[ -n "$freed_space" ]]; then
-                        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Homebrew cleanup ${GREEN}($freed_space)${NC}"
-                    else
-                        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Homebrew cleanup (${removed_count} items)"
+                # Wait for both to complete or timeout
+                while [[ "$brew_done" == "false" ]] || [[ "$autoremove_done" == "false" ]]; do
+                    if [[ $elapsed -ge $timeout_seconds ]]; then
+                        kill -TERM $brew_pid $autoremove_pid 2> /dev/null || true
+                        break
                     fi
-                fi
-            elif [[ $elapsed -ge $timeout_seconds ]]; then
-                echo -e "  ${YELLOW}${ICON_WARNING}${NC} Homebrew cleanup timed out (run ${GRAY}brew cleanup${NC} manually)"
-            fi
 
-            # Process autoremove output - only show if packages were removed
-            if [[ "$autoremove_success" == "true" && -f "$autoremove_tmp_file" ]]; then
-                local autoremove_output
-                autoremove_output=$(cat "$autoremove_tmp_file" 2> /dev/null || echo "")
-                local removed_packages
-                removed_packages=$(printf '%s\n' "$autoremove_output" | grep -c "^Uninstalling" 2> /dev/null || true)
+                    kill -0 $brew_pid 2> /dev/null || brew_done=true
+                    kill -0 $autoremove_pid 2> /dev/null || autoremove_done=true
 
-                if [[ $removed_packages -gt 0 ]]; then
-                    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed orphaned dependencies (${removed_packages} packages)"
+                    sleep 1
+                    ((elapsed++))
+                done
+
+                # Wait for processes to finish
+                wait $brew_pid 2> /dev/null && local brew_success=true || local brew_success=false
+                wait $autoremove_pid 2> /dev/null && local autoremove_success=true || local autoremove_success=false
+
+                if [[ -t 1 ]]; then stop_inline_spinner; fi
+
+                # Process cleanup output
+                if [[ "$brew_success" == "true" && -f "$brew_tmp_file" ]]; then
+                    local brew_output
+                    brew_output=$(cat "$brew_tmp_file" 2> /dev/null || echo "")
+                    local removed_count freed_space
+                    removed_count=$(printf '%s\n' "$brew_output" | grep -c "Removing:" 2> /dev/null || true)
+                    freed_space=$(printf '%s\n' "$brew_output" | grep -o "[0-9.]*[KMGT]B freed" 2> /dev/null | tail -1 || true)
+
+                    if [[ $removed_count -gt 0 ]] || [[ -n "$freed_space" ]]; then
+                        if [[ -n "$freed_space" ]]; then
+                            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Homebrew cleanup ${GREEN}($freed_space)${NC}"
+                        else
+                            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Homebrew cleanup (${removed_count} items)"
+                        fi
+                    fi
+                elif [[ $elapsed -ge $timeout_seconds ]]; then
+                    echo -e "  ${YELLOW}${ICON_WARNING}${NC} Homebrew cleanup timed out (run ${GRAY}brew cleanup${NC} manually)"
                 fi
-            elif [[ $elapsed -ge $timeout_seconds ]]; then
-                echo -e "  ${YELLOW}${ICON_WARNING}${NC} Autoremove timed out (run ${GRAY}brew autoremove${NC} manually)"
-            fi
+
+                # Process autoremove output - only show if packages were removed
+                if [[ "$autoremove_success" == "true" && -f "$autoremove_tmp_file" ]]; then
+                    local autoremove_output
+                    autoremove_output=$(cat "$autoremove_tmp_file" 2> /dev/null || echo "")
+                    local removed_packages
+                    removed_packages=$(printf '%s\n' "$autoremove_output" | grep -c "^Uninstalling" 2> /dev/null || true)
+
+                    if [[ $removed_packages -gt 0 ]]; then
+                        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed orphaned dependencies (${removed_packages} packages)"
+                    fi
+                elif [[ $elapsed -ge $timeout_seconds ]]; then
+                    echo -e "  ${YELLOW}${ICON_WARNING}${NC} Autoremove timed out (run ${GRAY}brew autoremove${NC} manually)"
+                fi
 
                 # Update cache timestamp on successful completion
                 if [[ "$brew_success" == "true" || "$autoremove_success" == "true" ]]; then
@@ -1185,16 +1185,16 @@ perform_cleanup() {
     local find_timeout=10
     local elapsed=0
 
-    while kill -0 $find_pid 2>/dev/null && [[ $elapsed -lt $find_timeout ]]; do
+    while kill -0 $find_pid 2> /dev/null && [[ $elapsed -lt $find_timeout ]]; do
         sleep 1
         ((elapsed++))
     done
 
-    if kill -0 $find_pid 2>/dev/null; then
-        kill -TERM $find_pid 2>/dev/null || true
-        wait $find_pid 2>/dev/null || true
+    if kill -0 $find_pid 2> /dev/null; then
+        kill -TERM $find_pid 2> /dev/null || true
+        wait $find_pid 2> /dev/null || true
     else
-        wait $find_pid 2>/dev/null || true
+        wait $find_pid 2> /dev/null || true
     fi
 
     while IFS= read -r next_dir; do
@@ -1226,16 +1226,16 @@ perform_cleanup() {
     local find_timeout=10
     local elapsed=0
 
-    while kill -0 $find_pid 2>/dev/null && [[ $elapsed -lt $find_timeout ]]; do
+    while kill -0 $find_pid 2> /dev/null && [[ $elapsed -lt $find_timeout ]]; do
         sleep 1
         ((elapsed++))
     done
 
-    if kill -0 $find_pid 2>/dev/null; then
-        kill -TERM $find_pid 2>/dev/null || true
-        wait $find_pid 2>/dev/null || true
+    if kill -0 $find_pid 2> /dev/null; then
+        kill -TERM $find_pid 2> /dev/null || true
+        wait $find_pid 2> /dev/null || true
     else
-        wait $find_pid 2>/dev/null || true
+        wait $find_pid 2> /dev/null || true
     fi
 
     while IFS= read -r pycache; do
@@ -1467,29 +1467,29 @@ perform_cleanup() {
     # Use simple ls test instead of find to avoid hanging
     if [[ -d "$HOME/Library/Application Support" ]] && ls "$HOME/Library/Application Support" > /dev/null 2>&1; then
 
-    # Clean log directories for apps that store logs in Application Support
-    for app_dir in ~/Library/Application\ Support/*; do
-        [[ -d "$app_dir" ]] || continue
-        app_name=$(basename "$app_dir")
+        # Clean log directories for apps that store logs in Application Support
+        for app_dir in ~/Library/Application\ Support/*; do
+            [[ -d "$app_dir" ]] || continue
+            app_name=$(basename "$app_dir")
 
-        # Skip system and protected apps
-        case "$app_name" in
-            com.apple.* | Adobe* | JetBrains* | 1Password | Claude | *ClashX* | *clash* | mihomo* | *Surge* | iTerm* | *iterm* | Warp* | Kitty* | Alacritty* | WezTerm* | Ghostty*)
-                continue
-                ;;
-        esac
+            # Skip system and protected apps
+            case "$app_name" in
+                com.apple.* | Adobe* | JetBrains* | 1Password | Claude | *ClashX* | *clash* | mihomo* | *Surge* | iTerm* | *iterm* | Warp* | Kitty* | Alacritty* | WezTerm* | Ghostty*)
+                    continue
+                    ;;
+            esac
 
-        # Clean common log directories
-        if [[ -d "$app_dir/log" ]]; then
-            safe_clean "$app_dir/log"/* "App logs: $app_name"
-        fi
-        if [[ -d "$app_dir/logs" ]]; then
-            safe_clean "$app_dir/logs"/* "App logs: $app_name"
-        fi
-        if [[ -d "$app_dir/activitylog" ]]; then
-            safe_clean "$app_dir/activitylog"/* "Activity logs: $app_name"
-        fi
-    done
+            # Clean common log directories
+            if [[ -d "$app_dir/log" ]]; then
+                safe_clean "$app_dir/log"/* "App logs: $app_name"
+            fi
+            if [[ -d "$app_dir/logs" ]]; then
+                safe_clean "$app_dir/logs"/* "App logs: $app_name"
+            fi
+            if [[ -d "$app_dir/activitylog" ]]; then
+                safe_clean "$app_dir/activitylog"/* "Activity logs: $app_name"
+            fi
+        done
 
     else
         note_activity
@@ -1516,173 +1516,173 @@ perform_cleanup() {
         echo -e "  ${GRAY}Tip: Grant 'Full Disk Access' to iTerm2/Terminal in System Settings${NC}"
     else
 
-    local -r ORPHAN_AGE_THRESHOLD=60 # 60 days - good balance between safety and cleanup
+        local -r ORPHAN_AGE_THRESHOLD=60 # 60 days - good balance between safety and cleanup
 
-    # Build list of installed application bundle identifiers
-    MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning installed applications..."
-    local installed_bundles=$(create_temp_file)
+        # Build list of installed application bundle identifiers
+        MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning installed applications..."
+        local installed_bundles=$(create_temp_file)
 
-    # Simplified: only scan primary locations (reduces scan time by ~70%)
-    local -a search_paths=(
-        "/Applications"
-        "$HOME/Applications"
-    )
+        # Simplified: only scan primary locations (reduces scan time by ~70%)
+        local -a search_paths=(
+            "/Applications"
+            "$HOME/Applications"
+        )
 
-    # Scan for .app bundles with timeout protection
-    for search_path in "${search_paths[@]}"; do
-        [[ -d "$search_path" ]] || continue
-        while IFS= read -r app; do
-            [[ -f "$app/Contents/Info.plist" ]] || continue
-            bundle_id=$(defaults read "$app/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "")
-            [[ -n "$bundle_id" ]] && echo "$bundle_id" >> "$installed_bundles"
-        done < <(run_with_timeout 10 find "$search_path" -maxdepth 2 -type d -name "*.app" 2> /dev/null || true)
-    done
+        # Scan for .app bundles with timeout protection
+        for search_path in "${search_paths[@]}"; do
+            [[ -d "$search_path" ]] || continue
+            while IFS= read -r app; do
+                [[ -f "$app/Contents/Info.plist" ]] || continue
+                bundle_id=$(defaults read "$app/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "")
+                [[ -n "$bundle_id" ]] && echo "$bundle_id" >> "$installed_bundles"
+            done < <(run_with_timeout 10 find "$search_path" -maxdepth 2 -type d -name "*.app" 2> /dev/null || true)
+        done
 
-    # Get running applications and LaunchAgents with timeout protection
-    local running_apps=$(run_with_timeout 5 osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null || echo "")
-    echo "$running_apps" | tr ',' '\n' | sed -e 's/^ *//;s/ *$//' -e '/^$/d' >> "$installed_bundles"
+        # Get running applications and LaunchAgents with timeout protection
+        local running_apps=$(run_with_timeout 5 osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null || echo "")
+        echo "$running_apps" | tr ',' '\n' | sed -e 's/^ *//;s/ *$//' -e '/^$/d' >> "$installed_bundles"
 
-    run_with_timeout 5 find ~/Library/LaunchAgents /Library/LaunchAgents \
-        -name "*.plist" -type f 2> /dev/null | while IFS= read -r plist; do
-        basename "$plist" .plist
-    done >> "$installed_bundles" 2> /dev/null || true
+        run_with_timeout 5 find ~/Library/LaunchAgents /Library/LaunchAgents \
+            -name "*.plist" -type f 2> /dev/null | while IFS= read -r plist; do
+            basename "$plist" .plist
+        done >> "$installed_bundles" 2> /dev/null || true
 
-    # Deduplicate
-    sort -u "$installed_bundles" -o "$installed_bundles"
+        # Deduplicate
+        sort -u "$installed_bundles" -o "$installed_bundles"
 
-    local app_count=$(wc -l < "$installed_bundles" 2> /dev/null | tr -d ' ')
-    stop_inline_spinner
-    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $app_count active/installed apps"
+        local app_count=$(wc -l < "$installed_bundles" 2> /dev/null | tr -d ' ')
+        stop_inline_spinner
+        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $app_count active/installed apps"
 
-    # Track statistics
-    local orphaned_count=0
-    local total_orphaned_kb=0
+        # Track statistics
+        local orphaned_count=0
+        local total_orphaned_kb=0
 
-    # Check if bundle is orphaned - conservative approach
-    is_orphaned() {
-        local bundle_id="$1"
-        local directory_path="$2"
+        # Check if bundle is orphaned - conservative approach
+        is_orphaned() {
+            local bundle_id="$1"
+            local directory_path="$2"
 
-        # Skip system-critical and protected apps
-        if should_protect_data "$bundle_id"; then
-            return 1
-        fi
-
-        # Check if app exists in our scan
-        if grep -q "^$bundle_id$" "$installed_bundles" 2> /dev/null; then
-            return 1
-        fi
-
-        # Extra check for system bundles
-        case "$bundle_id" in
-            com.apple.* | loginwindow | dock | systempreferences | finder | safari)
-                return 1
-                ;;
-        esac
-
-        # Skip major vendors
-        case "$bundle_id" in
-            com.adobe.* | com.microsoft.* | com.google.* | org.mozilla.* | com.jetbrains.* | com.docker.*)
-                return 1
-                ;;
-        esac
-
-        # Check file age - only clean if 60+ days inactive
-        # Use modification time (mtime) instead of access time (atime)
-        # because macOS disables atime updates by default for performance
-        if [[ -e "$directory_path" ]]; then
-            local last_modified_epoch=$(stat -f%m "$directory_path" 2> /dev/null || echo "0")
-            local current_epoch=$(date +%s)
-            local days_since_modified=$(((current_epoch - last_modified_epoch) / 86400))
-
-            if [[ $days_since_modified -lt $ORPHAN_AGE_THRESHOLD ]]; then
+            # Skip system-critical and protected apps
+            if should_protect_data "$bundle_id"; then
                 return 1
             fi
-        fi
 
-        return 0
-    }
+            # Check if app exists in our scan
+            if grep -q "^$bundle_id$" "$installed_bundles" 2> /dev/null; then
+                return 1
+            fi
 
-    # Unified orphaned resource scanner (caches, logs, states, webkit, HTTP, cookies)
-    MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning orphaned app resources..."
+            # Extra check for system bundles
+            case "$bundle_id" in
+                com.apple.* | loginwindow | dock | systempreferences | finder | safari)
+                    return 1
+                    ;;
+            esac
 
-    # Define resource types to scan
-    local -a resource_types=(
-        "$HOME/Library/Caches|Caches|com.*:org.*:net.*:io.*"
-        "$HOME/Library/Logs|Logs|com.*:org.*:net.*:io.*"
-        "$HOME/Library/Saved Application State|States|*.savedState"
-        "$HOME/Library/WebKit|WebKit|com.*:org.*:net.*:io.*"
-        "$HOME/Library/HTTPStorages|HTTP|com.*:org.*:net.*:io.*"
-        "$HOME/Library/Cookies|Cookies|*.binarycookies"
-    )
+            # Skip major vendors
+            case "$bundle_id" in
+                com.adobe.* | com.microsoft.* | com.google.* | org.mozilla.* | com.jetbrains.* | com.docker.*)
+                    return 1
+                    ;;
+            esac
 
-    orphaned_count=0
+            # Check file age - only clean if 60+ days inactive
+            # Use modification time (mtime) instead of access time (atime)
+            # because macOS disables atime updates by default for performance
+            if [[ -e "$directory_path" ]]; then
+                local last_modified_epoch=$(stat -f%m "$directory_path" 2> /dev/null || echo "0")
+                local current_epoch=$(date +%s)
+                local days_since_modified=$(((current_epoch - last_modified_epoch) / 86400))
 
-    for resource_type in "${resource_types[@]}"; do
-        IFS='|' read -r base_path label patterns <<< "$resource_type"
-
-        # Check both existence and permission to avoid hanging
-        if [[ ! -d "$base_path" ]]; then
-            continue
-        fi
-
-        # Quick permission check - if we can't ls the directory, skip it
-        if ! ls "$base_path" > /dev/null 2>&1; then
-            continue
-        fi
-
-        # Build file pattern array
-        local -a file_patterns=()
-        IFS=':' read -ra pattern_arr <<< "$patterns"
-        for pat in "${pattern_arr[@]}"; do
-            file_patterns+=("$base_path/$pat")
-        done
-
-        # Scan and clean orphaned items
-        for item_path in "${file_patterns[@]}"; do
-            # Use shell glob (no ls needed)
-            # Limit iterations to prevent hanging on directories with too many files
-            local iteration_count=0
-            local max_iterations=100
-
-            for match in $item_path; do
-                [[ -e "$match" ]] || continue
-
-                # Safety: limit iterations to prevent infinite loops on massive directories
-                ((iteration_count++))
-                if [[ $iteration_count -gt $max_iterations ]]; then
-                    break
+                if [[ $days_since_modified -lt $ORPHAN_AGE_THRESHOLD ]]; then
+                    return 1
                 fi
+            fi
 
-                # Extract bundle ID from filename
-                local bundle_id=$(basename "$match")
-                bundle_id="${bundle_id%.savedState}"
-                bundle_id="${bundle_id%.binarycookies}"
+            return 0
+        }
 
-                if is_orphaned "$bundle_id" "$match"; then
-                    # Use timeout to prevent du from hanging on large/problematic directories
-                    local size_kb
-                    size_kb=$(run_with_timeout 2 du -sk "$match" 2> /dev/null | awk '{print $1}' || echo "0")
-                    if [[ -z "$size_kb" || "$size_kb" == "0" ]]; then
-                        continue
+        # Unified orphaned resource scanner (caches, logs, states, webkit, HTTP, cookies)
+        MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning orphaned app resources..."
+
+        # Define resource types to scan
+        local -a resource_types=(
+            "$HOME/Library/Caches|Caches|com.*:org.*:net.*:io.*"
+            "$HOME/Library/Logs|Logs|com.*:org.*:net.*:io.*"
+            "$HOME/Library/Saved Application State|States|*.savedState"
+            "$HOME/Library/WebKit|WebKit|com.*:org.*:net.*:io.*"
+            "$HOME/Library/HTTPStorages|HTTP|com.*:org.*:net.*:io.*"
+            "$HOME/Library/Cookies|Cookies|*.binarycookies"
+        )
+
+        orphaned_count=0
+
+        for resource_type in "${resource_types[@]}"; do
+            IFS='|' read -r base_path label patterns <<< "$resource_type"
+
+            # Check both existence and permission to avoid hanging
+            if [[ ! -d "$base_path" ]]; then
+                continue
+            fi
+
+            # Quick permission check - if we can't ls the directory, skip it
+            if ! ls "$base_path" > /dev/null 2>&1; then
+                continue
+            fi
+
+            # Build file pattern array
+            local -a file_patterns=()
+            IFS=':' read -ra pattern_arr <<< "$patterns"
+            for pat in "${pattern_arr[@]}"; do
+                file_patterns+=("$base_path/$pat")
+            done
+
+            # Scan and clean orphaned items
+            for item_path in "${file_patterns[@]}"; do
+                # Use shell glob (no ls needed)
+                # Limit iterations to prevent hanging on directories with too many files
+                local iteration_count=0
+                local max_iterations=100
+
+                for match in $item_path; do
+                    [[ -e "$match" ]] || continue
+
+                    # Safety: limit iterations to prevent infinite loops on massive directories
+                    ((iteration_count++))
+                    if [[ $iteration_count -gt $max_iterations ]]; then
+                        break
                     fi
-                    safe_clean "$match" "Orphaned $label: $bundle_id"
-                    ((orphaned_count++))
-                    ((total_orphaned_kb += size_kb))
-                fi
+
+                    # Extract bundle ID from filename
+                    local bundle_id=$(basename "$match")
+                    bundle_id="${bundle_id%.savedState}"
+                    bundle_id="${bundle_id%.binarycookies}"
+
+                    if is_orphaned "$bundle_id" "$match"; then
+                        # Use timeout to prevent du from hanging on large/problematic directories
+                        local size_kb
+                        size_kb=$(run_with_timeout 2 du -sk "$match" 2> /dev/null | awk '{print $1}' || echo "0")
+                        if [[ -z "$size_kb" || "$size_kb" == "0" ]]; then
+                            continue
+                        fi
+                        safe_clean "$match" "Orphaned $label: $bundle_id"
+                        ((orphaned_count++))
+                        ((total_orphaned_kb += size_kb))
+                    fi
+                done
             done
         done
-    done
 
-    stop_inline_spinner
+        stop_inline_spinner
 
-    if [[ $orphaned_count -gt 0 ]]; then
-        local orphaned_mb=$(echo "$total_orphaned_kb" | awk '{printf "%.1f", $1/1024}')
-        echo "  ${GREEN}${ICON_SUCCESS}${NC} Cleaned $orphaned_count items (~${orphaned_mb}MB)"
-        note_activity
-    fi
+        if [[ $orphaned_count -gt 0 ]]; then
+            local orphaned_mb=$(echo "$total_orphaned_kb" | awk '{printf "%.1f", $1/1024}')
+            echo "  ${GREEN}${ICON_SUCCESS}${NC} Cleaned $orphaned_count items (~${orphaned_mb}MB)"
+            note_activity
+        fi
 
-    rm -f "$installed_bundles"
+        rm -f "$installed_bundles"
 
     fi # end of has_library_access check
 

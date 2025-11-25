@@ -34,7 +34,7 @@ _start_sudo_keepalive() {
             sleep 30
             kill -0 "$$" 2> /dev/null || exit
         done
-    ) >/dev/null 2>&1 &
+    ) > /dev/null 2>&1 &
 
     local pid=$!
     [[ "${MO_DEBUG:-}" == "1" ]] && echo "DEBUG: _start_sudo_keepalive: background PID = $pid" >&2

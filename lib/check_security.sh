@@ -5,7 +5,7 @@
 check_filevault() {
     # Check FileVault encryption status
     if command -v fdesetup > /dev/null 2>&1; then
-        local fv_status=$(fdesetup status 2>/dev/null || echo "")
+        local fv_status=$(fdesetup status 2> /dev/null || echo "")
         if echo "$fv_status" | grep -q "FileVault is On"; then
             echo -e "  ${GREEN}✓${NC} FileVault    Enabled"
         else
@@ -18,7 +18,7 @@ check_filevault() {
 check_firewall() {
     # Check firewall status
     unset FIREWALL_DISABLED
-    local firewall_status=$(defaults read /Library/Preferences/com.apple.alf globalstate 2>/dev/null || echo "0")
+    local firewall_status=$(defaults read /Library/Preferences/com.apple.alf globalstate 2> /dev/null || echo "0")
     if [[ "$firewall_status" == "1" || "$firewall_status" == "2" ]]; then
         echo -e "  ${GREEN}✓${NC} Firewall     Enabled"
     else
@@ -32,7 +32,7 @@ check_firewall() {
 check_gatekeeper() {
     # Check Gatekeeper status
     if command -v spctl > /dev/null 2>&1; then
-        local gk_status=$(spctl --status 2>/dev/null || echo "")
+        local gk_status=$(spctl --status 2> /dev/null || echo "")
         if echo "$gk_status" | grep -q "enabled"; then
             echo -e "  ${GREEN}✓${NC} Gatekeeper   Active"
             unset GATEKEEPER_DISABLED
@@ -48,7 +48,7 @@ check_gatekeeper() {
 check_sip() {
     # Check System Integrity Protection
     if command -v csrutil > /dev/null 2>&1; then
-        local sip_status=$(csrutil status 2>/dev/null || echo "")
+        local sip_status=$(csrutil status 2> /dev/null || echo "")
         if echo "$sip_status" | grep -q "enabled"; then
             echo -e "  ${GREEN}✓${NC} SIP          Enabled"
         else

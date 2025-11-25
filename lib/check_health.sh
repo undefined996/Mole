@@ -20,14 +20,14 @@ check_disk_space() {
 
 check_memory_usage() {
     local mem_total
-    mem_total=$(sysctl -n hw.memsize 2>/dev/null || echo "0")
+    mem_total=$(sysctl -n hw.memsize 2> /dev/null || echo "0")
     if [[ -z "$mem_total" || "$mem_total" -le 0 ]]; then
         echo -e "  ${GRAY}-${NC} Memory       Unable to determine"
         return
     fi
 
     local vm_output
-    vm_output=$(vm_stat 2>/dev/null || echo "")
+    vm_output=$(vm_stat 2> /dev/null || echo "")
 
     local page_size
     page_size=$(echo "$vm_output" | awk '/page size of/ {print $8}')
@@ -133,7 +133,7 @@ check_cache_size() {
     for cache_path in "${cache_paths[@]}"; do
         if [[ -d "$cache_path" ]]; then
             local size_output
-            size_output=$(du -sk "$cache_path" 2>/dev/null | awk 'NR==1 {print $1}' | tr -d '[:space:]' || echo "")
+            size_output=$(du -sk "$cache_path" 2> /dev/null | awk 'NR==1 {print $1}' | tr -d '[:space:]' || echo "")
             [[ "$size_output" =~ ^[0-9]+$ ]] || size_output=0
             cache_size_kb=$((cache_size_kb + size_output))
         fi
@@ -162,7 +162,7 @@ check_cache_size() {
 check_swap_usage() {
     # Check swap usage
     if command -v sysctl > /dev/null 2>&1; then
-        local swap_info=$(sysctl vm.swapusage 2>/dev/null || echo "")
+        local swap_info=$(sysctl vm.swapusage 2> /dev/null || echo "")
         if [[ -n "$swap_info" ]]; then
             local swap_used=$(echo "$swap_info" | grep -o "used = [0-9.]*[GM]" | awk '{print $3}' || echo "0M")
             local swap_num=$(echo "$swap_used" | sed 's/[GM]//')
@@ -184,13 +184,13 @@ check_swap_usage() {
 check_timemachine() {
     # Check Time Machine backup status
     if command -v tmutil > /dev/null 2>&1; then
-        local tm_status=$(tmutil latestbackup 2>/dev/null || echo "")
+        local tm_status=$(tmutil latestbackup 2> /dev/null || echo "")
         if [[ -z "$tm_status" ]]; then
             echo -e "  ${YELLOW}${ICON_WARNING}${NC} Time Machine No backups found"
             echo -e "    ${GRAY}Set up in System Settings → General → Time Machine (optional but recommended)${NC}"
         else
             # Get last backup time
-            local backup_date=$(tmutil latestbackup 2>/dev/null | xargs basename 2>/dev/null || echo "")
+            local backup_date=$(tmutil latestbackup 2> /dev/null | xargs basename 2> /dev/null || echo "")
             if [[ -n "$backup_date" ]]; then
                 echo -e "  ${GREEN}✓${NC} Time Machine Backup active"
             else

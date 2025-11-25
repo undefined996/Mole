@@ -22,13 +22,13 @@ _pm_get_terminal_height() {
     # Try stty size first (most reliable, real-time)
     # Use </dev/tty to ensure we read from terminal even if stdin is redirected
     if [[ -t 0 ]] || [[ -t 2 ]]; then
-        height=$(stty size </dev/tty 2>/dev/null | awk '{print $1}')
+        height=$(stty size < /dev/tty 2> /dev/null | awk '{print $1}')
     fi
 
     # Fallback to tput
     if [[ -z "$height" || $height -le 0 ]]; then
         if command -v tput > /dev/null 2>&1; then
-            height=$(tput lines 2>/dev/null || echo "24")
+            height=$(tput lines 2> /dev/null || echo "24")
         else
             height=24
         fi
@@ -40,7 +40,7 @@ _pm_get_terminal_height() {
 # Calculate dynamic items per page based on terminal height
 _pm_calculate_items_per_page() {
     local term_height=$(_pm_get_terminal_height)
-    local reserved=6  # header(2) + footer(3) + spacing(1)
+    local reserved=6 # header(2) + footer(3) + spacing(1)
     local available=$((term_height - reserved))
 
     # Ensure minimum and maximum bounds

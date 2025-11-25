@@ -39,7 +39,7 @@ show_suggestions() {
     # Health suggestions
     if [[ -n "${CACHE_SIZE_GB:-}" ]]; then
         local cache_gb="${CACHE_SIZE_GB:-0}"
-        if (( $(echo "$cache_gb > 5" | bc -l 2>/dev/null || echo 0) )); then
+        if (($(echo "$cache_gb > 5" | bc -l 2> /dev/null || echo 0))); then
             manual_items+=("Free up ${cache_gb}GB by cleaning caches|Run: mo clean")
             has_suggestions=true
         fi
@@ -51,7 +51,7 @@ show_suggestions() {
     fi
 
     if [[ -n "${DISK_FREE_GB:-}" && "${DISK_FREE_GB:-0}" -lt 50 ]]; then
-        if [[ -z "${CACHE_SIZE_GB:-}" ]] || (( $(echo "${CACHE_SIZE_GB:-0} <= 5" | bc -l 2>/dev/null || echo 1) )); then
+        if [[ -z "${CACHE_SIZE_GB:-}" ]] || (($(echo "${CACHE_SIZE_GB:-0} <= 5" | bc -l 2> /dev/null || echo 1))); then
             manual_items+=("Low disk space (${DISK_FREE_GB}GB free)|Run: mo analyze to find large files")
             has_suggestions=true
         fi
@@ -132,7 +132,7 @@ perform_auto_fix() {
     # Fix Firewall
     if [[ -n "${FIREWALL_DISABLED:-}" && "${FIREWALL_DISABLED}" == "true" ]]; then
         echo -e "${BLUE}Enabling Firewall...${NC}"
-        if sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 1 2>/dev/null; then
+        if sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 1 2> /dev/null; then
             echo -e "${GREEN}✓${NC} Firewall enabled"
             ((fixed_count++))
             fixed_items+=("Firewall enabled")
@@ -148,7 +148,7 @@ perform_auto_fix() {
         local pam_file="/etc/pam.d/sudo"
         if sudo bash -c "grep -q 'pam_tid.so' '$pam_file' 2>/dev/null || sed -i '' '2i\\
 auth       sufficient     pam_tid.so
-' '$pam_file'" 2>/dev/null; then
+' '$pam_file'" 2> /dev/null; then
             echo -e "${GREEN}✓${NC} Touch ID configured"
             ((fixed_count++))
             fixed_items+=("Touch ID configured for sudo")
