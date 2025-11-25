@@ -17,11 +17,12 @@ check_filevault() {
 
 check_firewall() {
     # Check firewall status
+    unset FIREWALL_DISABLED
     local firewall_status=$(defaults read /Library/Preferences/com.apple.alf globalstate 2>/dev/null || echo "0")
     if [[ "$firewall_status" == "1" || "$firewall_status" == "2" ]]; then
         echo -e "  ${GREEN}✓${NC} Firewall     Enabled"
     else
-        echo -e "  ${YELLOW}⚠${NC} Firewall     ${YELLOW}Disabled${NC} (Consider enabling)"
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Firewall     ${YELLOW}Disabled${NC} (Consider enabling)"
         echo -e "    ${GRAY}System Settings → Network → Firewall, or run:${NC}"
         echo -e "    ${GRAY}sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 1${NC}"
         export FIREWALL_DISABLED=true
@@ -34,10 +35,12 @@ check_gatekeeper() {
         local gk_status=$(spctl --status 2>/dev/null || echo "")
         if echo "$gk_status" | grep -q "enabled"; then
             echo -e "  ${GREEN}✓${NC} Gatekeeper   Active"
+            unset GATEKEEPER_DISABLED
         else
-            echo -e "  ${YELLOW}⚠${NC} Gatekeeper   ${YELLOW}Disabled${NC}"
+            echo -e "  ${YELLOW}${ICON_WARNING}${NC} Gatekeeper   ${YELLOW}Disabled${NC}"
             echo -e "    ${GRAY}Enable via System Settings → Privacy & Security, or:${NC}"
             echo -e "    ${GRAY}sudo spctl --master-enable${NC}"
+            export GATEKEEPER_DISABLED=true
         fi
     fi
 }
@@ -49,7 +52,7 @@ check_sip() {
         if echo "$sip_status" | grep -q "enabled"; then
             echo -e "  ${GREEN}✓${NC} SIP          Enabled"
         else
-            echo -e "  ${YELLOW}⚠${NC} SIP          ${YELLOW}Disabled${NC}"
+            echo -e "  ${YELLOW}${ICON_WARNING}${NC} SIP          ${YELLOW}Disabled${NC}"
             echo -e "    ${GRAY}Restart into Recovery → Utilities → Terminal → run: csrutil enable${NC}"
         fi
     fi

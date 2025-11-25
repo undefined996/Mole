@@ -94,7 +94,7 @@ check_homebrew_updates() {
         elif [[ $cask_count -gt 0 ]]; then
             breakdown=" (${cask_count} cask)"
         fi
-        echo -e "  ${YELLOW}⚠${NC} Homebrew     ${YELLOW}${total_count} updates${NC}${breakdown}"
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Homebrew     ${YELLOW}${total_count} updates${NC}${breakdown}"
         echo -e "    ${GRAY}Run: ${GREEN}brew upgrade${NC} ${GRAY}and/or${NC} ${GREEN}brew upgrade --cask${NC}"
     else
         echo -e "  ${GREEN}✓${NC} Homebrew     Up to date"
@@ -134,8 +134,23 @@ get_software_updates() {
 }
 
 check_appstore_updates() {
+    local spinner_started=false
+    if [[ -t 1 ]]; then
+        printf "  Checking App Store updates...\r"
+        start_inline_spinner "Checking App Store updates..."
+        spinner_started=true
+        export SOFTWAREUPDATE_SPINNER_SHOWN="external"
+    else
+        echo "Checking App Store updates..."
+    fi
+
     local update_list=""
     update_list=$(get_software_updates | grep -v "Software Update Tool" | grep "^\*" | grep -vi "macOS" || echo "")
+
+    if [[ "$spinner_started" == "true" ]]; then
+        stop_inline_spinner
+        unset SOFTWAREUPDATE_SPINNER_SHOWN
+    fi
 
     local update_count=0
     if [[ -n "$update_list" ]]; then
@@ -145,7 +160,7 @@ check_appstore_updates() {
     export APPSTORE_UPDATE_COUNT=$update_count
 
     if [[ $update_count -gt 0 ]]; then
-        echo -e "  ${YELLOW}⚠${NC} App Store    ${YELLOW}${update_count} apps${NC} need update"
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} App Store    ${YELLOW}${update_count} apps${NC} need update"
         echo -e "    ${GRAY}Run: ${GREEN}softwareupdate -i <label>${NC}"
     else
         echo -e "  ${GREEN}✓${NC} App Store    Up to date"
@@ -153,9 +168,24 @@ check_appstore_updates() {
 }
 
 check_macos_update() {
+    local spinner_started=false
+    if [[ -t 1 ]]; then
+        printf "  Checking macOS updates...\r"
+        start_inline_spinner "Checking macOS updates..."
+        spinner_started=true
+        export SOFTWAREUPDATE_SPINNER_SHOWN="external"
+    else
+        echo "Checking macOS updates..."
+    fi
+
     # Check for macOS system update using cached list
     local macos_update=""
     macos_update=$(get_software_updates | grep -i "macOS" | head -1 || echo "")
+
+    if [[ "$spinner_started" == "true" ]]; then
+        stop_inline_spinner
+        unset SOFTWAREUPDATE_SPINNER_SHOWN
+    fi
 
     export MACOS_UPDATE_AVAILABLE="false"
 
@@ -163,9 +193,9 @@ check_macos_update() {
         export MACOS_UPDATE_AVAILABLE="true"
         local version=$(echo "$macos_update" | grep -o '[0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?' | head -1)
         if [[ -n "$version" ]]; then
-            echo -e "  ${YELLOW}⚠${NC} macOS        ${YELLOW}${version} available${NC}"
+            echo -e "  ${YELLOW}${ICON_WARNING}${NC} macOS        ${YELLOW}${version} available${NC}"
         else
-            echo -e "  ${YELLOW}⚠${NC} macOS        ${YELLOW}Update available${NC}"
+            echo -e "  ${YELLOW}${ICON_WARNING}${NC} macOS        ${YELLOW}Update available${NC}"
         fi
         echo -e "    ${GRAY}Run: ${GREEN}softwareupdate -i <label>${NC}"
     else
@@ -220,7 +250,7 @@ check_mole_update() {
         # Compare versions
         if [[ "$(printf '%s\n' "$current_version" "$latest_version" | sort -V | head -1)" == "$current_version" ]]; then
             export MOLE_UPDATE_AVAILABLE="true"
-            echo -e "  ${YELLOW}⚠${NC} Mole         ${YELLOW}${latest_version} available${NC} (current: ${current_version})"
+            echo -e "  ${YELLOW}${ICON_WARNING}${NC} Mole         ${YELLOW}${latest_version} available${NC} (current: ${current_version})"
             echo -e "    ${GRAY}Run: ${GREEN}mo update${NC}"
         else
             echo -e "  ${GREEN}✓${NC} Mole         Up to date (${current_version})"

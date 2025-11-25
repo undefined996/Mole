@@ -4,10 +4,18 @@
 
 set -euo pipefail
 
+readonly MAIL_DOWNLOADS_MIN_KB=5120  # ~5MB threshold
+
+_opt_get_dir_size_kb() {
+    local path="$1"
+    [[ -e "$path" ]] || { echo 0; return; }
+    du -sk "$path" 2> /dev/null | awk '{print $1}' || echo 0
+}
+
 # System maintenance: rebuild databases and flush caches
 opt_system_maintenance() {
     echo -e "${BLUE}${ICON_ARROW}${NC} Rebuilding LaunchServices database..."
-    timeout 10 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user > /dev/null 2>&1 || true
+    run_with_timeout 10 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user > /dev/null 2>&1 || true
     echo -e "${GREEN}${ICON_SUCCESS}${NC} LaunchServices database rebuilt"
 
     echo -e "${BLUE}${ICON_ARROW}${NC} Clearing DNS cache..."
@@ -29,9 +37,30 @@ opt_system_maintenance() {
     echo -e "${GREEN}${ICON_SUCCESS}${NC} Font cache rebuilt"
 
     echo -e "${BLUE}${ICON_ARROW}${NC} Rebuilding Spotlight index (runs in background)..."
-    # mdutil triggers background indexing - don't wait
-    timeout 10 sudo mdutil -E / > /dev/null 2>&1 || true
-    echo -e "${GREEN}${ICON_SUCCESS}${NC} Spotlight rebuild initiated"
+    local md_status
+    md_status=$(mdutil -s / 2> /dev/null || echo "")
+    if echo "$md_status" | grep -qi "Indexing disabled"; then
+        echo -e "${GRAY}-${NC} Spotlight indexing disabled, skipping rebuild"
+    else
+        # mdutil triggers background indexing - don't wait
+        run_with_timeout 10 sudo mdutil -E / > /dev/null 2>&1 || true
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} Spotlight rebuild initiated"
+    fi
+
+    echo -e "${BLUE}${ICON_ARROW}${NC} Refreshing Bluetooth services..."
+    sudo pkill -f blued 2> /dev/null || true
+    echo -e "${GREEN}${ICON_SUCCESS}${NC} Bluetooth controller refreshed"
+
+    if command -v log > /dev/null 2>&1 && [[ "${MO_ENABLE_LOG_CLEANUP:-0}" == "1" ]]; then
+        echo -e "${BLUE}${ICON_ARROW}${NC} Compressing system logs..."
+        if command -v has_sudo_session > /dev/null 2>&1 && ! has_sudo_session; then
+            echo -e "${YELLOW}!${NC} Skipped log compression ${GRAY}(admin session inactive)${NC}"
+        elif run_with_timeout 15 sudo -n log erase --all --force > /dev/null 2>&1; then
+            echo -e "${GREEN}${ICON_SUCCESS}${NC} logarchive trimmed"
+        else
+            echo -e "${YELLOW}!${NC} Skipped log compression ${GRAY}(requires Full Disk Access)${NC}"
+        fi
+    fi
 }
 
 # Cache refresh: update Finder/Safari caches
@@ -68,19 +97,19 @@ opt_maintenance_scripts() {
 
     # Run periodic scripts silently with timeout
     if [[ -x "$periodic_cmd" ]]; then
-        if ! timeout 180 sudo "$periodic_cmd" daily weekly monthly > /dev/null 2>&1; then
+        if ! run_with_timeout 180 sudo "$periodic_cmd" daily weekly monthly > /dev/null 2>&1; then
             success=false
         fi
     fi
 
     # Run newsyslog silently with timeout
-    if ! timeout 120 sudo newsyslog > /dev/null 2>&1; then
+    if ! run_with_timeout 120 sudo newsyslog > /dev/null 2>&1; then
         success=false
     fi
 
     # Run repair_packages silently with timeout
     if [[ -x "/usr/libexec/repair_packages" ]]; then
-        if ! timeout 180 sudo /usr/libexec/repair_packages --repair --standard-pkgs --volume / > /dev/null 2>&1; then
+        if ! run_with_timeout 180 sudo /usr/libexec/repair_packages --repair --standard-pkgs --volume / > /dev/null 2>&1; then
             success=false
         fi
     fi
@@ -162,6 +191,18 @@ opt_mail_downloads() {
         "$HOME/Library/Mail Downloads|Mail Downloads"
         "$HOME/Library/Containers/com.apple.mail/Data/Library/Mail Downloads|Mail Container Downloads"
     )
+
+    local total_kb=0
+    for target in "${mail_dirs[@]}"; do
+        IFS='|' read -r target_path _ <<< "$target"
+        total_kb=$((total_kb + $(_opt_get_dir_size_kb "$target_path")))
+    done
+
+    if [[ $total_kb -lt $MAIL_DOWNLOADS_MIN_KB ]]; then
+        echo -e "${GRAY}-${NC} Only $(bytes_to_human $((total_kb * 1024))) detected, skipping cleanup"
+        return
+    fi
+
     for target in "${mail_dirs[@]}"; do
         IFS='|' read -r target_path label <<< "$target"
         cleanup_path "$target_path" "$label"
@@ -220,16 +261,16 @@ opt_startup_cache() {
     fi
 
     if [[ "$macos_version" -ge 11 ]] || [[ "$(uname -m)" == "arm64" ]]; then
-        if ! timeout 120 sudo kextcache -i / > /dev/null 2>&1; then
+        if ! run_with_timeout 120 sudo kextcache -i / > /dev/null 2>&1; then
             success=false
         fi
     else
-        if ! timeout 180 sudo kextcache -i / > /dev/null 2>&1; then
+        if ! run_with_timeout 180 sudo kextcache -i / > /dev/null 2>&1; then
             success=false
         fi
 
         sudo rm -rf /System/Library/PrelinkedKernels/* > /dev/null 2>&1 || true
-        timeout 120 sudo kextcache -system-prelinked-kernel > /dev/null 2>&1 || true
+        run_with_timeout 120 sudo kextcache -system-prelinked-kernel > /dev/null 2>&1 || true
     fi
 
     if [[ -t 1 ]]; then
@@ -262,7 +303,7 @@ opt_local_snapshots() {
     fi
 
     local success=false
-    if timeout 180 sudo tmutil thinlocalsnapshots / 9999999999 4 > /dev/null 2>&1; then
+    if run_with_timeout 180 sudo tmutil thinlocalsnapshots / 9999999999 4 > /dev/null 2>&1; then
         success=true
     fi
 

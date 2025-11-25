@@ -12,7 +12,7 @@ check_disk_space() {
     if [[ $free_num -lt 20 ]]; then
         echo -e "  ${RED}✗${NC} Disk Space   ${RED}${free_gb}GB free${NC} (Critical)"
     elif [[ $free_num -lt 50 ]]; then
-        echo -e "  ${YELLOW}⚠${NC} Disk Space   ${YELLOW}${free_gb}GB free${NC} (Low)"
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Disk Space   ${YELLOW}${free_gb}GB free${NC} (Low)"
     else
         echo -e "  ${GREEN}✓${NC} Disk Space   ${free_gb}GB free"
     fi
@@ -58,7 +58,7 @@ check_memory_usage() {
     if [[ $used_percent -gt 90 ]]; then
         echo -e "  ${RED}✗${NC} Memory       ${RED}${used_percent}% used${NC} (Critical)"
     elif [[ $used_percent -gt 80 ]]; then
-        echo -e "  ${YELLOW}⚠${NC} Memory       ${YELLOW}${used_percent}% used${NC} (High)"
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Memory       ${YELLOW}${used_percent}% used${NC} (High)"
     else
         echo -e "  ${GREEN}✓${NC} Memory       ${used_percent}% used"
     fi
@@ -86,7 +86,7 @@ check_login_items() {
     fi
 
     if [[ $login_items_count -gt 15 ]]; then
-        echo -e "  ${YELLOW}⚠${NC} Login Items  ${YELLOW}${login_items_count} apps${NC} auto-start (High)"
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Login Items  ${YELLOW}${login_items_count} apps${NC} auto-start (High)"
     elif [[ $login_items_count -gt 0 ]]; then
         echo -e "  ${GREEN}✓${NC} Login Items  ${login_items_count} apps auto-start"
     else
@@ -151,9 +151,9 @@ check_cache_size() {
     local cache_size_int=$(echo "$cache_size_gb" | cut -d'.' -f1)
 
     if [[ $cache_size_int -gt 10 ]]; then
-        echo -e "  ${YELLOW}⚠${NC} Cache Size   ${YELLOW}${cache_size_gb}GB${NC} cleanable"
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Cache Size   ${YELLOW}${cache_size_gb}GB${NC} cleanable"
     elif [[ $cache_size_int -gt 5 ]]; then
-        echo -e "  ${YELLOW}⚠${NC} Cache Size   ${YELLOW}${cache_size_gb}GB${NC} cleanable"
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Cache Size   ${YELLOW}${cache_size_gb}GB${NC} cleanable"
     else
         echo -e "  ${GREEN}✓${NC} Cache Size   ${cache_size_gb}GB"
     fi
@@ -170,7 +170,7 @@ check_swap_usage() {
             if [[ "$swap_used" == *"G"* ]]; then
                 local swap_gb=${swap_num%.*}
                 if [[ $swap_gb -gt 2 ]]; then
-                    echo -e "  ${YELLOW}⚠${NC} Swap Usage   ${YELLOW}${swap_used}${NC} (High)"
+                    echo -e "  ${YELLOW}${ICON_WARNING}${NC} Swap Usage   ${YELLOW}${swap_used}${NC} (High)"
                 else
                     echo -e "  ${GREEN}✓${NC} Swap Usage   ${swap_used}"
                 fi
@@ -186,7 +186,7 @@ check_timemachine() {
     if command -v tmutil > /dev/null 2>&1; then
         local tm_status=$(tmutil latestbackup 2>/dev/null || echo "")
         if [[ -z "$tm_status" ]]; then
-            echo -e "  ${YELLOW}⚠${NC} Time Machine No backups found"
+            echo -e "  ${YELLOW}${ICON_WARNING}${NC} Time Machine No backups found"
             echo -e "    ${GRAY}Set up in System Settings → General → Time Machine (optional but recommended)${NC}"
         else
             # Get last backup time
@@ -194,7 +194,7 @@ check_timemachine() {
             if [[ -n "$backup_date" ]]; then
                 echo -e "  ${GREEN}✓${NC} Time Machine Backup active"
             else
-                echo -e "  ${YELLOW}⚠${NC} Time Machine Not configured"
+                echo -e "  ${YELLOW}${ICON_WARNING}${NC} Time Machine Not configured"
             fi
         fi
     fi
@@ -220,7 +220,7 @@ check_brew_health() {
         else
             local warning_count=$(echo "$brew_doctor" | grep -c "Warning:" || echo "0")
             if [[ $warning_count -gt 0 ]]; then
-                echo -e "  ${YELLOW}⚠${NC} Homebrew     ${YELLOW}${warning_count} warnings${NC}"
+                echo -e "  ${YELLOW}${ICON_WARNING}${NC} Homebrew     ${YELLOW}${warning_count} warnings${NC}"
                 echo -e "    ${GRAY}Run: ${GREEN}brew doctor${NC} to see fixes, then rerun until clean${NC}"
                 export BREW_HAS_WARNINGS=true
             else

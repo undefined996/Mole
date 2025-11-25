@@ -27,6 +27,7 @@ print_header() {
 
 # System check functions (real-time display)
 run_system_checks() {
+    unset AUTO_FIX_SUMMARY AUTO_FIX_DETAILS
     echo ""
     echo -e "${PURPLE}System Check${NC}"
     echo ""
@@ -44,6 +45,9 @@ run_system_checks() {
     # Check security - real-time display
     echo -e "${BLUE}${ICON_ARROW}${NC} Security posture"
     check_all_security
+    if ask_for_security_fixes; then
+        perform_security_fixes
+    fi
     echo ""
 
     # Check configuration - real-time display
@@ -67,30 +71,32 @@ run_system_checks() {
 }
 
 show_optimization_summary() {
-    if [[ -z "${OPTIMIZE_SAFE_COUNT:-}" ]]; then
+    local safe_count="${OPTIMIZE_SAFE_COUNT:-0}"
+    local confirm_count="${OPTIMIZE_CONFIRM_COUNT:-0}"
+    if (( safe_count == 0 && confirm_count == 0 )) && [[ -z "${AUTO_FIX_SUMMARY:-}" ]]; then
         return
     fi
-
     echo ""
     local summary_title="Optimization and Check Complete"
     local -a summary_details=()
 
     # Optimization results
-    if ((OPTIMIZE_SAFE_COUNT > 0)); then
-        summary_details+=("Applied ${GREEN}${OPTIMIZE_SAFE_COUNT}${NC} optimizations")
+    summary_details+=("Optimizations: ${GREEN}${safe_count}${NC} applied, ${YELLOW}${confirm_count}${NC} manual checks")
+    summary_details+=("Caches refreshed; services restarted; system tuned")
+    summary_details+=("Updates & security reviewed across system")
+
+    local summary_line4=""
+    if [[ -n "${AUTO_FIX_SUMMARY:-}" ]]; then
+        summary_line4="${AUTO_FIX_SUMMARY}"
+        if [[ -n "${AUTO_FIX_DETAILS:-}" ]]; then
+            local detail_join
+            detail_join=$(echo "${AUTO_FIX_DETAILS}" | paste -sd ", " -)
+            [[ -n "$detail_join" ]] && summary_line4+=" — ${detail_join}"
+        fi
     else
-        summary_details+=("System already optimized")
+        summary_line4="Mac should feel faster and more responsive"
     fi
-
-    if ((OPTIMIZE_CONFIRM_COUNT > 0)); then
-        summary_details+=("${YELLOW}${OPTIMIZE_CONFIRM_COUNT}${NC} manual checks suggested")
-    fi
-
-    summary_details+=("Caches cleared, databases rebuilt, services refreshed")
-
-    # System check results
-    summary_details+=("System updates, health, security, and config reviewed")
-    summary_details+=("System should feel faster and more responsive")
+    summary_details+=("$summary_line4")
 
     if [[ "${OPTIMIZE_SHOW_TOUCHID_TIP:-false}" == "true" ]]; then
         echo -e "${YELLOW}☻${NC} Run ${GRAY}mo touchid${NC} to approve sudo via Touch ID"
@@ -216,6 +222,97 @@ count_local_snapshots() {
     fi
 
     echo "$output" | grep -c "com.apple.TimeMachine." | tr -d ' '
+}
+
+declare -a SECURITY_FIXES=()
+
+collect_security_fix_actions() {
+    SECURITY_FIXES=()
+    if [[ "${FIREWALL_DISABLED:-}" == "true" ]]; then
+        SECURITY_FIXES+=("firewall|Enable macOS firewall")
+    fi
+    if [[ "${GATEKEEPER_DISABLED:-}" == "true" ]]; then
+        SECURITY_FIXES+=("gatekeeper|Enable Gatekeeper (App download protection)")
+    fi
+
+    ((${#SECURITY_FIXES[@]} > 0))
+}
+
+ask_for_security_fixes() {
+    if ! collect_security_fix_actions; then
+        return 1
+    fi
+
+    echo -e "${BLUE}SECURITY FIXES${NC}"
+    for entry in "${SECURITY_FIXES[@]}"; do
+        IFS='|' read -r _ label <<< "$entry"
+        echo -e "  ${ICON_LIST} $label"
+    done
+    echo ""
+    echo -ne "${YELLOW}Apply now?${NC} ${GRAY}Enter confirm / ESC cancel${NC}: "
+
+    local key
+    if ! key=$(read_key); then
+        echo "skip"
+        echo ""
+        return 1
+    fi
+
+    if [[ "$key" == "ENTER" ]]; then
+        echo "apply"
+        echo ""
+        return 0
+    else
+        echo "skip"
+        echo ""
+        return 1
+    fi
+}
+
+apply_firewall_fix() {
+    if sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 1; then
+        sudo pkill -HUP socketfilterfw 2> /dev/null || true
+        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Firewall enabled"
+        FIREWALL_DISABLED=false
+        return 0
+    fi
+    echo -e "  ${YELLOW}${ICON_WARNING}${NC} Failed to enable firewall (check permissions)"
+    return 1
+}
+
+apply_gatekeeper_fix() {
+    if sudo spctl --master-enable 2> /dev/null; then
+        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Gatekeeper enabled"
+        GATEKEEPER_DISABLED=false
+        return 0
+    fi
+    echo -e "  ${YELLOW}${ICON_WARNING}${NC} Failed to enable Gatekeeper"
+    return 1
+}
+
+perform_security_fixes() {
+    if ! ensure_sudo_session "Security changes require admin access"; then
+        echo -e "${YELLOW}${ICON_WARNING}${NC} Skipped security fixes (sudo denied)"
+        return 1
+    fi
+
+    local applied=0
+    for entry in "${SECURITY_FIXES[@]}"; do
+        IFS='|' read -r action _ <<< "$entry"
+        case "$action" in
+            firewall)
+                apply_firewall_fix && ((applied++))
+                ;;
+            gatekeeper)
+                apply_gatekeeper_fix && ((applied++))
+                ;;
+        esac
+    done
+
+    if ((applied > 0)); then
+        log_success "Security settings updated"
+    fi
+    SECURITY_FIXES=()
 }
 
 
@@ -364,15 +461,15 @@ main() {
     local safe_count=${#safe_items[@]}
     local confirm_count=${#confirm_items[@]}
 
+    # Run system checks first
+    run_system_checks
+
     export OPTIMIZE_SAFE_COUNT=$safe_count
     export OPTIMIZE_CONFIRM_COUNT=$confirm_count
     export OPTIMIZE_SHOW_TOUCHID_TIP="false"
     if touchid_supported && ! touchid_configured; then
         export OPTIMIZE_SHOW_TOUCHID_TIP="true"
     fi
-
-    # Run system checks first
-    run_system_checks
 
     # Show optimization summary at the end
     show_optimization_summary

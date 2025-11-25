@@ -356,6 +356,53 @@ drain_pending_input() {
     done
 }
 
+# Shared timeout helper -------------------------------------------------------
+if [[ -z "${MO_TIMEOUT_INITIALIZED:-}" ]]; then
+    MO_TIMEOUT_BIN=""
+    for candidate in gtimeout timeout; do
+        if command -v "$candidate" > /dev/null 2>&1; then
+            MO_TIMEOUT_BIN="$candidate"
+            break
+        fi
+    done
+    export MO_TIMEOUT_INITIALIZED=1
+fi
+
+run_with_timeout() {
+    local duration="${1:-0}"
+    shift || true
+
+    if [[ ! "$duration" =~ ^[0-9]+$ ]]; then
+        duration=0
+    fi
+
+    if [[ "$duration" -le 0 ]]; then
+        "$@"
+        return $?
+    fi
+
+    if [[ -n "${MO_TIMEOUT_BIN:-}" ]]; then
+        "$MO_TIMEOUT_BIN" "$duration" "$@"
+        return $?
+    fi
+
+    "$@" &
+    local cmd_pid=$!
+    local elapsed=0
+    while kill -0 "$cmd_pid" 2> /dev/null; do
+        if [[ $elapsed -ge $duration ]]; then
+            kill -TERM "$cmd_pid" 2> /dev/null || true
+            sleep 1
+            kill -KILL "$cmd_pid" 2> /dev/null || true
+            wait "$cmd_pid" 2> /dev/null || true
+            return 124
+        fi
+        sleep 1
+        ((elapsed++))
+    done
+    wait "$cmd_pid"
+}
+
 # Menu display helper
 show_menu_option() {
     local number="$1"
@@ -594,35 +641,41 @@ request_sudo_access() {
 
         [[ -z "$tty_path" ]] && return 1
 
-        local password=""
-        local saved_stty=""
-        if command -v stty > /dev/null 2>&1; then
-            saved_stty=$(stty -g < "$tty_path" 2> /dev/null || echo "")
-            stty -echo < "$tty_path" 2> /dev/null || true
-        fi
+        local attempts=0
+        while ((attempts < 3)); do
+            local password=""
+            local saved_stty=""
+            if command -v stty > /dev/null 2>&1; then
+                saved_stty=$(stty -g < "$tty_path" 2> /dev/null || echo "")
+                stty -echo < "$tty_path" 2> /dev/null || true
+            fi
 
-        printf "${PURPLE}${ICON_ARROW}${NC} Enter admin password: " > "$tty_path" 2> /dev/null || true
-        IFS= read -r password < "$tty_path" || password=""
-        printf "\n" > "$tty_path" 2> /dev/null || true
+            printf "${PURPLE}${ICON_ARROW}${NC} Enter admin password: " > "$tty_path" 2> /dev/null || true
+            IFS= read -r password < "$tty_path" || password=""
+            printf "\n" > "$tty_path" 2> /dev/null || true
 
-        if [[ -n "$saved_stty" ]]; then
-            stty "$saved_stty" < "$tty_path" 2> /dev/null || stty echo < "$tty_path" 2> /dev/null || true
-        else
-            stty echo < "$tty_path" 2> /dev/null || true
-        fi
+            if [[ -n "$saved_stty" ]]; then
+                stty "$saved_stty" < "$tty_path" 2> /dev/null || stty echo < "$tty_path" 2> /dev/null || true
+            else
+                stty echo < "$tty_path" 2> /dev/null || true
+            fi
 
-        if [[ -z "$password" ]]; then
+            if [[ -z "$password" ]]; then
+                unset password
+                ((attempts++))
+                continue
+            fi
+
+            if printf '%s\n' "$password" | "${sudo_stdin_cmd[@]}" > /dev/null 2>&1; then
+                unset password
+                sudo -n true 2> /dev/null || true
+                return 0
+            fi
+
             unset password
-            return 1
-        fi
-
-        if printf '%s\n' "$password" | "${sudo_stdin_cmd[@]}" > /dev/null 2>&1; then
-            unset password
-            sudo -n true 2> /dev/null || true
-            return 0
-        fi
-
-        unset password
+            ((attempts++))
+            echo -e "${YELLOW}${ICON_WARNING}${NC} Incorrect password, try again" > "$tty_path" 2> /dev/null || true
+        done
         return 1
     }
 

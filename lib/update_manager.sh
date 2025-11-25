@@ -25,6 +25,17 @@ format_brew_update_label() {
     printf "  • Homebrew %s" "$detail_str"
 }
 
+brew_has_outdated() {
+    local kind="${1:-formula}"
+    command -v brew > /dev/null 2>&1 || return 1
+
+    if [[ "$kind" == "cask" ]]; then
+        brew outdated --cask --quiet 2> /dev/null | grep -q .
+    else
+        brew outdated --quiet 2> /dev/null | grep -q .
+    fi
+}
+
 # Ask user if they want to update
 # Returns: 0 if yes, 1 if no
 ask_for_updates() {
@@ -62,7 +73,7 @@ ask_for_updates() {
         echo -e "$item"
     done
     echo ""
-    echo -ne "${YELLOW}Update all now?${NC} ${GRAY}Enter yes / ESC skip${NC}: "
+    echo -ne "${YELLOW}Update all now?${NC} ${GRAY}Enter confirm / ESC cancel${NC}: "
 
     local key
     if ! key=$(read_key); then
@@ -124,28 +135,80 @@ perform_updates() {
 
     # Update Homebrew formulae
     if ((brew_formula > 0)); then
-        echo -e "${BLUE}Updating Homebrew formulae...${NC}"
-        if brew upgrade 2>&1 | grep -v "^==>" | grep -v "^Warning:" || true; then
-            echo -e "${GREEN}✓${NC} Homebrew formulae updated"
-            reset_brew_cache
-            ((updated_count++))
+        if ! brew_has_outdated "formula"; then
+            echo -e "${GRAY}-${NC} Homebrew formulae already up to date"
+            ((total_count--))
+            echo ""
         else
-            echo -e "${RED}✗${NC} Homebrew formula update failed"
+            echo -e "${BLUE}Updating Homebrew formulae...${NC}"
+            local spinner_started=false
+            if [[ -t 1 ]]; then
+                start_inline_spinner "Running brew upgrade"
+                spinner_started=true
+            fi
+
+            local brew_output=""
+            local brew_status=0
+            if ! brew_output=$(brew upgrade 2>&1); then
+                brew_status=$?
+            fi
+
+            if [[ "$spinner_started" == "true" ]]; then
+                stop_inline_spinner
+            fi
+
+            local filtered_output
+            filtered_output=$(echo "$brew_output" | grep -Ev "^(==>|Warning:)" || true)
+            [[ -n "$filtered_output" ]] && echo "$filtered_output"
+
+            if [[ ${brew_status:-0} -eq 0 ]]; then
+                echo -e "${GREEN}✓${NC} Homebrew formulae updated"
+                reset_brew_cache
+                ((updated_count++))
+            else
+                echo -e "${RED}✗${NC} Homebrew formula update failed"
+            fi
+            echo ""
         fi
-        echo ""
     fi
 
     # Update Homebrew casks
     if ((brew_cask > 0)); then
-        echo -e "${BLUE}Updating Homebrew casks...${NC}"
-        if brew upgrade --cask 2>&1 | grep -v "^==>" | grep -v "^Warning:" || true; then
-            echo -e "${GREEN}✓${NC} Homebrew casks updated"
-            reset_brew_cache
-            ((updated_count++))
+        if ! brew_has_outdated "cask"; then
+            echo -e "${GRAY}-${NC} Homebrew casks already up to date"
+            ((total_count--))
+            echo ""
         else
-            echo -e "${RED}✗${NC} Homebrew cask update failed"
+            echo -e "${BLUE}Updating Homebrew casks...${NC}"
+            local spinner_started=false
+            if [[ -t 1 ]]; then
+                start_inline_spinner "Running brew upgrade --cask"
+                spinner_started=true
+            fi
+
+            local brew_output=""
+            local brew_status=0
+            if ! brew_output=$(brew upgrade --cask 2>&1); then
+                brew_status=$?
+            fi
+
+            if [[ "$spinner_started" == "true" ]]; then
+                stop_inline_spinner
+            fi
+
+            local filtered_output
+            filtered_output=$(echo "$brew_output" | grep -Ev "^(==>|Warning:)" || true)
+            [[ -n "$filtered_output" ]] && echo "$filtered_output"
+
+            if [[ ${brew_status:-0} -eq 0 ]]; then
+                echo -e "${GREEN}✓${NC} Homebrew casks updated"
+                reset_brew_cache
+                ((updated_count++))
+            else
+                echo -e "${RED}✗${NC} Homebrew cask update failed"
+            fi
+            echo ""
         fi
-        echo ""
     fi
 
     # Update App Store apps
@@ -154,7 +217,7 @@ perform_updates() {
         # Check sudo access
         if ! has_sudo_session; then
             if ! ensure_sudo_session "Software updates require admin access"; then
-                echo -e "${YELLOW}⚠${NC} Skipping App Store updates (admin authentication required)"
+                echo -e "${YELLOW}${ICON_WARNING}${NC} Skipping App Store updates (admin authentication required)"
                 echo ""
                 ((total_count--))
                 if [[ -n "${MACOS_UPDATE_AVAILABLE:-}" && "${MACOS_UPDATE_AVAILABLE}" == "true" ]]; then
@@ -171,7 +234,7 @@ perform_updates() {
     # Update macOS
     if [[ -n "${MACOS_UPDATE_AVAILABLE:-}" && "${MACOS_UPDATE_AVAILABLE}" == "true" && "$macos_handled_via_appstore" != "true" ]]; then
         if ! has_sudo_session; then
-            echo -e "${YELLOW}⚠${NC} Skipping macOS updates (admin authentication required)"
+            echo -e "${YELLOW}${ICON_WARNING}${NC} Skipping macOS updates (admin authentication required)"
             echo ""
         else
             _perform_macos_update
@@ -260,7 +323,7 @@ _perform_macos_update() {
     fi
 
     if grep -qi "restart" "$macos_log" 2>/dev/null; then
-        echo -e "${YELLOW}⚠${NC} Restart required to complete update"
+        echo -e "${YELLOW}${ICON_WARNING}${NC} Restart required to complete update"
     fi
 
     rm -f "$macos_log" 2>/dev/null || true

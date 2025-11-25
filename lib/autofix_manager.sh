@@ -69,7 +69,7 @@ show_suggestions() {
     # Show auto-fix items
     if [[ ${#auto_fix_items[@]} -gt 0 ]]; then
         for item in "${auto_fix_items[@]}"; do
-            echo -e "  ${YELLOW}⚠${NC} ${item} ${GREEN}[auto]${NC}"
+            echo -e "  ${YELLOW}${ICON_WARNING}${NC} ${item} ${GREEN}[auto]${NC}"
         done
     fi
 
@@ -78,7 +78,7 @@ show_suggestions() {
         for item in "${manual_items[@]}"; do
             local title="${item%%|*}"
             local hint="${item#*|}"
-            echo -e "  ${YELLOW}⚠${NC} ${title}"
+            echo -e "  ${YELLOW}${ICON_WARNING}${NC} ${title}"
             echo -e "    ${GRAY}${hint}${NC}"
         done
     fi
@@ -94,7 +94,7 @@ ask_for_auto_fix() {
         return 1
     fi
 
-    echo -ne "Fix issues marked ${GREEN}[auto]${NC}? ${GRAY}Enter yes / ESC no${NC}: "
+    echo -ne "${PURPLE}${ICON_ARROW}${NC} Auto-fix issues now? ${GRAY}Enter confirm / ESC cancel${NC}: "
 
     local key
     if ! key=$(read_key); then
@@ -118,6 +118,7 @@ ask_for_auto_fix() {
 # Returns: number of fixes applied
 perform_auto_fix() {
     local fixed_count=0
+    local -a fixed_items=()
 
     # Ensure sudo access
     if ! has_sudo_session; then
@@ -134,6 +135,7 @@ perform_auto_fix() {
         if sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 1 2>/dev/null; then
             echo -e "${GREEN}✓${NC} Firewall enabled"
             ((fixed_count++))
+            fixed_items+=("Firewall enabled")
         else
             echo -e "${RED}✗${NC} Failed to enable Firewall"
         fi
@@ -142,13 +144,14 @@ perform_auto_fix() {
 
     # Fix Touch ID
     if [[ -n "${TOUCHID_NOT_CONFIGURED:-}" && "${TOUCHID_NOT_CONFIGURED}" == "true" ]]; then
-        echo -e "${BLUE}Configuring Touch ID for sudo...${NC}"
+        echo -e "${BLUE}${ICON_ARROW}${NC} Configuring Touch ID for sudo..."
         local pam_file="/etc/pam.d/sudo"
         if sudo bash -c "grep -q 'pam_tid.so' '$pam_file' 2>/dev/null || sed -i '' '2i\\
 auth       sufficient     pam_tid.so
 ' '$pam_file'" 2>/dev/null; then
             echo -e "${GREEN}✓${NC} Touch ID configured"
             ((fixed_count++))
+            fixed_items+=("Touch ID configured for sudo")
         else
             echo -e "${RED}✗${NC} Failed to configure Touch ID"
         fi
@@ -161,6 +164,7 @@ auth       sufficient     pam_tid.so
         if sudo softwareupdate --install-rosetta --agree-to-license 2>&1 | grep -qE "(Installing|Installed|already installed)"; then
             echo -e "${GREEN}✓${NC} Rosetta 2 installed"
             ((fixed_count++))
+            fixed_items+=("Rosetta 2 installed")
         else
             echo -e "${RED}✗${NC} Failed to install Rosetta 2"
         fi
@@ -168,11 +172,16 @@ auth       sufficient     pam_tid.so
     fi
 
     if [[ $fixed_count -gt 0 ]]; then
-        echo -e "${GREEN}Fixed ${fixed_count} issue(s)${NC}"
+        AUTO_FIX_SUMMARY="Auto fixes applied: ${fixed_count} issue(s)"
+        if [[ ${#fixed_items[@]} -gt 0 ]]; then
+            AUTO_FIX_DETAILS=$(printf '%s\n' "${fixed_items[@]}")
+        else
+            AUTO_FIX_DETAILS=""
+        fi
     else
-        echo -e "${YELLOW}No issues were fixed${NC}"
+        AUTO_FIX_SUMMARY="Auto fixes skipped: No changes were required"
+        AUTO_FIX_DETAILS=""
     fi
-    echo ""
-
-    return $fixed_count
+    export AUTO_FIX_SUMMARY AUTO_FIX_DETAILS
+    return 0
 }

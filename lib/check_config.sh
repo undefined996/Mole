@@ -19,7 +19,7 @@ check_touchid_sudo() {
         fi
 
         if [[ "$is_supported" == "true" ]]; then
-            echo -e "  ${YELLOW}⚠${NC} Touch ID     ${YELLOW}Not configured${NC} for sudo"
+            echo -e "  ${YELLOW}${ICON_WARNING}${NC} Touch ID     ${YELLOW}Not configured${NC} for sudo"
             export TOUCHID_NOT_CONFIGURED=true
         fi
     fi
@@ -31,7 +31,7 @@ check_rosetta() {
         if [[ -f "/Library/Apple/usr/share/rosetta/rosetta" ]]; then
             echo -e "  ${GREEN}✓${NC} Rosetta 2    Installed"
         else
-            echo -e "  ${YELLOW}⚠${NC} Rosetta 2    ${YELLOW}Not installed${NC}"
+            echo -e "  ${YELLOW}${ICON_WARNING}${NC} Rosetta 2    ${YELLOW}Not installed${NC}"
             export ROSETTA_NOT_INSTALLED=true
         fi
     fi
@@ -46,7 +46,7 @@ check_git_config() {
         if [[ -n "$git_name" && -n "$git_email" ]]; then
             echo -e "  ${GREEN}✓${NC} Git Config   Configured"
         else
-            echo -e "  ${YELLOW}⚠${NC} Git Config   ${YELLOW}Not configured${NC}"
+            echo -e "  ${YELLOW}${ICON_WARNING}${NC} Git Config   ${YELLOW}Not configured${NC}"
         fi
     fi
 }

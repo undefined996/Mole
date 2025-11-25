@@ -97,3 +97,20 @@ setup() {
     fi
     [ "$status" -ne 0 ]
 }
+
+@test "mo clean --whitelist persists selections" {
+    whitelist_file="$HOME/.config/mole/whitelist"
+    mkdir -p "$(dirname "$whitelist_file")"
+
+    run bash --noprofile --norc -c "cd '$PROJECT_ROOT'; printf \$'\\n' | HOME='$HOME' ./mo clean --whitelist"
+    [ "$status" -eq 0 ]
+    grep -q "\\.m2/repository" "$whitelist_file"
+
+    run bash --noprofile --norc -c "cd '$PROJECT_ROOT'; printf \$' \\n' | HOME='$HOME' ./mo clean --whitelist"
+    [ "$status" -eq 0 ]
+    ! grep -q "\\.m2/repository" "$whitelist_file"
+
+    run bash --noprofile --norc -c "cd '$PROJECT_ROOT'; printf \$'\\n' | HOME='$HOME' ./mo clean --whitelist"
+    [ "$status" -eq 0 ]
+    ! grep -q "\\.m2/repository" "$whitelist_file"
+}
