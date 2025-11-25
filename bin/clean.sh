@@ -529,6 +529,10 @@ start_cleanup() {
                 # Store parent PID to ensure keepalive exits if parent dies
                 parent_pid=$$
                 (
+                    # Initial delay to let sudo cache stabilize after password entry
+                    # This prevents immediately triggering Touch ID again
+                    sleep 2
+
                     local retry_count=0
                     while true; do
                         # Check if parent process still exists first

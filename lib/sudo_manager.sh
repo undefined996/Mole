@@ -16,6 +16,10 @@ _start_sudo_keepalive() {
     # Start background keepalive process with all outputs redirected
     # This is critical: command substitution waits for all file descriptors to close
     (
+        # Initial delay to let sudo cache stabilize after password entry
+        # This prevents immediately triggering Touch ID again
+        sleep 2
+
         local retry_count=0
         while true; do
             if ! sudo -n -v 2> /dev/null; then

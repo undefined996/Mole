@@ -523,172 +523,156 @@ check_touchid_support() {
     return 1
 }
 
+# Check if Mac is in clamshell mode (lid closed with external display)
+is_clamshell_mode() {
+    # ioreg is missing (not macOS) -> treat as lid open
+    if ! command -v ioreg > /dev/null 2>&1; then
+        return 1
+    fi
+
+    # Check if lid is closed; ignore pipeline failures so set -e doesn't exit
+    local clamshell_state=""
+    clamshell_state=$( (ioreg -r -k AppleClamshellState -d 4 2>/dev/null \
+        | grep "AppleClamshellState" \
+        | head -1) || true )
+
+    if [[ "$clamshell_state" =~ \"AppleClamshellState\"\ =\ Yes ]]; then
+        return 0  # Lid is closed
+    fi
+    return 1  # Lid is open
+}
+
+# Manual password input (no Touch ID)
+_request_password() {
+    local tty_path="$1"
+    local attempts=0
+    local show_hint=true
+
+    # Extra safety: ensure sudo cache is cleared before password input
+    sudo -k 2>/dev/null
+
+    while ((attempts < 3)); do
+        local password=""
+
+        # Show hint on first attempt about Touch ID appearing again
+        if [[ $show_hint == true ]] && check_touchid_support; then
+            echo -e "${GRAY}Note: Touch ID dialog may appear once more - just cancel it${NC}" > "$tty_path"
+            show_hint=false
+        fi
+
+        printf "${PURPLE}${ICON_ARROW}${NC} Password: " > "$tty_path"
+        IFS= read -r -s password < "$tty_path" || password=""
+        printf "\n" > "$tty_path"
+
+        if [[ -z "$password" ]]; then
+            unset password
+            ((attempts++))
+            if [[ $attempts -lt 3 ]]; then
+                echo -e "${YELLOW}${ICON_WARNING}${NC} Password cannot be empty" > "$tty_path"
+            fi
+            continue
+        fi
+
+        # Verify password with sudo
+        # NOTE: macOS PAM will trigger Touch ID before password auth - this is system behavior
+        if printf '%s\n' "$password" | sudo -S -p "" -v > /dev/null 2>&1; then
+            unset password
+            return 0
+        fi
+
+        unset password
+        ((attempts++))
+        if [[ $attempts -lt 3 ]]; then
+            echo -e "${YELLOW}${ICON_WARNING}${NC} Incorrect password, try again" > "$tty_path"
+        fi
+    done
+
+    return 1
+}
+
 # Request sudo access with Touch ID support
-# Usage: request_sudo_access "prompt message" [optional: force_password]
+# Usage: request_sudo_access "prompt message"
 request_sudo_access() {
     local prompt_msg="${1:-Admin access required}"
 
+    # Check if already have sudo access
     if sudo -n true 2> /dev/null; then
         return 0
     fi
 
-    echo -e "${PURPLE}${ICON_ARROW}${NC} ${prompt_msg} ${GRAY}(Touch ID or password)${NC}"
+    # Get TTY path
+    local tty_path="/dev/tty"
+    if [[ ! -r "$tty_path" || ! -w "$tty_path" ]]; then
+        tty_path=$(tty 2> /dev/null || echo "")
+        if [[ -z "$tty_path" || ! -r "$tty_path" || ! -w "$tty_path" ]]; then
+            log_error "No interactive terminal available"
+            return 1
+        fi
+    fi
+
     sudo -k
 
-    # Use default sudo prompt (Touch ID behaves more reliably without a custom prompt)
-    local -a sudo_cmd=(sudo -v)
-    local -a sudo_stdin_cmd=(sudo -S -p "" -v)
+    # Check if in clamshell mode - if yes, skip Touch ID entirely
+    if is_clamshell_mode; then
+        echo -e "${PURPLE}${ICON_ARROW}${NC} ${prompt_msg}"
+        _request_password "$tty_path"
+        return $?
+    fi
 
-    # Optional timeout command to prevent hangs
-    local timeout_cmd=""
-    for t in gtimeout timeout; do
-        if command -v "$t" > /dev/null 2>&1; then
-            timeout_cmd="$t"
+    # Not in clamshell mode - try Touch ID if configured
+    if ! check_touchid_support; then
+        echo -e "${PURPLE}${ICON_ARROW}${NC} ${prompt_msg}"
+        _request_password "$tty_path"
+        return $?
+    fi
+
+    # Touch ID is available and not in clamshell mode
+    echo -e "${PURPLE}${ICON_ARROW}${NC} ${prompt_msg} ${GRAY}(Touch ID or password)${NC}"
+
+    # Start sudo in background so we can monitor and control it
+    sudo -v < /dev/null > /dev/null 2>&1 &
+    local sudo_pid=$!
+
+    # Wait for sudo to complete or timeout (5 seconds)
+    local elapsed=0
+    local timeout=50  # 50 * 0.1s = 5 seconds
+    while ((elapsed < timeout)); do
+        if ! kill -0 "$sudo_pid" 2>/dev/null; then
+            # Process exited
+            wait "$sudo_pid" 2>/dev/null
+            local exit_code=$?
+            if [[ $exit_code -eq 0 ]] && sudo -n true 2>/dev/null; then
+                # Touch ID succeeded
+                return 0
+            fi
+            # Touch ID failed or cancelled
             break
         fi
+        sleep 0.1
+        ((elapsed++))
     done
-    if [[ -n "$timeout_cmd" ]]; then
-        sudo_cmd=("$timeout_cmd" 20 "${sudo_cmd[@]}")
-        sudo_stdin_cmd=("$timeout_cmd" 20 "${sudo_stdin_cmd[@]}")
+
+    # Touch ID failed/cancelled - clean up thoroughly before password input
+
+    # Kill the sudo process if still running
+    if kill -0 "$sudo_pid" 2>/dev/null; then
+        kill -9 "$sudo_pid" 2>/dev/null
+        wait "$sudo_pid" 2>/dev/null || true
     fi
 
-    local has_touchid="false"
-    if check_touchid_support; then
-        has_touchid="true"
-    fi
+    # Clear sudo state immediately
+    sudo -k 2>/dev/null
 
-    # Helper to attempt sudo with optional IO redirection
-    _run_sudo_attempt() {
-        local in="$1"
-        local out="$2"
-        local err="${3:-$2}"
+    # IMPORTANT: Wait longer for macOS to fully close Touch ID UI and SecurityAgent
+    # Without this delay, subsequent sudo calls may re-trigger Touch ID
+    sleep 1
 
-        if [[ -n "$in" ]]; then
-            if [[ -n "$out" ]]; then
-                "${sudo_cmd[@]}" < "$in" > "$out" 2> "${err:-$out}"
-            else
-                "${sudo_cmd[@]}" < "$in"
-            fi
-        else
-            "${sudo_cmd[@]}"
-        fi
-    }
+    # Clear any leftover prompts on the screen
+    printf "\r\033[2K" > "$tty_path"
 
-    # Prefer real TTY attachment for Touch ID/password prompts
-    if [[ "$has_touchid" == "true" ]]; then
-        local -a sudo_attempts=()
-        local active_tty=""
-        if command -v tty > /dev/null 2>&1; then
-            active_tty=$(tty 2> /dev/null || echo "")
-            if [[ -n "$active_tty" && -r "$active_tty" && -w "$active_tty" ]]; then
-                sudo_attempts+=("$active_tty")
-            fi
-        fi
-        if [[ -r /dev/tty && -w /dev/tty ]]; then
-            local has_dev_tty=false
-            for candidate in "${sudo_attempts[@]}"; do
-                if [[ "$candidate" == "/dev/tty" ]]; then
-                    has_dev_tty=true
-                    break
-                fi
-            done
-            if [[ "$has_dev_tty" == "false" ]]; then
-                sudo_attempts+=("/dev/tty")
-            fi
-        fi
-        sudo_attempts+=("") # fallback to inheriting stdio
-
-        for tty_target in "${sudo_attempts[@]}"; do
-            if [[ -n "$tty_target" ]]; then
-                if _run_sudo_attempt "$tty_target" "$tty_target" "$tty_target"; then
-                    sudo -n true 2> /dev/null || true
-                    return 0
-                fi
-            else
-                if _run_sudo_attempt "" ""; then
-                    sudo -n true 2> /dev/null || true
-                    return 0
-                fi
-            fi
-        done
-
-        # Last resort for Touch ID path: spawn a fresh pty
-        if command -v script > /dev/null 2>&1; then
-            local script_cmd=(script -q /dev/null)
-            if [[ -n "$timeout_cmd" ]]; then
-                script_cmd=("$timeout_cmd" 20 "${script_cmd[@]}")
-            fi
-            if "${script_cmd[@]}" "${sudo_cmd[@]}"; then
-                sudo -n true 2> /dev/null || true
-                return 0
-            fi
-        fi
-    fi
-
-    # Manual password prompt (handles Macs without Touch ID reliably)
-    _prompt_password_manually() {
-        local tty_path=""
-        if [[ -r /dev/tty && -w /dev/tty ]]; then
-            tty_path="/dev/tty"
-        else
-            tty_path=$(tty 2> /dev/null || echo "")
-            if [[ -n "$tty_path" ]]; then
-                if [[ ! -r "$tty_path" || ! -w "$tty_path" ]]; then
-                    tty_path=""
-                fi
-            fi
-        fi
-
-        [[ -z "$tty_path" ]] && return 1
-
-        local attempts=0
-        while ((attempts < 3)); do
-            local password=""
-            local saved_stty=""
-            if command -v stty > /dev/null 2>&1; then
-                saved_stty=$(stty -g < "$tty_path" 2> /dev/null || echo "")
-                stty -echo < "$tty_path" 2> /dev/null || true
-            fi
-
-            printf "${PURPLE}${ICON_ARROW}${NC} Enter admin password: " > "$tty_path" 2> /dev/null || true
-            IFS= read -r password < "$tty_path" || password=""
-            printf "\n" > "$tty_path" 2> /dev/null || true
-
-            if [[ -n "$saved_stty" ]]; then
-                stty "$saved_stty" < "$tty_path" 2> /dev/null || stty echo < "$tty_path" 2> /dev/null || true
-            else
-                stty echo < "$tty_path" 2> /dev/null || true
-            fi
-
-            if [[ -z "$password" ]]; then
-                unset password
-                ((attempts++))
-                continue
-            fi
-
-            if printf '%s\n' "$password" | "${sudo_stdin_cmd[@]}" > /dev/null 2>&1; then
-                unset password
-                sudo -n true 2> /dev/null || true
-                return 0
-            fi
-
-            unset password
-            ((attempts++))
-            echo -e "${YELLOW}${ICON_WARNING}${NC} Incorrect password, try again" > "$tty_path" 2> /dev/null || true
-        done
-        return 1
-    }
-
-    if _prompt_password_manually; then
-        return 0
-    fi
-
-    # Fallback for non-interactive environments
-    if _run_sudo_attempt "" ""; then
-        sudo -n true 2> /dev/null || true
-        return 0
-    fi
-    return 1
+    # Now use our password input (this should not trigger Touch ID again)
+    _request_password "$tty_path"
+    return $?
 }
 
 request_sudo() {
