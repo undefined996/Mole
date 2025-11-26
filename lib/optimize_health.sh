@@ -10,23 +10,25 @@ get_memory_info() {
 
     # Total memory
     total_bytes=$(sysctl -n hw.memsize 2> /dev/null || echo "0")
-    total_gb=$(awk "BEGIN {printf \"%.2f\", $total_bytes / (1024*1024*1024)}")
+    total_gb=$(awk "BEGIN {printf \"%.2f\", $total_bytes / (1024*1024*1024)}" 2>/dev/null || echo "0")
+    [[ -z "$total_gb" || "$total_gb" == "" ]] && total_gb="0"
 
     # Used memory from vm_stat
     local vm_output active wired compressed page_size
     vm_output=$(vm_stat 2> /dev/null || echo "")
     page_size=4096
 
-    active=$(echo "$vm_output" | awk '/Pages active:/ {print $NF}' | tr -d '.')
-    wired=$(echo "$vm_output" | awk '/Pages wired down:/ {print $NF}' | tr -d '.')
-    compressed=$(echo "$vm_output" | awk '/Pages occupied by compressor:/ {print $NF}' | tr -d '.')
+    active=$(echo "$vm_output" | awk '/Pages active:/ {print $NF}' | tr -d '.' 2>/dev/null || echo "0")
+    wired=$(echo "$vm_output" | awk '/Pages wired down:/ {print $NF}' | tr -d '.' 2>/dev/null || echo "0")
+    compressed=$(echo "$vm_output" | awk '/Pages occupied by compressor:/ {print $NF}' | tr -d '.' 2>/dev/null || echo "0")
 
     active=${active:-0}
     wired=${wired:-0}
     compressed=${compressed:-0}
 
     local used_bytes=$(((active + wired + compressed) * page_size))
-    used_gb=$(awk "BEGIN {printf \"%.2f\", $used_bytes / (1024*1024*1024)}")
+    used_gb=$(awk "BEGIN {printf \"%.2f\", $used_bytes / (1024*1024*1024)}" 2>/dev/null || echo "0")
+    [[ -z "$used_gb" || "$used_gb" == "" ]] && used_gb="0"
 
     echo "$used_gb $total_gb"
 }
@@ -39,12 +41,20 @@ get_disk_info() {
     df_output=$(df -k "$home" 2> /dev/null | tail -1)
 
     local total_kb used_kb
-    total_kb=$(echo "$df_output" | awk '{print $2}')
-    used_kb=$(echo "$df_output" | awk '{print $3}')
+    total_kb=$(echo "$df_output" | awk '{print $2}' 2>/dev/null || echo "0")
+    used_kb=$(echo "$df_output" | awk '{print $3}' 2>/dev/null || echo "0")
 
-    total_gb=$(awk "BEGIN {printf \"%.2f\", $total_kb / (1024*1024)}")
-    used_gb=$(awk "BEGIN {printf \"%.2f\", $used_kb / (1024*1024)}")
-    used_percent=$(awk "BEGIN {printf \"%.1f\", ($used_kb / $total_kb) * 100}")
+    total_kb=${total_kb:-0}
+    used_kb=${used_kb:-0}
+    [[ "$total_kb" == "0" ]] && total_kb=1  # Avoid division by zero
+
+    total_gb=$(awk "BEGIN {printf \"%.2f\", $total_kb / (1024*1024)}" 2>/dev/null || echo "0")
+    used_gb=$(awk "BEGIN {printf \"%.2f\", $used_kb / (1024*1024)}" 2>/dev/null || echo "0")
+    used_percent=$(awk "BEGIN {printf \"%.1f\", ($used_kb / $total_kb) * 100}" 2>/dev/null || echo "0")
+
+    [[ -z "$total_gb" || "$total_gb" == "" ]] && total_gb="0"
+    [[ -z "$used_gb" || "$used_gb" == "" ]] && used_gb="0"
+    [[ -z "$used_percent" || "$used_percent" == "" ]] && used_percent="0"
 
     echo "$used_gb $total_gb $used_percent"
 }
@@ -54,16 +64,17 @@ get_uptime_days() {
     local boot_output boot_time uptime_days
 
     boot_output=$(sysctl -n kern.boottime 2> /dev/null || echo "")
-    boot_time=$(echo "$boot_output" | sed -n 's/.*sec = \([0-9]*\).*/\1/p')
+    boot_time=$(echo "$boot_output" | sed -n 's/.*sec = \([0-9]*\).*/\1/p' 2>/dev/null || echo "")
 
-    if [[ -n "$boot_time" ]]; then
-        local now=$(date +%s)
+    if [[ -n "$boot_time" && "$boot_time" =~ ^[0-9]+$ ]]; then
+        local now=$(date +%s 2>/dev/null || echo "0")
         local uptime_sec=$((now - boot_time))
-        uptime_days=$(awk "BEGIN {printf \"%.1f\", $uptime_sec / 86400}")
+        uptime_days=$(awk "BEGIN {printf \"%.1f\", $uptime_sec / 86400}" 2>/dev/null || echo "0")
     else
         uptime_days="0"
     fi
 
+    [[ -z "$uptime_days" || "$uptime_days" == "" ]] && uptime_days="0"
     echo "$uptime_days"
 }
 
@@ -141,7 +152,7 @@ check_swap_cleanup() {
     local file
 
     for file in /private/var/vm/swapfile*; do
-        [[ -f "$file" ]] && total_kb=$((total_kb + $(stat -f%z "$file" 2> /dev/null || echo 0) / 1024))
+        [[ -f "$file" ]] && total_kb=$((total_kb + $(get_file_size "$file") / 1024))
     done
 
     if [[ $total_kb -gt 0 ]]; then
@@ -190,6 +201,14 @@ generate_health_json() {
     read -r mem_used mem_total <<< "$(get_memory_info)"
     read -r disk_used disk_total disk_percent <<< "$(get_disk_info)"
     local uptime=$(get_uptime_days)
+
+    # Ensure all values are valid numbers (fallback to 0)
+    mem_used=${mem_used:-0}
+    mem_total=${mem_total:-0}
+    disk_used=${disk_used:-0}
+    disk_total=${disk_total:-0}
+    disk_percent=${disk_percent:-0}
+    uptime=${uptime:-0}
 
     # Start JSON
     cat << EOF
