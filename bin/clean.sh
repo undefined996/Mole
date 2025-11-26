@@ -448,7 +448,7 @@ clean_ds_store_tree() {
     # Find .DS_Store files with exclusions and depth limit
     while IFS= read -r -d '' ds_file; do
         local size
-        size=$(stat -f%z "$ds_file" 2> /dev/null || echo 0)
+        size=$(get_file_size "$ds_file")
         total_bytes=$((total_bytes + size))
         ((file_count++))
         if [[ "$DRY_RUN" != "true" ]]; then
@@ -730,7 +730,7 @@ perform_cleanup() {
 
             # Check if cache is valid (less than 2 days old)
             if [[ -f "$cask_cache" ]]; then
-                local cache_age=$(($(date +%s) - $(stat -f%m "$cask_cache")))
+                local cache_age=$(($(date +%s) - $(get_file_mtime "$cask_cache")))
                 if [[ $cache_age -lt 172800 ]]; then
                     use_cache=true
                 fi
@@ -745,7 +745,7 @@ perform_cleanup() {
             else
                 # Rebuild cache
                 mkdir -p "$cache_dir"
-                > "$cask_cache"
+                true > "$cask_cache"
 
                 while IFS= read -r cask; do
                     # Get app path from cask info
@@ -886,8 +886,9 @@ perform_cleanup() {
     safe_clean ~/Library/Caches/com.apple.spotlight "Spotlight cache"
     # Skip: may store Bluetooth device info
     # safe_clean ~/Library/Caches/com.apple.metadata "Metadata cache"
-    safe_clean ~/Library/Caches/com.apple.FontRegistry "Font registry cache"
-    safe_clean ~/Library/Caches/com.apple.ATS "Font cache"
+    # Skip: causes Chromium/Electron apps (VSCode, Chrome, Edge, etc.) to display "?" for text
+    # safe_clean ~/Library/Caches/com.apple.FontRegistry "Font registry cache"
+    # safe_clean ~/Library/Caches/com.apple.ATS "Font cache"
     safe_clean ~/Library/Caches/com.apple.photoanalysisd "Photo analysis cache"
     safe_clean ~/Library/Caches/com.apple.akd "Apple ID cache"
     safe_clean ~/Library/Caches/com.apple.Safari/Webpage\ Previews/* "Safari webpage previews"
@@ -1088,8 +1089,15 @@ perform_cleanup() {
                 done
 
                 # Wait for processes to finish
-                wait $brew_pid 2> /dev/null && local brew_success=true || local brew_success=false
-                wait $autoremove_pid 2> /dev/null && local autoremove_success=true || local autoremove_success=false
+                local brew_success=false
+                if wait $brew_pid 2> /dev/null; then
+                    brew_success=true
+                fi
+
+                local autoremove_success=false
+                if wait $autoremove_pid 2> /dev/null; then
+                    autoremove_success=true
+                fi
 
                 if [[ -t 1 ]]; then stop_inline_spinner; fi
 
@@ -1473,6 +1481,7 @@ perform_cleanup() {
             app_name=$(basename "$app_dir")
 
             # Skip system and protected apps
+            # CRITICAL: Never clean backgroundtaskmanagementagent (stores login items)
             case "$app_name" in
                 com.apple.* | Adobe* | JetBrains* | 1Password | Claude | *ClashX* | *clash* | mihomo* | *Surge* | iTerm* | *iterm* | Warp* | Kitty* | Alacritty* | WezTerm* | Ghostty*)
                     continue
@@ -1591,7 +1600,7 @@ perform_cleanup() {
             # Use modification time (mtime) instead of access time (atime)
             # because macOS disables atime updates by default for performance
             if [[ -e "$directory_path" ]]; then
-                local last_modified_epoch=$(stat -f%m "$directory_path" 2> /dev/null || echo "0")
+                local last_modified_epoch=$(get_file_mtime "$directory_path")
                 local current_epoch=$(date +%s)
                 local days_since_modified=$(((current_epoch - last_modified_epoch) / 86400))
 
@@ -1607,6 +1616,7 @@ perform_cleanup() {
         MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning orphaned app resources..."
 
         # Define resource types to scan
+        # CRITICAL: NEVER add LaunchAgents or LaunchDaemons (breaks login items/startup apps)
         local -a resource_types=(
             "$HOME/Library/Caches|Caches|com.*:org.*:net.*:io.*"
             "$HOME/Library/Logs|Logs|com.*:org.*:net.*:io.*"
@@ -1739,7 +1749,7 @@ perform_cleanup() {
 
                     # Safety check: only delete .inProgress backups older than 24 hours
                     # This prevents deleting backups that are currently in progress
-                    local file_mtime=$(stat -f%m "$inprogress_file" 2> /dev/null || echo "0")
+                    local file_mtime=$(get_file_mtime "$inprogress_file")
                     local current_time=$(date +%s)
                     local hours_old=$(((current_time - file_mtime) / 3600))
 
@@ -1795,7 +1805,7 @@ perform_cleanup() {
                         [[ -d "$inprogress_file" ]] || continue
 
                         # Safety check: only delete .inProgress backups older than 24 hours
-                        local file_mtime=$(stat -f%m "$inprogress_file" 2> /dev/null || echo "0")
+                        local file_mtime=$(get_file_mtime "$inprogress_file")
                         local current_time=$(date +%s)
                         local hours_old=$(((current_time - file_mtime) / 3600))
 
