@@ -181,25 +181,6 @@ check_swap_usage() {
     fi
 }
 
-check_timemachine() {
-    # Check Time Machine backup status
-    if command -v tmutil > /dev/null 2>&1; then
-        local tm_status=$(tmutil latestbackup 2> /dev/null || echo "")
-        if [[ -z "$tm_status" ]]; then
-            echo -e "  ${YELLOW}${ICON_WARNING}${NC} Time Machine No backups found"
-            echo -e "    ${GRAY}Set up in System Settings → General → Time Machine (optional but recommended)${NC}"
-        else
-            # Get last backup time
-            local backup_date=$(tmutil latestbackup 2> /dev/null | xargs basename 2> /dev/null || echo "")
-            if [[ -n "$backup_date" ]]; then
-                echo -e "  ${GREEN}✓${NC} Time Machine Backup active"
-            else
-                echo -e "  ${YELLOW}${ICON_WARNING}${NC} Time Machine Not configured"
-            fi
-        fi
-    fi
-}
-
 check_brew_health() {
     # Check Homebrew doctor
     if command -v brew > /dev/null 2>&1; then
