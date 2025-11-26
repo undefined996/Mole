@@ -670,12 +670,14 @@ update_via_homebrew() {
     # Set up cleanup trap to kill background process on interruption
     local brew_pid=""
     local brew_tmp_file=""
+    local brew_exit_file=""
     cleanup_brew_update() {
         if [[ -n "$brew_pid" ]] && kill -0 "$brew_pid" 2>/dev/null; then
             kill -TERM "$brew_pid" 2>/dev/null || true
             wait "$brew_pid" 2>/dev/null || true
         fi
         [[ -n "$brew_tmp_file" ]] && rm -f "$brew_tmp_file"
+        [[ -n "$brew_exit_file" ]] && rm -f "$brew_exit_file"
         [[ -t 1 ]] && stop_inline_spinner
     }
     trap cleanup_brew_update INT TERM
@@ -683,7 +685,7 @@ update_via_homebrew() {
     if [[ -t 1 ]]; then
         start_inline_spinner "Updating Homebrew..."
     else
-        echo "Updating Homebrew..."
+        echo "Updating Homebrew..." >&2
     fi
 
     # Run brew update with timeout to prevent hanging
@@ -691,7 +693,10 @@ update_via_homebrew() {
     local brew_update_timeout="${MO_BREW_UPDATE_TIMEOUT:-300}"
     brew_tmp_file=$(mktemp -t mole-brew-update 2> /dev/null || echo "/tmp/mole-brew-update.$$")
 
-    (brew update > "$brew_tmp_file" 2>&1) &
+    # Redirect brew output to temp file to avoid interfering with spinner
+    # Store exit code in a separate file to avoid wait issues with zsh
+    brew_exit_file="${brew_tmp_file}.exit"
+    (brew update > "$brew_tmp_file" 2>&1 </dev/null; echo $? > "$brew_exit_file") &
     brew_pid=$!
     local elapsed=0
 
@@ -699,9 +704,9 @@ update_via_homebrew() {
     while kill -0 $brew_pid 2> /dev/null; do
         if [[ $elapsed -ge $brew_update_timeout ]]; then
             kill -TERM $brew_pid 2> /dev/null || true
-            wait $brew_pid 2> /dev/null || true
+            sleep 0.5
             if [[ -t 1 ]]; then stop_inline_spinner; fi
-            rm -f "$brew_tmp_file"
+            rm -f "$brew_tmp_file" "$brew_exit_file"
             trap - INT TERM
             log_error "Homebrew update timed out (${brew_update_timeout}s)"
             return 1
@@ -710,26 +715,45 @@ update_via_homebrew() {
         ((elapsed++))
     done
 
+    # Give the subshell a moment to write exit code
+    sleep 0.1
+
     trap - INT TERM
 
-    # Get brew update exit code, but don't fail immediately
-    # brew update can fail for network reasons but we can still check current version
-    wait $brew_pid 2> /dev/null
-    local brew_exit=$?
+    # Get brew update exit code from file instead of wait
+    local brew_exit=0
+    if [[ -f "$brew_exit_file" ]]; then
+        brew_exit=$(cat "$brew_exit_file" 2>/dev/null || echo "0")
+    fi
+    rm -f "$brew_exit_file"
 
     if [[ -t 1 ]]; then
         stop_inline_spinner
     fi
 
     # Check if update failed with a real error (not just "already up-to-date")
-    if [[ $brew_exit -ne 0 ]]; then
-        local update_output=""
-        [[ -f "$brew_tmp_file" ]] && update_output=$(cat "$brew_tmp_file" 2>/dev/null)
+    local brew_update_success=true
+    local update_output=""
 
-        # Only warn if it's a real error, not just "already up-to-date"
-        if [[ -n "$update_output" ]] && ! echo "$update_output" | grep -qi "up-to-date"; then
-            echo -e "${YELLOW}${ICON_WARNING}${NC} Homebrew update skipped (check network)"
-        fi
+    if [[ -f "$brew_tmp_file" ]]; then
+        update_output=$(cat "$brew_tmp_file" 2>/dev/null)
+    fi
+
+    # Check for errors in output (brew update may return 0 even on failure)
+    if [[ -n "$update_output" ]] && echo "$update_output" | grep -qiE "(^Error:|fatal:)"; then
+        brew_update_success=false
+    fi
+
+    if [[ $brew_exit -ne 0 ]]; then
+        brew_update_success=false
+    fi
+
+    # Show appropriate message
+    if [[ "$brew_update_success" == "false" ]]; then
+        echo -e "${YELLOW}${ICON_WARNING}${NC} Homebrew update skipped (check network or proxy)" >&2
+    else
+        # Only show success if there were no errors
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} Homebrew formulae updated" >&2
     fi
 
     rm -f "$brew_tmp_file"
@@ -737,7 +761,7 @@ update_via_homebrew() {
     if [[ -t 1 ]]; then
         start_inline_spinner "Upgrading Mole..."
     else
-        echo "Upgrading Mole..."
+        echo "Upgrading Mole..." >&2
     fi
     local upgrade_output
     upgrade_output=$(brew upgrade mole 2>&1) || true
@@ -749,18 +773,18 @@ update_via_homebrew() {
         # Get current version
         local current_version
         current_version=$(brew list --versions mole 2> /dev/null | awk '{print $2}')
-        echo -e "${GREEN}${ICON_SUCCESS}${NC} Already on latest version (${current_version:-$version})"
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} Already on latest version (${current_version:-$version})" >&2
     elif echo "$upgrade_output" | grep -q "Error:"; then
         log_error "Homebrew upgrade failed"
         echo "$upgrade_output" | grep "Error:" >&2
         return 1
     else
         # Show relevant output, filter noise
-        echo "$upgrade_output" | grep -Ev "^(==>|Updating Homebrew|Warning:)" || true
+        echo "$upgrade_output" | grep -Ev "^(==>|Updating Homebrew|Warning:)" >&2 || true
         # Get new version
         local new_version
         new_version=$(brew list --versions mole 2> /dev/null | awk '{print $2}')
-        echo -e "${GREEN}${ICON_SUCCESS}${NC} Updated to latest version (${new_version:-$version})"
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} Updated to latest version (${new_version:-$version})" >&2
     fi
 
     # Clear version check cache
@@ -797,7 +821,8 @@ start_inline_spinner() {
             local i=0
             while true; do
                 local c="${chars:$((i % ${#chars})):1}"
-                printf "\r${MOLE_SPINNER_PREFIX:-}${BLUE}%s${NC} %s" "$c" "$message" 2> /dev/null || exit 0
+                # Output to stderr to avoid interfering with stdout
+                printf "\r${MOLE_SPINNER_PREFIX:-}${BLUE}%s${NC} %s" "$c" "$message" >&2 || exit 0
                 ((i++))
                 # macOS supports decimal sleep, this is the primary target
                 sleep 0.1 2> /dev/null || sleep 1 2> /dev/null || exit 0
@@ -806,7 +831,7 @@ start_inline_spinner() {
         INLINE_SPINNER_PID=$!
         disown 2> /dev/null || true
     else
-        echo -n "  ${BLUE}|${NC} $message"
+        echo -n "  ${BLUE}|${NC} $message" >&2
     fi
 }
 
@@ -816,7 +841,8 @@ stop_inline_spinner() {
         kill "$INLINE_SPINNER_PID" 2> /dev/null || true
         wait "$INLINE_SPINNER_PID" 2> /dev/null || true
         INLINE_SPINNER_PID=""
-        [[ -t 1 ]] && printf "\r\033[K"
+        # Clear the line - use \033[2K to clear entire line, not just to end
+        [[ -t 1 ]] && printf "\r\033[2K" >&2
     fi
 }
 
