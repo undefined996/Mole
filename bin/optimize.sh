@@ -107,13 +107,21 @@ show_optimization_summary() {
 show_system_health() {
     local health_json="$1"
 
-    # Parse system health using jq
-    local mem_used=$(echo "$health_json" | jq -r '.memory_used_gb')
-    local mem_total=$(echo "$health_json" | jq -r '.memory_total_gb')
-    local disk_used=$(echo "$health_json" | jq -r '.disk_used_gb')
-    local disk_total=$(echo "$health_json" | jq -r '.disk_total_gb')
-    local disk_percent=$(echo "$health_json" | jq -r '.disk_used_percent')
-    local uptime=$(echo "$health_json" | jq -r '.uptime_days')
+    # Parse system health using jq with fallback to 0
+    local mem_used=$(echo "$health_json" | jq -r '.memory_used_gb // 0' 2>/dev/null || echo "0")
+    local mem_total=$(echo "$health_json" | jq -r '.memory_total_gb // 0' 2>/dev/null || echo "0")
+    local disk_used=$(echo "$health_json" | jq -r '.disk_used_gb // 0' 2>/dev/null || echo "0")
+    local disk_total=$(echo "$health_json" | jq -r '.disk_total_gb // 0' 2>/dev/null || echo "0")
+    local disk_percent=$(echo "$health_json" | jq -r '.disk_used_percent // 0' 2>/dev/null || echo "0")
+    local uptime=$(echo "$health_json" | jq -r '.uptime_days // 0' 2>/dev/null || echo "0")
+
+    # Ensure all values are numeric (fallback to 0)
+    mem_used=${mem_used:-0}
+    mem_total=${mem_total:-0}
+    disk_used=${disk_used:-0}
+    disk_total=${disk_total:-0}
+    disk_percent=${disk_percent:-0}
+    uptime=${uptime:-0}
 
     # Compact one-line format with icon
     printf "${ICON_ADMIN} System  %.0f/%.0f GB RAM | %.0f/%.0f GB Disk (%.0f%%) | Uptime %.0fd\n" \
@@ -369,6 +377,21 @@ main() {
         fi
         echo ""
         log_error "Failed to collect system health data"
+        exit 1
+    fi
+
+    # Validate JSON before proceeding
+    if ! echo "$health_json" | jq empty 2>/dev/null; then
+        if [[ -t 1 ]]; then
+            stop_inline_spinner
+        fi
+        echo ""
+        log_error "Invalid system health data format"
+        echo -e "${YELLOW}Tip:${NC} Check if jq, awk, sysctl, and df commands are available"
+        if [[ "${MO_DEBUG:-}" == "1" ]]; then
+            echo "DEBUG: Generated JSON:"
+            echo "$health_json"
+        fi
         exit 1
     fi
 
