@@ -108,12 +108,12 @@ show_system_health() {
     local health_json="$1"
 
     # Parse system health using jq with fallback to 0
-    local mem_used=$(echo "$health_json" | jq -r '.memory_used_gb // 0' 2>/dev/null || echo "0")
-    local mem_total=$(echo "$health_json" | jq -r '.memory_total_gb // 0' 2>/dev/null || echo "0")
-    local disk_used=$(echo "$health_json" | jq -r '.disk_used_gb // 0' 2>/dev/null || echo "0")
-    local disk_total=$(echo "$health_json" | jq -r '.disk_total_gb // 0' 2>/dev/null || echo "0")
-    local disk_percent=$(echo "$health_json" | jq -r '.disk_used_percent // 0' 2>/dev/null || echo "0")
-    local uptime=$(echo "$health_json" | jq -r '.uptime_days // 0' 2>/dev/null || echo "0")
+    local mem_used=$(echo "$health_json" | jq -r '.memory_used_gb // 0' 2> /dev/null || echo "0")
+    local mem_total=$(echo "$health_json" | jq -r '.memory_total_gb // 0' 2> /dev/null || echo "0")
+    local disk_used=$(echo "$health_json" | jq -r '.disk_used_gb // 0' 2> /dev/null || echo "0")
+    local disk_total=$(echo "$health_json" | jq -r '.disk_total_gb // 0' 2> /dev/null || echo "0")
+    local disk_percent=$(echo "$health_json" | jq -r '.disk_used_percent // 0' 2> /dev/null || echo "0")
+    local uptime=$(echo "$health_json" | jq -r '.uptime_days // 0' 2> /dev/null || echo "0")
 
     # Ensure all values are numeric (fallback to 0)
     mem_used=${mem_used:-0}
@@ -381,7 +381,7 @@ main() {
     fi
 
     # Validate JSON before proceeding
-    if ! echo "$health_json" | jq empty 2>/dev/null; then
+    if ! echo "$health_json" | jq empty 2> /dev/null; then
         if [[ -t 1 ]]; then
             stop_inline_spinner
         fi

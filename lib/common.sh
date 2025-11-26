@@ -48,17 +48,17 @@ readonly STAT_BSD="/usr/bin/stat"
 
 get_file_size() {
     local file="$1"
-    $STAT_BSD -f%z "$file" 2>/dev/null || echo 0
+    $STAT_BSD -f%z "$file" 2> /dev/null || echo 0
 }
 
 get_file_mtime() {
     local file="$1"
-    $STAT_BSD -f%m "$file" 2>/dev/null || echo 0
+    $STAT_BSD -f%m "$file" 2> /dev/null || echo 0
 }
 
 get_file_owner() {
     local file="$1"
-    $STAT_BSD -f%Su "$file" 2>/dev/null || echo ""
+    $STAT_BSD -f%Su "$file" 2> /dev/null || echo ""
 }
 
 # Security and Path Validation Functions
@@ -672,9 +672,9 @@ update_via_homebrew() {
     local brew_tmp_file=""
     local brew_exit_file=""
     cleanup_brew_update() {
-        if [[ -n "$brew_pid" ]] && kill -0 "$brew_pid" 2>/dev/null; then
-            kill -TERM "$brew_pid" 2>/dev/null || true
-            wait "$brew_pid" 2>/dev/null || true
+        if [[ -n "$brew_pid" ]] && kill -0 "$brew_pid" 2> /dev/null; then
+            kill -TERM "$brew_pid" 2> /dev/null || true
+            wait "$brew_pid" 2> /dev/null || true
         fi
         [[ -n "$brew_tmp_file" ]] && rm -f "$brew_tmp_file"
         [[ -n "$brew_exit_file" ]] && rm -f "$brew_exit_file"
@@ -696,7 +696,10 @@ update_via_homebrew() {
     # Redirect brew output to temp file to avoid interfering with spinner
     # Store exit code in a separate file to avoid wait issues with zsh
     brew_exit_file="${brew_tmp_file}.exit"
-    (brew update > "$brew_tmp_file" 2>&1 </dev/null; echo $? > "$brew_exit_file") &
+    (
+        brew update > "$brew_tmp_file" 2>&1 < /dev/null
+        echo $? > "$brew_exit_file"
+    ) &
     brew_pid=$!
     local elapsed=0
 
@@ -723,7 +726,7 @@ update_via_homebrew() {
     # Get brew update exit code from file instead of wait
     local brew_exit=0
     if [[ -f "$brew_exit_file" ]]; then
-        brew_exit=$(cat "$brew_exit_file" 2>/dev/null || echo "0")
+        brew_exit=$(cat "$brew_exit_file" 2> /dev/null || echo "0")
     fi
     rm -f "$brew_exit_file"
 
@@ -736,7 +739,7 @@ update_via_homebrew() {
     local update_output=""
 
     if [[ -f "$brew_tmp_file" ]]; then
-        update_output=$(cat "$brew_tmp_file" 2>/dev/null)
+        update_output=$(cat "$brew_tmp_file" 2> /dev/null)
     fi
 
     # Check for errors in output (brew update may return 0 even on failure)

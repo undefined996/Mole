@@ -220,7 +220,7 @@ opt_mail_downloads() {
     local deleted=0
     for target_path in "${mail_dirs[@]}"; do
         if [[ -d "$target_path" ]]; then
-            deleted=$((deleted + $(find "$target_path" -type f -mtime +30 -delete -print 2>/dev/null | wc -l | tr -d ' ')))
+            deleted=$((deleted + $(find "$target_path" -type f -mtime +30 -delete -print 2> /dev/null | wc -l | tr -d ' ')))
         fi
     done
 
@@ -243,7 +243,7 @@ opt_saved_state_cleanup() {
 
     # Only delete states older than 7 days (safer - won't lose recent work)
     local deleted=0
-    deleted=$(find "$state_dir" -type d -name "*.savedState" -mtime +7 -exec rm -rf {} \; -print 2>/dev/null | wc -l | tr -d ' ')
+    deleted=$(find "$state_dir" -type d -name "*.savedState" -mtime +7 -exec rm -rf {} \; -print 2> /dev/null | wc -l | tr -d ' ')
 
     if [[ $deleted -gt 0 ]]; then
         echo -e "${GREEN}${ICON_SUCCESS}${NC} Removed $deleted old saved state(s)"

@@ -110,7 +110,7 @@ scan_applications() {
     # Check if cache exists and is fresh
     if [[ -f "$cache_file" ]]; then
         local cache_age=$(($(date +%s) - $(get_file_mtime "$cache_file")))
-        [[ $cache_age -eq $(date +%s) ]] && cache_age=86401  # Handle missing file
+        [[ $cache_age -eq $(date +%s) ]] && cache_age=86401 # Handle missing file
         if [[ $cache_age -lt $cache_ttl ]]; then
             # Cache hit - return immediately
             echo "$cache_file"
@@ -633,7 +633,7 @@ main() {
     local cache_file="$HOME/.cache/mole/app_scan_cache"
     if [[ -f "$cache_file" ]]; then
         local cache_age=$(($(date +%s) - $(get_file_mtime "$cache_file")))
-        [[ $cache_age -eq $(date +%s) ]] && cache_age=86401  # Handle missing file
+        [[ $cache_age -eq $(date +%s) ]] && cache_age=86401 # Handle missing file
         [[ $cache_age -lt 86400 ]] && needs_scanning=false
     fi
 
