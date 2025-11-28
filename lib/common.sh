@@ -35,7 +35,7 @@ readonly ICON_NAV_DOWN="↓"  # Navigation down
 readonly ICON_NAV_LEFT="←"  # Navigation left
 readonly ICON_NAV_RIGHT="→" # Navigation right
 
-# Spinner character helpers (ASCII by default, overridable via env)
+# Get spinner characters (ASCII by default, overridable via MO_SPINNER_CHARS env)
 mo_spinner_chars() {
     local chars="${MO_SPINNER_CHARS:-|/-\\}"
     [[ -z "$chars" ]] && chars='|/-\\'
@@ -46,16 +46,19 @@ mo_spinner_chars() {
 # Always use system BSD stat instead of potentially overridden GNU version
 readonly STAT_BSD="/usr/bin/stat"
 
+# Get file size in bytes using BSD stat
 get_file_size() {
     local file="$1"
     $STAT_BSD -f%z "$file" 2> /dev/null || echo 0
 }
 
+# Get file modification time (epoch seconds) using BSD stat
 get_file_mtime() {
     local file="$1"
     $STAT_BSD -f%m "$file" 2> /dev/null || echo 0
 }
 
+# Get file owner username using BSD stat
 get_file_owner() {
     local file="$1"
     $STAT_BSD -f%Su "$file" 2> /dev/null || echo ""
@@ -200,8 +203,8 @@ log_error() {
 # Call rotation check once when common.sh is sourced
 rotate_log_once
 
-# Icon output helpers
-# Consistent summary blocks for command results
+# Print formatted summary block with heading and details
+# Args: $1=status (ignored), $2=heading, $@=details
 print_summary_block() {
     local heading=""
 
@@ -228,7 +231,7 @@ print_summary_block() {
     echo "$divider"
 }
 
-# System detection
+# Detect CPU architecture (Apple Silicon or Intel)
 detect_architecture() {
     if [[ "$(uname -m)" == "arm64" ]]; then
         echo "Apple Silicon"
@@ -237,24 +240,29 @@ detect_architecture() {
     fi
 }
 
+# Get free disk space on root volume (human-readable)
 get_free_space() {
     df -h / | awk 'NR==2 {print $4}'
 }
 
-# Common UI functions
+# Clear terminal screen and move cursor to home
 clear_screen() {
     printf '\033[2J\033[H'
 }
 
+# Hide terminal cursor
 hide_cursor() {
     printf '\033[?25l'
 }
 
+# Show terminal cursor
 show_cursor() {
     printf '\033[?25h'
 }
 
-# Keyboard input handling (simplified)
+# Read single keypress and return normalized key name
+# Returns: ENTER, SPACE, UP, DOWN, LEFT, RIGHT, QUIT, DELETE, CHAR:<c>, etc.
+# Env: MOLE_READ_KEY_FORCE_CHAR=1 for filter mode
 read_key() {
     local key rest read_status
 
@@ -354,7 +362,7 @@ read_key() {
     esac
 }
 
-# Drain pending input (simplified single-pass)
+# Drain pending keyboard/mouse input to prevent accidental triggers
 drain_pending_input() {
     local drained=0
     # Single pass with 0.01s timeout is sufficient for mouse wheel events
@@ -364,7 +372,7 @@ drain_pending_input() {
     done
 }
 
-# Shared timeout helper -------------------------------------------------------
+# Initialize timeout command (gtimeout or timeout)
 if [[ -z "${MO_TIMEOUT_INITIALIZED:-}" ]]; then
     MO_TIMEOUT_BIN=""
     for candidate in gtimeout timeout; do
@@ -376,6 +384,8 @@ if [[ -z "${MO_TIMEOUT_INITIALIZED:-}" ]]; then
     export MO_TIMEOUT_INITIALIZED=1
 fi
 
+# Run command with timeout (uses gtimeout/timeout if available, fallback to kill)
+# Args: $1=seconds, $@=command
 run_with_timeout() {
     local duration="${1:-0}"
     shift || true
@@ -650,6 +660,7 @@ request_sudo_access() {
     return $?
 }
 
+# Legacy sudo request (no Touch ID, password only)
 request_sudo() {
     echo "This operation requires administrator privileges."
     echo -n "Please enter your password: "
@@ -663,7 +674,8 @@ request_sudo() {
     fi
 }
 
-# Homebrew update utilities
+# Update Mole via Homebrew with timeout and error handling
+# Args: $1=current_version, Env: MO_BREW_UPDATE_TIMEOUT
 update_via_homebrew() {
     local version="${1:-unknown}"
 
