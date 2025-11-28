@@ -625,6 +625,8 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.scanning = false
 		return m, nil
 	case "r":
+		// Invalidate cache before rescanning to ensure fresh data
+		invalidateCache(m.path)
 		m.status = "Refreshing..."
 		m.scanning = true
 		// Reset scan counters for refresh
@@ -1083,15 +1085,15 @@ func (m model) View() string {
 
 	fmt.Fprintln(&b)
 	if m.inOverviewMode() {
-		fmt.Fprintf(&b, "%s↑↓→  |  Enter  |  O Open  |  F Show  |  Q Quit%s\n", colorGray, colorReset)
+		fmt.Fprintf(&b, "%s↑↓→  |  Enter  |  R Refresh  |  O Open  |  F Show  |  Q Quit%s\n", colorGray, colorReset)
 	} else if m.showLargeFiles {
-		fmt.Fprintf(&b, "%s↑↓  |  O Open  |  F Show  |  ⌫ Delete  |  L Back  |  Q Quit%s\n", colorGray, colorReset)
+		fmt.Fprintf(&b, "%s↑↓  |  R Refresh  |  O Open  |  F Show  |  ⌫ Delete  |  L Back  |  Q Quit%s\n", colorGray, colorReset)
 	} else {
 		largeFileCount := len(m.largeFiles)
 		if largeFileCount > 0 {
-			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  O Open  |  F Show  |  ⌫ Delete  |  L Large(%d)  |  Q Quit%s\n", colorGray, largeFileCount, colorReset)
+			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  R Refresh  |  O Open  |  F Show  |  ⌫ Delete  |  L Large(%d)  |  Q Quit%s\n", colorGray, largeFileCount, colorReset)
 		} else {
-			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  O Open  |  F Show  |  ⌫ Delete  |  Q Quit%s\n", colorGray, colorReset)
+			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  R Refresh  |  O Open  |  F Show  |  ⌫ Delete  |  Q Quit%s\n", colorGray, colorReset)
 		}
 	}
 	if m.deleteConfirm && m.deleteTarget != nil {
