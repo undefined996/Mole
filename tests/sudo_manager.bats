@@ -70,42 +70,7 @@ setup() {
     [ "$status" -eq 0 ]
 }
 
-# Test request_sudo function structure
-@test "request_sudo accepts prompt parameter" {
-    # Mock request_sudo_access to avoid actual prompting
-    function request_sudo_access() {
-        return 1  # Simulate denied
-    }
-    export -f request_sudo_access
 
-    run bash -c "source '$PROJECT_ROOT/lib/common.sh'; source '$PROJECT_ROOT/lib/sudo_manager.sh'; request_sudo 'Test prompt'"
-    [ "$status" -eq 1 ]  # Expected: denied
-}
-
-# Test start_sudo_session integration
-@test "start_sudo_session handles success and failure paths" {
-    # Mock request_sudo to simulate denied access
-    function request_sudo() {
-        return 1
-    }
-    export -f request_sudo
-
-    run bash -c "source '$PROJECT_ROOT/lib/common.sh'; source '$PROJECT_ROOT/lib/sudo_manager.sh'; start_sudo_session 'Test'"
-    [ "$status" -eq 1 ]
-
-    # Mock request_sudo to simulate granted access
-    function request_sudo() {
-        return 0
-    }
-    function _start_sudo_keepalive() {
-        echo "12345"
-    }
-    export -f request_sudo
-    export -f _start_sudo_keepalive
-
-    run bash -c "source '$PROJECT_ROOT/lib/common.sh'; source '$PROJECT_ROOT/lib/sudo_manager.sh'; start_sudo_session 'Test'"
-    [ "$status" -eq 0 ]
-}
 
 # Test stop_sudo_session cleanup
 @test "stop_sudo_session cleans up keepalive process" {

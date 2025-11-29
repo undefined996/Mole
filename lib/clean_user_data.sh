@@ -234,7 +234,7 @@ clean_application_support_logs() {
         # Clean stale update downloads (older than 7 days)
         if [[ -d "$app_dir/update" ]] && ls "$app_dir/update" > /dev/null 2>&1; then
             while IFS= read -r update_dir; do
-                local dir_age_days=$(( ($(date +%s) - $(get_file_mtime "$update_dir")) / 86400 ))
+                local dir_age_days=$((($(date +%s) - $(get_file_mtime "$update_dir")) / 86400))
                 if [[ $dir_age_days -ge $MOLE_TEMP_FILE_AGE_DAYS ]]; then
                     safe_clean "$update_dir" "Stale update: $app_name"
                 fi

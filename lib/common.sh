@@ -36,14 +36,14 @@ readonly ICON_NAV_LEFT="←"
 readonly ICON_NAV_RIGHT="→"
 
 # Global configuration constants
-readonly MOLE_TEMP_FILE_AGE_DAYS=7           # Temp file cleanup threshold
-readonly MOLE_ORPHAN_AGE_DAYS=60             # Orphaned data threshold
-readonly MOLE_MAX_PARALLEL_JOBS=15           # Parallel job limit
-readonly MOLE_MAIL_DOWNLOADS_MIN_KB=5120     # Mail attachments size threshold (~5MB)
-readonly MOLE_LOG_AGE_DAYS=30                # System log retention
-readonly MOLE_CRASH_REPORT_AGE_DAYS=30       # Crash report retention
-readonly MOLE_SAVED_STATE_AGE_DAYS=7         # App saved state retention
-readonly MOLE_TM_BACKUP_SAFE_HOURS=48        # Time Machine failed backup safety window
+readonly MOLE_TEMP_FILE_AGE_DAYS=7       # Temp file cleanup threshold
+readonly MOLE_ORPHAN_AGE_DAYS=60         # Orphaned data threshold
+readonly MOLE_MAX_PARALLEL_JOBS=15       # Parallel job limit
+readonly MOLE_MAIL_DOWNLOADS_MIN_KB=5120 # Mail attachments size threshold (~5MB)
+readonly MOLE_LOG_AGE_DAYS=30            # System log retention
+readonly MOLE_CRASH_REPORT_AGE_DAYS=30   # Crash report retention
+readonly MOLE_SAVED_STATE_AGE_DAYS=7     # App saved state retention
+readonly MOLE_TM_BACKUP_SAFE_HOURS=48    # Time Machine failed backup safety window
 
 # Get spinner characters (overridable via MO_SPINNER_CHARS)
 mo_spinner_chars() {
@@ -91,6 +91,12 @@ validate_path_for_deletion() {
         return 1
     fi
 
+    # Check for path traversal attempts
+    if [[ "$path" =~ \.\. ]]; then
+        log_error "Path validation failed: path traversal not allowed: $path"
+        return 1
+    fi
+
     # Check path doesn't contain dangerous characters
     if [[ "$path" =~ [[:cntrl:]] ]] || [[ "$path" =~ $'\n' ]]; then
         log_error "Path validation failed: contains control characters: $path"
@@ -99,7 +105,7 @@ validate_path_for_deletion() {
 
     # Check path isn't critical system directory
     case "$path" in
-        / | /bin | /sbin | /usr | /usr/bin | /usr/sbin | /etc | /var | /System | /Library/Extensions)
+        / | /bin | /sbin | /usr | /usr/bin | /usr/sbin | /etc | /var | /System | /System/* | /Library/Extensions)
             log_error "Path validation failed: critical system directory: $path"
             return 1
             ;;

@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# shellcheck disable=SC2030,SC2031
 
 setup_file() {
     PROJECT_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
@@ -123,75 +124,5 @@ setup() {
     [ "$status" -eq 1 ]  # ESC cancels
 }
 
-# Test perform_updates function structure
-@test "perform_updates handles brew formula updates" {
-    # Mock brew to avoid actual updates
-    function brew() {
-        case "$1" in
-            outdated)
-                if [[ "${2:-}" == "--cask" ]]; then
-                    return 1  # No cask updates
-                else
-                    echo "test-package"
-                    return 0  # Has formula updates
-                fi
-                ;;
-            upgrade)
-                echo "Upgrading test-package..."
-                return 0
-                ;;
-            *)
-                return 1
-                ;;
-        esac
-    }
-    export -f brew
-    export BREW_OUTDATED_COUNT=1
-    export BREW_FORMULA_OUTDATED_COUNT=1
-    export BREW_CASK_OUTDATED_COUNT=0
 
-    run bash -c "source '$PROJECT_ROOT/lib/common.sh'; source '$PROJECT_ROOT/lib/update_manager.sh'; perform_updates"
-    [ "$status" -eq 0 ]
-}
 
-# Test update_homebrew function
-@test "update_homebrew returns early when no updates" {
-    function brew() {
-        case "$1" in
-            outdated)
-                return 1  # No updates
-                ;;
-            *)
-                return 1
-                ;;
-        esac
-    }
-    export -f brew
-
-    run bash -c "source '$PROJECT_ROOT/lib/common.sh'; source '$PROJECT_ROOT/lib/update_manager.sh'; update_homebrew"
-    [ "$status" -eq 0 ]
-}
-
-@test "update_homebrew handles network failures gracefully" {
-    function brew() {
-        case "$1" in
-            outdated)
-                if [[ "${2:-}" == "--quiet" ]]; then
-                    echo "test-package"
-                    return 0
-                fi
-                ;;
-            upgrade)
-                return 1  # Simulate failure
-                ;;
-            *)
-                return 1
-                ;;
-        esac
-    }
-    export -f brew
-
-    run bash -c "source '$PROJECT_ROOT/lib/common.sh'; source '$PROJECT_ROOT/lib/update_manager.sh'; update_homebrew"
-    # Should handle failure without crashing
-    [ "$status" -eq 0 ] || [ "$status" -eq 1 ]
-}

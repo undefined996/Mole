@@ -40,7 +40,8 @@ clean_deep_system() {
         local updates_cleaned=0
         while IFS= read -r -d '' item; do
             # Skip system-protected files (restricted flag)
-            local item_flags=$(ls -lO "$item" 2> /dev/null | awk '{print $5}')
+            local item_flags
+            item_flags=$(stat -f%Sf "$item" 2> /dev/null || echo "")
             if [[ "$item_flags" == *"restricted"* ]]; then
                 continue
             fi

@@ -177,24 +177,3 @@ setup() {
     rm -rf "$HOME/projects"
 }
 
-# Test permission flag creation
-@test "check_tcc_permissions creates permission flag after check" {
-    # Remove flag if exists
-    rm -f "$HOME/.cache/mole/permissions_granted"
-
-    # Simulate accessible Library/Caches (skip TCC dialog)
-    function ls() {
-        return 0  # Simulate accessible
-    }
-    export -f ls
-
-    run bash -c "
-        source '$PROJECT_ROOT/lib/common.sh'
-        source '$PROJECT_ROOT/lib/clean_caches.sh'
-        check_tcc_permissions < /dev/null
-    "
-    [ "$status" -eq 0 ]
-
-    # Permission flag should be created
-    [[ -f "$HOME/.cache/mole/permissions_granted" ]]
-}

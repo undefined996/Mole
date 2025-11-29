@@ -426,7 +426,6 @@ safe_clean() {
     return 0
 }
 
-
 start_cleanup() {
     clear
     printf '\n'
@@ -832,7 +831,6 @@ perform_cleanup() {
     # Time Machine failed backups cleanup (delegated to clean_system module)
     clean_time_machine_failed_backups
     end_section
-
 
     # ===== Final summary =====
     echo ""

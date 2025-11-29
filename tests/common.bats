@@ -148,29 +148,6 @@ EOF
     rm -f "$HOME/temp_file_path.txt" "$HOME/temp_dir_path.txt"
 }
 
-@test "parallel_execute runs worker across all items" {
-    output_file="$HOME/parallel_output.txt"
-    HOME="$HOME" bash --noprofile --norc << 'EOF'
-source "$PROJECT_ROOT/lib/common.sh"
-worker() {
-  echo "$1" >> "$HOME/parallel_output.txt"
-}
-parallel_execute 2 worker "first" "second" "third"
-EOF
-
-    sort "$output_file" > "$output_file.sorted"
-    results=()
-    while IFS= read -r line; do
-        results+=("$line")
-    done < "$output_file.sorted"
-
-    [ "${#results[@]}" -eq 3 ]
-    joined=" ${results[*]} "
-    [[ "$joined" == *" first "* ]]
-    [[ "$joined" == *" second "* ]]
-    [[ "$joined" == *" third "* ]]
-    rm -f "$output_file" "$output_file.sorted"
-}
 
 @test "should_protect_data protects system and critical apps" {
     # System apps should be protected

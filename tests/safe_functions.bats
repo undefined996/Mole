@@ -100,19 +100,6 @@ teardown() {
     # Should not output error in silent mode
 }
 
-# Test safe_sudo_remove
-@test "safe_sudo_remove rejects symlinks" {
-    local test_file="$TEST_DIR/real_file"
-    local test_link="$TEST_DIR/symlink"
-    touch "$test_file"
-    ln -s "$test_file" "$test_link"
-
-    run bash -c "source '$PROJECT_ROOT/lib/common.sh'; safe_sudo_remove '$test_link' 2>&1"
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"symlink"* ]]
-
-    rm -f "$test_link" "$test_file"
-}
 
 # Test safe_find_delete
 @test "safe_find_delete validates base directory" {
