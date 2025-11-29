@@ -522,7 +522,7 @@ uninstall_applications() {
             done
 
             # Remove the application
-            if rm -rf "$app_path" 2> /dev/null; then
+            if safe_remove "$app_path" true; then
                 echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed application"
             else
                 echo -e "  ${RED}${ICON_ERROR}${NC} Failed to remove $app_path"
@@ -538,7 +538,7 @@ uninstall_applications() {
                             echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed $(echo "$file" | sed "s|$HOME|~|" | xargs basename)"
                         fi
                     else
-                        if rm -rf "$file" 2> /dev/null; then
+                        if safe_remove "$file" true; then
                             echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed $(echo "$file" | sed "s|$HOME|~|" | xargs basename)"
                         fi
                     fi
@@ -558,7 +558,7 @@ uninstall_applications() {
                                 echo -e "  ${YELLOW}${ICON_ERROR}${NC} Failed to remove: $file"
                             fi
                         else
-                            if sudo rm -rf "$file" 2> /dev/null; then
+                            if safe_sudo_remove "$file"; then
                                 echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed $(basename "$file")"
                             else
                                 echo -e "  ${YELLOW}${ICON_ERROR}${NC} Failed to remove: $file"

@@ -1,11 +1,9 @@
 #!/bin/bash
 # User Data Cleanup Module
-# Essential user caches, browsers, cloud storage, office apps
 
 set -euo pipefail
 
 # Clean user essentials (caches, logs, trash, crash reports)
-# Env: DRY_RUN
 clean_user_essentials() {
     safe_clean ~/Library/Caches/* "User app cache"
     safe_clean ~/Library/Logs/* "User app logs"
@@ -22,10 +20,13 @@ clean_user_essentials() {
                 nfs | smbfs | afpfs | cifs | webdav) continue ;;
             esac
 
-            # Verify volume is mounted
-            if mount | grep -q "on $volume "; then
+            # Verify volume is mounted and not a symlink
+            if mount | grep -q "on $volume " && [[ ! -L "$volume/.Trashes" ]]; then
                 if [[ "$DRY_RUN" != "true" ]]; then
-                    find "$volume/.Trashes" -mindepth 1 -maxdepth 1 -exec rm -rf {} \; 2> /dev/null || true
+                    # Safely iterate and remove each item
+                    while IFS= read -r -d '' item; do
+                        safe_remove "$item" true || true
+                    done < <(find "$volume/.Trashes" -mindepth 1 -maxdepth 1 -print0 2> /dev/null)
                 fi
             fi
         done
@@ -52,7 +53,6 @@ clean_user_essentials() {
 }
 
 # Clean Finder metadata (.DS_Store files)
-# Env: PROTECT_FINDER_METADATA
 clean_finder_metadata() {
     if [[ "$PROTECT_FINDER_METADATA" == "true" ]]; then
         note_activity
@@ -170,7 +170,7 @@ clean_virtualization_tools() {
     safe_clean ~/.vagrant.d/tmp/* "Vagrant temporary files"
 }
 
-# Clean Application Support logs
+# Clean Application Support logs and caches
 clean_application_support_logs() {
     # Check permission
     if [[ ! -d "$HOME/Library/Application Support" ]] || ! ls "$HOME/Library/Application Support" > /dev/null 2>&1; then
@@ -179,7 +179,7 @@ clean_application_support_logs() {
         return 0
     fi
 
-    # Clean log directories with iteration limit to prevent hanging
+    # Clean log directories and cache patterns with iteration limit
     local iteration_count=0
     local max_iterations=200
 
@@ -201,7 +201,7 @@ clean_application_support_logs() {
                 ;;
         esac
 
-        # Clean common log directories (only if they exist and are accessible)
+        # Clean log directories
         if [[ -d "$app_dir/log" ]] && ls "$app_dir/log" > /dev/null 2>&1; then
             safe_clean "$app_dir/log"/* "App logs: $app_name"
         fi
@@ -211,7 +211,44 @@ clean_application_support_logs() {
         if [[ -d "$app_dir/activitylog" ]] && ls "$app_dir/activitylog" > /dev/null 2>&1; then
             safe_clean "$app_dir/activitylog"/* "Activity logs: $app_name"
         fi
+
+        # Clean common cache patterns (Service Worker, Code Cache, Crashpad)
+        if [[ -d "$app_dir/Cache/Cache_Data" ]] && ls "$app_dir/Cache/Cache_Data" > /dev/null 2>&1; then
+            safe_clean "$app_dir/Cache/Cache_Data" "Cache data: $app_name"
+        fi
+        if [[ -d "$app_dir/Code Cache/js" ]] && ls "$app_dir/Code Cache/js" > /dev/null 2>&1; then
+            safe_clean "$app_dir/Code Cache/js"/* "Code cache: $app_name"
+        fi
+        if [[ -d "$app_dir/Crashpad/completed" ]] && ls "$app_dir/Crashpad/completed" > /dev/null 2>&1; then
+            safe_clean "$app_dir/Crashpad/completed"/* "Crash reports: $app_name"
+        fi
+
+        # Clean Service Worker caches (CacheStorage and ScriptCache)
+        while IFS= read -r -d '' sw_cache; do
+            local profile_path=$(dirname "$(dirname "$sw_cache")")
+            local profile_name=$(basename "$profile_path")
+            [[ "$profile_name" == "User Data" ]] && profile_name=$(basename "$(dirname "$profile_path")")
+            clean_service_worker_cache "$app_name ($profile_name)" "$sw_cache"
+        done < <(find "$app_dir" -maxdepth 4 -type d \( -name "CacheStorage" -o -name "ScriptCache" \) -path "*/Service Worker/*" 2> /dev/null || true)
+
+        # Clean stale update downloads (older than 7 days)
+        if [[ -d "$app_dir/update" ]] && ls "$app_dir/update" > /dev/null 2>&1; then
+            while IFS= read -r update_dir; do
+                local dir_age_days=$(( ($(date +%s) - $(get_file_mtime "$update_dir")) / 86400 ))
+                if [[ $dir_age_days -ge $MOLE_TEMP_FILE_AGE_DAYS ]]; then
+                    safe_clean "$update_dir" "Stale update: $app_name"
+                fi
+            done < <(find "$app_dir/update" -mindepth 1 -maxdepth 1 -type d 2> /dev/null || true)
+        fi
     done
+
+    # Clean Group Containers logs
+    if [[ -d "$HOME/Library/Group Containers" ]]; then
+        while IFS= read -r logs_dir; do
+            local container_name=$(basename "$(dirname "$logs_dir")")
+            safe_clean "$logs_dir"/* "Group container logs: $container_name"
+        done < <(find "$HOME/Library/Group Containers" -maxdepth 2 -type d -name "Logs" 2> /dev/null || true)
+    fi
 }
 
 # Check and show iOS device backup info

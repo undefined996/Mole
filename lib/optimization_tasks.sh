@@ -1,10 +1,7 @@
 #!/bin/bash
 # Optimization Tasks
-# Individual optimization operations extracted from execute_optimization
 
 set -euo pipefail
-
-readonly MAIL_DOWNLOADS_MIN_KB=5120 # ~5MB threshold
 
 _opt_get_dir_size_kb() {
     local path="$1"
@@ -145,8 +142,8 @@ opt_log_cleanup() {
     done
 
     if [[ -d "/Library/Logs/DiagnosticReports" ]]; then
-        sudo find /Library/Logs/DiagnosticReports -type f -name "*.crash" -delete 2> /dev/null || true
-        sudo find /Library/Logs/DiagnosticReports -type f -name "*.panic" -delete 2> /dev/null || true
+        safe_sudo_find_delete "/Library/Logs/DiagnosticReports" "*.crash" 0 "f"
+        safe_sudo_find_delete "/Library/Logs/DiagnosticReports" "*.panic" 0 "f"
         echo -e "${GREEN}${ICON_SUCCESS}${NC} System diagnostic logs cleared"
     else
         echo -e "${GRAY}-${NC} No system diagnostic logs found"
@@ -158,7 +155,7 @@ opt_recent_items() {
     echo -e "${BLUE}${ICON_ARROW}${NC} Clearing recent items lists..."
     local shared_dir="$HOME/Library/Application Support/com.apple.sharedfilelist"
     if [[ -d "$shared_dir" ]]; then
-        find "$shared_dir" -name "*.sfl2" -type f -delete 2> /dev/null || true
+        safe_find_delete "$shared_dir" "*.sfl2" 0 "f"
         echo -e "${GREEN}${ICON_SUCCESS}${NC} Shared file lists cleared"
     fi
 
@@ -211,16 +208,20 @@ opt_mail_downloads() {
         total_kb=$((total_kb + $(_opt_get_dir_size_kb "$target_path")))
     done
 
-    if [[ $total_kb -lt $MAIL_DOWNLOADS_MIN_KB ]]; then
+    if [[ $total_kb -lt $MOLE_MAIL_DOWNLOADS_MIN_KB ]]; then
         echo -e "${GRAY}-${NC} Only $(bytes_to_human $((total_kb * 1024))) detected, skipping cleanup"
         return
     fi
 
-    # Only delete files older than 30 days (safer)
+    # Only delete old attachments (safety window)
     local deleted=0
     for target_path in "${mail_dirs[@]}"; do
         if [[ -d "$target_path" ]]; then
-            deleted=$((deleted + $(find "$target_path" -type f -mtime +30 -delete -print 2> /dev/null | wc -l | tr -d ' ')))
+            local file_count=$(find "$target_path" -type f -mtime "+$MOLE_LOG_AGE_DAYS" 2> /dev/null | wc -l | tr -d ' ')
+            if [[ "$file_count" -gt 0 ]]; then
+                safe_find_delete "$target_path" "*" "$MOLE_LOG_AGE_DAYS" "f"
+                deleted=$((deleted + file_count))
+            fi
         fi
     done
 
@@ -233,7 +234,7 @@ opt_mail_downloads() {
 
 # Saved state: remove OLD app saved states (7+ days)
 opt_saved_state_cleanup() {
-    echo -e "${BLUE}${ICON_ARROW}${NC} Removing old saved application states (7+ days)..."
+    echo -e "${BLUE}${ICON_ARROW}${NC} Removing old saved application states (${MOLE_SAVED_STATE_AGE_DAYS}+ days)..."
     local state_dir="$HOME/Library/Saved Application State"
 
     if [[ ! -d "$state_dir" ]]; then
@@ -241,9 +242,13 @@ opt_saved_state_cleanup() {
         return
     fi
 
-    # Only delete states older than 7 days (safer - won't lose recent work)
+    # Only delete old saved states (safety window)
     local deleted=0
-    deleted=$(find "$state_dir" -type d -name "*.savedState" -mtime +7 -exec rm -rf {} \; -print 2> /dev/null | wc -l | tr -d ' ')
+    while IFS= read -r -d '' state_path; do
+        if safe_remove "$state_path" true; then
+            ((deleted++))
+        fi
+    done < <(find "$state_dir" -type d -name "*.savedState" -mtime "+$MOLE_SAVED_STATE_AGE_DAYS" -print0 2> /dev/null)
 
     if [[ $deleted -gt 0 ]]; then
         echo -e "${GREEN}${ICON_SUCCESS}${NC} Removed $deleted old saved state(s)"

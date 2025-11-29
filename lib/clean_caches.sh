@@ -90,7 +90,7 @@ clean_service_worker_cache() {
         # Clean if not protected
         if [[ "$is_protected" == "false" ]]; then
             if [[ "$DRY_RUN" != "true" ]]; then
-                rm -rf "$cache_dir" 2> /dev/null || true
+                safe_remove "$cache_dir" true || true
             fi
             cleaned_size=$((cleaned_size + size))
         fi

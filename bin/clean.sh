@@ -25,11 +25,6 @@ DRY_RUN=false
 PROTECT_FINDER_METADATA=false
 IS_M_SERIES=$([[ "$(uname -m)" == "arm64" ]] && echo "true" || echo "false")
 
-# Constants
-readonly MAX_PARALLEL_JOBS=15 # Maximum parallel background jobs
-readonly TEMP_FILE_AGE_DAYS=7 # Age threshold for temp file cleanup
-readonly ORPHAN_AGE_DAYS=60   # Age threshold for orphaned data
-
 # Protected Service Worker domains (web-based editing tools)
 readonly PROTECTED_SW_DOMAINS=(
     "capcut.com"
@@ -64,10 +59,22 @@ if [[ -f "$HOME/.config/mole/whitelist" ]]; then
         # Expand tilde to home directory
         [[ "$line" == ~* ]] && line="${line/#~/$HOME}"
 
+        # Security: reject path traversal attempts
+        if [[ "$line" =~ \.\. ]]; then
+            WHITELIST_WARNINGS+=("Path traversal not allowed: $line")
+            continue
+        fi
+
         # Path validation with support for spaces and wildcards
         # Allow: letters, numbers, /, _, ., -, @, spaces, and * anywhere in path
         if [[ ! "$line" =~ ^[a-zA-Z0-9/_.@\ *-]+$ ]]; then
             WHITELIST_WARNINGS+=("Invalid path format: $line")
+            continue
+        fi
+
+        # Require absolute paths (must start with /)
+        if [[ "$line" != /* ]]; then
+            WHITELIST_WARNINGS+=("Must be absolute path: $line")
             continue
         fi
 
@@ -79,7 +86,7 @@ if [[ -f "$HOME/.config/mole/whitelist" ]]; then
 
         # Prevent critical system directories
         case "$line" in
-            /System/* | /bin/* | /sbin/* | /usr/bin/* | /usr/sbin/* | /etc/* | /var/db/*)
+            / | /System | /System/* | /bin | /bin/* | /sbin | /sbin/* | /usr/bin | /usr/bin/* | /usr/sbin | /usr/sbin/* | /etc | /etc/* | /var/db | /var/db/*)
                 WHITELIST_WARNINGS+=("Protected system path: $line")
                 continue
                 ;;
@@ -322,7 +329,7 @@ safe_clean() {
             pids+=($!)
             ((idx++))
 
-            if ((${#pids[@]} >= MAX_PARALLEL_JOBS)); then
+            if ((${#pids[@]} >= MOLE_MAX_PARALLEL_JOBS)); then
                 wait "${pids[0]}" 2> /dev/null || true
                 pids=("${pids[@]:1}")
                 ((completed++))
@@ -351,7 +358,7 @@ safe_clean() {
                         if [[ -L "$path" ]]; then
                             rm "$path" 2> /dev/null || true
                         else
-                            rm -rf "$path" 2> /dev/null || true
+                            safe_remove "$path" true || true
                         fi
                     fi
                     ((total_size_bytes += size))
@@ -380,7 +387,7 @@ safe_clean() {
                     if [[ -L "$path" ]]; then
                         rm "$path" 2> /dev/null || true
                     else
-                        rm -rf "$path" 2> /dev/null || true
+                        safe_remove "$path" true || true
                     fi
                 fi
                 ((total_size_bytes += size_bytes))
@@ -606,9 +613,9 @@ perform_cleanup() {
     clean_virtualization_tools
     end_section
 
-    # ===== 11. Application Support logs cleanup =====
-    start_section "Application Support logs"
-    # Application Support logs cleanup (delegated to clean_user_data module)
+    # ===== 11. Application Support logs and caches cleanup =====
+    start_section "Application Support"
+    # Clean logs, Service Worker caches, Code Cache, Crashpad, stale updates, Group Containers
     clean_application_support_logs
     end_section
 

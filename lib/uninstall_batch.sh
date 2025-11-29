@@ -199,16 +199,16 @@ batch_uninstall_applications() {
         fi
         if [[ -z "$reason" ]]; then
             if [[ "$needs_sudo" == true ]]; then
-                sudo rm -rf "$app_path" 2> /dev/null || reason="remove failed"
+                safe_sudo_remove "$app_path" || reason="remove failed"
             else
-                rm -rf "$app_path" 2> /dev/null || reason="remove failed"
+                safe_remove "$app_path" true || reason="remove failed"
             fi
         fi
         if [[ -z "$reason" ]]; then
             local files_removed=0
             while IFS= read -r file; do
                 [[ -n "$file" && -e "$file" ]] || continue
-                rm -rf "$file" 2> /dev/null && ((files_removed++)) || true
+                safe_remove "$file" true && ((files_removed++)) || true
             done <<< "$related_files"
             ((total_size_freed += total_kb))
             ((success_count++))

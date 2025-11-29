@@ -190,10 +190,10 @@ cleanup_path() {
     fi
 
     local removed=false
-    if rm -rf "$expanded_path" 2> /dev/null; then
+    if safe_remove "$expanded_path" true; then
         removed=true
     elif request_sudo_access "Removing $label requires admin access"; then
-        if sudo rm -rf "$expanded_path" 2> /dev/null; then
+        if safe_sudo_remove "$expanded_path"; then
             removed=true
         fi
     fi

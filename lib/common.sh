@@ -20,30 +20,39 @@ readonly RED="${ESC}[0;31m"
 readonly GRAY="${ESC}[0;90m"
 readonly NC="${ESC}[0m"
 
-# Icon definitions (shared across modules)
-readonly ICON_CONFIRM="◎"   # Confirm operation / spinner text
-readonly ICON_ADMIN="⚙"     # Gear indicator for admin/settings/system info
-readonly ICON_SUCCESS="✓"   # Success mark
-readonly ICON_ERROR="☻"     # Error / warning mark
-readonly ICON_EMPTY="○"     # Hollow circle (empty state / unchecked)
-readonly ICON_SOLID="●"     # Solid circle (selected / system marker)
-readonly ICON_LIST="•"      # Basic list bullet
-readonly ICON_ARROW="➤"     # Pointer / prompt indicator
-readonly ICON_WARNING="☻"   # Warning marker (shares glyph with error)
-readonly ICON_NAV_UP="↑"    # Navigation up
-readonly ICON_NAV_DOWN="↓"  # Navigation down
-readonly ICON_NAV_LEFT="←"  # Navigation left
-readonly ICON_NAV_RIGHT="→" # Navigation right
+# Icon definitions
+readonly ICON_CONFIRM="◎"
+readonly ICON_ADMIN="⚙"
+readonly ICON_SUCCESS="✓"
+readonly ICON_ERROR="☻"
+readonly ICON_EMPTY="○"
+readonly ICON_SOLID="●"
+readonly ICON_LIST="•"
+readonly ICON_ARROW="➤"
+readonly ICON_WARNING="☻"
+readonly ICON_NAV_UP="↑"
+readonly ICON_NAV_DOWN="↓"
+readonly ICON_NAV_LEFT="←"
+readonly ICON_NAV_RIGHT="→"
 
-# Get spinner characters (ASCII by default, overridable via MO_SPINNER_CHARS env)
+# Global configuration constants
+readonly MOLE_TEMP_FILE_AGE_DAYS=7           # Temp file cleanup threshold
+readonly MOLE_ORPHAN_AGE_DAYS=60             # Orphaned data threshold
+readonly MOLE_MAX_PARALLEL_JOBS=15           # Parallel job limit
+readonly MOLE_MAIL_DOWNLOADS_MIN_KB=5120     # Mail attachments size threshold (~5MB)
+readonly MOLE_LOG_AGE_DAYS=30                # System log retention
+readonly MOLE_CRASH_REPORT_AGE_DAYS=30       # Crash report retention
+readonly MOLE_SAVED_STATE_AGE_DAYS=7         # App saved state retention
+readonly MOLE_TM_BACKUP_SAFE_HOURS=48        # Time Machine failed backup safety window
+
+# Get spinner characters (overridable via MO_SPINNER_CHARS)
 mo_spinner_chars() {
     local chars="${MO_SPINNER_CHARS:-|/-\\}"
     [[ -z "$chars" ]] && chars='|/-\\'
     printf "%s" "$chars"
 }
 
-# BSD stat compatibility (for users with GNU CoreUtils installed)
-# Always use system BSD stat instead of potentially overridden GNU version
+# BSD stat compatibility
 readonly STAT_BSD="/usr/bin/stat"
 
 # Get file size in bytes using BSD stat
@@ -66,20 +75,7 @@ get_file_owner() {
 
 # Security and Path Validation Functions
 
-# Validates a path for safe deletion
-#
-# Security checks:
-# - Rejects empty paths
-# - Requires absolute paths (must start with /)
-# - Blocks control characters and newlines
-# - Protects critical system directories
-#
-# Args:
-#   $1 - Path to validate
-#
-# Returns:
-#   0 if path is safe to delete
-#   1 if path fails any validation check
+# Validates path for deletion (absolute, no control chars, not system dir)
 validate_path_for_deletion() {
     local path="$1"
 
@@ -113,21 +109,8 @@ validate_path_for_deletion() {
     return 0
 }
 
-# Safe wrapper around rm -rf with validation and logging
-#
-# Provides a secure alternative to direct rm -rf calls with:
-# - Path validation (absolute paths, no control characters)
-# - System directory protection
-# - Logging of all operations
-# - Silent mode for non-critical failures
-#
-# Usage:
-#   safe_remove "/path/to/file"           # Normal mode with logging
-#   safe_remove "/path/to/file" true      # Silent mode
-#
-# Returns:
-#   0 on success or if path doesn't exist
-#   1 on validation failure or deletion error
+# Safe wrapper around rm -rf with path validation and logging
+# Usage: safe_remove "/path" [silent]
 safe_remove() {
     local path="$1"
     local silent="${2:-false}"
@@ -139,24 +122,119 @@ safe_remove() {
 
     # Check if path exists
     if [[ ! -e "$path" ]]; then
-        [[ "$silent" != "true" ]] && log_warning "Path does not exist, skipping: $path"
         return 0
     fi
 
-    # Log what we're about to delete
-    if [[ -d "$path" ]]; then
-        log_info "Removing directory: $path"
-    else
-        log_info "Removing file: $path"
-    fi
-
-    # Perform the deletion
+    # Perform the deletion (log only on error)
     if rm -rf "$path" 2> /dev/null; then
         return 0
     else
-        log_error "Failed to remove: $path"
+        [[ "$silent" != "true" ]] && log_error "Failed to remove: $path"
         return 1
     fi
+}
+
+# Safe sudo remove with validation (rejects symlinks)
+# Usage: safe_sudo_remove "/path"
+safe_sudo_remove() {
+    local path="$1"
+
+    # Validate path
+    if ! validate_path_for_deletion "$path"; then
+        log_error "Path validation failed for sudo remove: $path"
+        return 1
+    fi
+
+    # Check if path exists
+    if [[ ! -e "$path" ]]; then
+        return 0
+    fi
+
+    # Additional check: reject symlinks for sudo operations
+    if [[ -L "$path" ]]; then
+        log_error "Refusing to sudo remove symlink: $path"
+        return 1
+    fi
+
+    # Perform the deletion (log only on error)
+    if sudo rm -rf "$path" 2> /dev/null; then
+        return 0
+    else
+        log_error "Failed to remove (sudo): $path"
+        return 1
+    fi
+}
+
+# Safe find delete with depth limit and validation
+# Usage: safe_find_delete "/dir" "pattern" age_days "f|d"
+safe_find_delete() {
+    local base_dir="$1"
+    local pattern="$2"
+    local age_days="${3:-7}"
+    local type_filter="${4:-f}"
+
+    # Validate base directory exists and is not a symlink
+    if [[ ! -d "$base_dir" ]]; then
+        log_warning "Base directory does not exist: $base_dir"
+        return 1
+    fi
+
+    if [[ -L "$base_dir" ]]; then
+        log_error "Refusing to search symlinked directory: $base_dir"
+        return 1
+    fi
+
+    # Validate type filter
+    if [[ "$type_filter" != "f" && "$type_filter" != "d" ]]; then
+        log_error "Invalid type filter: $type_filter (must be 'f' or 'd')"
+        return 1
+    fi
+
+    # Execute find with safety limits
+    find "$base_dir" \
+        -maxdepth 3 \
+        -name "$pattern" \
+        -type "$type_filter" \
+        -mtime "+$age_days" \
+        -delete 2> /dev/null || true
+
+    return 0
+}
+
+# Safe sudo find delete (same as safe_find_delete with sudo)
+# Usage: safe_sudo_find_delete "/dir" "pattern" age_days "f|d"
+safe_sudo_find_delete() {
+    local base_dir="$1"
+    local pattern="$2"
+    local age_days="${3:-7}"
+    local type_filter="${4:-f}"
+
+    # Validate base directory exists and is not a symlink
+    if [[ ! -d "$base_dir" ]]; then
+        log_warning "Base directory does not exist: $base_dir"
+        return 1
+    fi
+
+    if [[ -L "$base_dir" ]]; then
+        log_error "Refusing to search symlinked directory: $base_dir"
+        return 1
+    fi
+
+    # Validate type filter
+    if [[ "$type_filter" != "f" && "$type_filter" != "d" ]]; then
+        log_error "Invalid type filter: $type_filter (must be 'f' or 'd')"
+        return 1
+    fi
+
+    # Execute find with safety limits
+    sudo find "$base_dir" \
+        -maxdepth 3 \
+        -name "$pattern" \
+        -type "$type_filter" \
+        -mtime "+$age_days" \
+        -delete 2> /dev/null || true
+
+    return 0
 }
 
 # Logging configuration
@@ -198,6 +276,22 @@ log_warning() {
 log_error() {
     echo -e "${RED}${ICON_ERROR}${NC} $1" >&2
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1" >> "$LOG_FILE" 2> /dev/null || true
+}
+
+# Run command with optional error handling
+# Usage: run_silent command args...  # Ignore errors
+#        run_logged command args...  # Log errors but continue
+run_silent() {
+    "$@" > /dev/null 2>&1 || true
+}
+
+run_logged() {
+    local cmd="$1"
+    if ! "$@" 2>&1 | tee -a "$LOG_FILE" > /dev/null; then
+        log_warning "Command failed: $cmd"
+        return 1
+    fi
+    return 0
 }
 
 # Call rotation check once when common.sh is sourced
@@ -261,8 +355,7 @@ show_cursor() {
 }
 
 # Read single keypress and return normalized key name
-# Returns: ENTER, SPACE, UP, DOWN, LEFT, RIGHT, QUIT, DELETE, CHAR:<c>, etc.
-# Env: MOLE_READ_KEY_FORCE_CHAR=1 for filter mode
+# Returns: ENTER, SPACE, UP, DOWN, LEFT, RIGHT, QUIT, DELETE, CHAR:<c>
 read_key() {
     local key rest read_status
 
