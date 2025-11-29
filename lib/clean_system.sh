@@ -5,53 +5,77 @@
 set -euo pipefail
 
 # Deep system cleanup (requires sudo)
-# Env: DRY_RUN, TEMP_FILE_AGE_DAYS
 clean_deep_system() {
-    # Clean system caches safely (only old files)
-    sudo find /Library/Caches -name "*.cache" -mtime +7 -delete 2> /dev/null || true
-    sudo find /Library/Caches -name "*.tmp" -mtime +7 -delete 2> /dev/null || true
-    sudo find /Library/Caches -type f -name "*.log" -mtime +30 -delete 2> /dev/null || true
+    # Clean old system caches
+    safe_sudo_find_delete "/Library/Caches" "*.cache" "$MOLE_TEMP_FILE_AGE_DAYS" "f"
+    safe_sudo_find_delete "/Library/Caches" "*.tmp" "$MOLE_TEMP_FILE_AGE_DAYS" "f"
+    safe_sudo_find_delete "/Library/Caches" "*.log" "$MOLE_LOG_AGE_DAYS" "f"
 
-    # Clean old temp files only
+    # Clean old temp files
     local tmp_cleaned=0
-    local tmp_count=$(sudo find /tmp -type f -mtime +${TEMP_FILE_AGE_DAYS} 2> /dev/null | wc -l | tr -d ' ')
+    local tmp_count=$(sudo find /tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
     if [[ "$tmp_count" -gt 0 ]]; then
-        sudo find /tmp -type f -mtime +${TEMP_FILE_AGE_DAYS} -delete 2> /dev/null || true
+        safe_sudo_find_delete "/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f"
         tmp_cleaned=1
     fi
-    local var_tmp_count=$(sudo find /var/tmp -type f -mtime +${TEMP_FILE_AGE_DAYS} 2> /dev/null | wc -l | tr -d ' ')
+    local var_tmp_count=$(sudo find /var/tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
     if [[ "$var_tmp_count" -gt 0 ]]; then
-        sudo find /var/tmp -type f -mtime +${TEMP_FILE_AGE_DAYS} -delete 2> /dev/null || true
+        safe_sudo_find_delete "/var/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f"
         tmp_cleaned=1
     fi
-    [[ $tmp_cleaned -eq 1 ]] && log_success "Old system temp files (${TEMP_FILE_AGE_DAYS}+ days)"
+    [[ $tmp_cleaned -eq 1 ]] && log_success "Old system temp files (${MOLE_TEMP_FILE_AGE_DAYS}+ days)"
 
-    # Clean system crash reports and diagnostics
-    sudo find /Library/Logs/DiagnosticReports -type f -mtime +30 -delete 2> /dev/null || true
-    sudo find /Library/Logs/CrashReporter -type f -mtime +30 -delete 2> /dev/null || true
-    log_success "Old system crash reports (30+ days)"
+    # Clean crash reports
+    safe_sudo_find_delete "/Library/Logs/DiagnosticReports" "*" "$MOLE_CRASH_REPORT_AGE_DAYS" "f"
+    safe_sudo_find_delete "/Library/Logs/CrashReporter" "*" "$MOLE_CRASH_REPORT_AGE_DAYS" "f"
+    log_success "Old system crash reports (${MOLE_CRASH_REPORT_AGE_DAYS}+ days)"
 
-    # Clean old system logs
-    sudo find /var/log -name "*.log" -type f -mtime +30 -delete 2> /dev/null || true
-    sudo find /var/log -name "*.gz" -type f -mtime +30 -delete 2> /dev/null || true
-    log_success "Old system logs (30+ days)"
+    # Clean system logs
+    safe_sudo_find_delete "/var/log" "*.log" "$MOLE_LOG_AGE_DAYS" "f"
+    safe_sudo_find_delete "/var/log" "*.gz" "$MOLE_LOG_AGE_DAYS" "f"
+    log_success "Old system logs (${MOLE_LOG_AGE_DAYS}+ days)"
 
-    sudo rm -rf /Library/Updates/* 2> /dev/null || true
-    log_success "System library caches and updates"
+    # Clean Library Updates safely - iterate and delete individual items
+    if [[ -d "/Library/Updates" && ! -L "/Library/Updates" ]]; then
+        local updates_cleaned=0
+        while IFS= read -r -d '' item; do
+            # Skip system-protected files (restricted flag)
+            local item_flags=$(ls -lO "$item" 2> /dev/null | awk '{print $5}')
+            if [[ "$item_flags" == *"restricted"* ]]; then
+                continue
+            fi
+
+            if safe_sudo_remove "$item"; then
+                ((updates_cleaned++))
+            fi
+        done < <(find /Library/Updates -mindepth 1 -maxdepth 1 -print0 2> /dev/null)
+        [[ $updates_cleaned -gt 0 ]] && log_success "System library updates"
+    fi
 
     # Clean orphaned cask records (delegated to clean_brew module)
     clean_orphaned_casks
 }
 
 # Clean Time Machine failed backups
-# Env: DRY_RUN
-# Globals: files_cleaned, total_size_cleaned, total_items (modified if not DRY_RUN)
 clean_time_machine_failed_backups() {
     local tm_cleaned=0
 
-    # Check all mounted volumes
+    # Check if Time Machine is configured
+    if command -v tmutil > /dev/null 2>&1; then
+        if tmutil destinationinfo 2>&1 | grep -q "No destinations configured"; then
+            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} No failed Time Machine backups found"
+            return 0
+        fi
+    fi
+
     if [[ ! -d "/Volumes" ]]; then
         echo -e "  ${GREEN}${ICON_SUCCESS}${NC} No failed Time Machine backups found"
+        return 0
+    fi
+
+    # Skip if backup is running
+    if pgrep -x "backupd" > /dev/null 2>&1; then
+        echo -e "  ${YELLOW}!${NC} Time Machine backup in progress, skipping cleanup"
         return 0
     fi
 
@@ -60,6 +84,17 @@ clean_time_machine_failed_backups() {
 
         # Skip system and network volumes
         [[ "$volume" == "/Volumes/MacintoshHD" || "$volume" == "/" ]] && continue
+
+        # Skip if volume is a symlink (security check)
+        [[ -L "$volume" ]] && continue
+
+        # Check if this is a Time Machine destination
+        if command -v tmutil > /dev/null 2>&1; then
+            if ! tmutil destinationinfo 2> /dev/null | grep -q "$(basename "$volume")"; then
+                continue
+            fi
+        fi
+
         local fs_type=$(df -T "$volume" 2> /dev/null | tail -1 | awk '{print $2}')
         case "$fs_type" in
             nfs | smbfs | afpfs | cifs | webdav) continue ;;
@@ -71,12 +106,12 @@ clean_time_machine_failed_backups() {
             while IFS= read -r inprogress_file; do
                 [[ -d "$inprogress_file" ]] || continue
 
-                # Safety: only delete backups older than 24 hours
+                # Only delete old failed backups (safety window)
                 local file_mtime=$(get_file_mtime "$inprogress_file")
                 local current_time=$(date +%s)
                 local hours_old=$(((current_time - file_mtime) / 3600))
 
-                if [[ $hours_old -lt 24 ]]; then
+                if [[ $hours_old -lt $MOLE_TM_BACKUP_SAFE_HOURS ]]; then
                     continue
                 fi
 
@@ -123,12 +158,12 @@ clean_time_machine_failed_backups() {
                 while IFS= read -r inprogress_file; do
                     [[ -d "$inprogress_file" ]] || continue
 
-                    # Safety: only delete backups older than 24 hours
+                    # Only delete old failed backups (safety window)
                     local file_mtime=$(get_file_mtime "$inprogress_file")
                     local current_time=$(date +%s)
                     local hours_old=$(((current_time - file_mtime) / 3600))
 
-                    if [[ $hours_old -lt 24 ]]; then
+                    if [[ $hours_old -lt $MOLE_TM_BACKUP_SAFE_HOURS ]]; then
                         continue
                     fi
 
