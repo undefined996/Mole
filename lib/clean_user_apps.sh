@@ -92,8 +92,24 @@ clean_productivity_apps() {
 }
 
 # Clean music and media players
+# Note: Spotify cache is protected by default (may contain offline music)
+# Users can override via whitelist settings
 clean_media_players() {
-    safe_clean ~/Library/Caches/com.spotify.client/* "Spotify cache"
+    # Spotify cache protection: skip if has offline music (>500MB cache)
+    local spotify_cache="$HOME/Library/Caches/com.spotify.client"
+    if [[ -d "$spotify_cache" ]]; then
+        local cache_size_kb
+        cache_size_kb=$(du -sk "$spotify_cache" 2> /dev/null | awk '{print $1}' || echo "0")
+        # Only clean if cache is small (<500MB, unlikely to have offline music)
+        if [[ $cache_size_kb -lt 512000 ]]; then
+            safe_clean ~/Library/Caches/com.spotify.client/* "Spotify cache"
+        else
+            local cache_human
+            cache_human=$(bytes_to_human "$((cache_size_kb * 1024))")
+            echo -e "  ${YELLOW}${ICON_WARNING}${NC} Spotify cache protected ($cache_human, may contain offline music)"
+            note_activity
+        fi
+    fi
     safe_clean ~/Library/Caches/com.apple.Music "Apple Music cache"
     safe_clean ~/Library/Caches/com.apple.podcasts "Apple Podcasts cache"
     safe_clean ~/Library/Caches/com.apple.TV/* "Apple TV cache"

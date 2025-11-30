@@ -18,6 +18,7 @@ source "$SCRIPT_DIR/../lib/clean_dev.sh"
 source "$SCRIPT_DIR/../lib/clean_user_apps.sh"
 source "$SCRIPT_DIR/../lib/clean_system.sh"
 source "$SCRIPT_DIR/../lib/clean_user_data.sh"
+source "$SCRIPT_DIR/../lib/clean_maintenance.sh"
 
 # Configuration
 SYSTEM_CLEAN=false
@@ -830,6 +831,12 @@ perform_cleanup() {
     start_section "Time Machine failed backups"
     # Time Machine failed backups cleanup (delegated to clean_system module)
     clean_time_machine_failed_backups
+    end_section
+
+    # ===== 16. System maintenance =====
+    start_section "System maintenance"
+    # Broken preferences and login items cleanup (delegated to clean_maintenance module)
+    clean_maintenance
     end_section
 
     # ===== Final summary =====

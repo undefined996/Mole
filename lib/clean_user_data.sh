@@ -99,7 +99,36 @@ clean_sandboxed_app_caches() {
 }
 
 # Clean browser caches (Safari, Chrome, Edge, Firefox, etc.)
+# Warns if browsers are running (some cache files may be locked)
 clean_browsers() {
+    # Check for running browsers and warn user
+    local running_browsers=""
+    local -a browser_checks=(
+        "Safari"
+        "Google Chrome"
+        "Firefox"
+        "Microsoft Edge"
+        "Brave Browser"
+        "Arc"
+        "Opera"
+        "Vivaldi"
+    )
+
+    for browser in "${browser_checks[@]}"; do
+        if pgrep -x "$browser" > /dev/null 2>&1; then
+            if [[ -z "$running_browsers" ]]; then
+                running_browsers="$browser"
+            else
+                running_browsers="$running_browsers, $browser"
+            fi
+        fi
+    done
+
+    if [[ -n "$running_browsers" ]]; then
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Running: $running_browsers (some files may be locked)"
+        note_activity
+    fi
+
     safe_clean ~/Library/Caches/com.apple.Safari/* "Safari cache"
 
     # Chrome/Chromium
