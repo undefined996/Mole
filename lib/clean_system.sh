@@ -27,7 +27,6 @@ clean_deep_system() {
 
     # Clean crash reports
     safe_sudo_find_delete "/Library/Logs/DiagnosticReports" "*" "$MOLE_CRASH_REPORT_AGE_DAYS" "f"
-    safe_sudo_find_delete "/Library/Logs/CrashReporter" "*" "$MOLE_CRASH_REPORT_AGE_DAYS" "f"
     log_success "Old system crash reports (${MOLE_CRASH_REPORT_AGE_DAYS}+ days)"
 
     # Clean system logs

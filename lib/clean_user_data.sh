@@ -32,7 +32,6 @@ clean_user_essentials() {
         done
     fi
 
-    safe_clean ~/Library/Application\ Support/CrashReporter/* "Crash reports"
     safe_clean ~/Library/DiagnosticReports/* "Diagnostic reports"
     safe_clean ~/Library/Caches/com.apple.QuickLook.thumbnailcache "QuickLook thumbnails"
     safe_clean ~/Library/Caches/Quick\ Look/* "QuickLook cache"

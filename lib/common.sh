@@ -180,9 +180,9 @@ safe_find_delete() {
     local type_filter="${4:-f}"
 
     # Validate base directory exists and is not a symlink
+    # Silently skip if directory does not exist (e.g., old macOS paths)
     if [[ ! -d "$base_dir" ]]; then
-        log_warning "Base directory does not exist: $base_dir"
-        return 1
+        return 0
     fi
 
     if [[ -L "$base_dir" ]]; then
@@ -216,9 +216,9 @@ safe_sudo_find_delete() {
     local type_filter="${4:-f}"
 
     # Validate base directory exists and is not a symlink
+    # Silently skip if directory does not exist (e.g., old macOS paths)
     if [[ ! -d "$base_dir" ]]; then
-        log_warning "Base directory does not exist: $base_dir"
-        return 1
+        return 0
     fi
 
     if [[ -L "$base_dir" ]]; then
@@ -1745,9 +1745,6 @@ find_app_files() {
     while IFS= read -r -d '' report; do
         files_to_clean+=("$report")
     done < <(find ~/Library/Logs/DiagnosticReports \( -name "*$app_name*" -o -name "*$bundle_id*" \) -print0 2> /dev/null)
-    while IFS= read -r -d '' report; do
-        files_to_clean+=("$report")
-    done < <(find ~/Library/Logs/CrashReporter \( -name "*$app_name*" -o -name "*$bundle_id*" \) -print0 2> /dev/null)
 
     # Saved Application State
     [[ -d ~/Library/Saved\ Application\ State/"$bundle_id".savedState ]] && files_to_clean+=("$HOME/Library/Saved Application State/$bundle_id.savedState")
@@ -1937,9 +1934,6 @@ find_app_system_files() {
     while IFS= read -r -d '' report; do
         system_files+=("$report")
     done < <(find /Library/Logs/DiagnosticReports \( -name "*$app_name*" -o -name "*$bundle_id*" \) -print0 2> /dev/null)
-    while IFS= read -r -d '' report; do
-        system_files+=("$report")
-    done < <(find /Library/Logs/CrashReporter \( -name "*$app_name*" -o -name "*$bundle_id*" \) -print0 2> /dev/null)
 
     # System Frameworks
     [[ -d /Library/Frameworks/"$app_name".framework ]] && system_files+=("/Library/Frameworks/$app_name.framework")

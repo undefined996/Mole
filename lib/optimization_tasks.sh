@@ -134,7 +134,6 @@ opt_log_cleanup() {
     echo -e "${BLUE}${ICON_ARROW}${NC} Clearing diagnostic & crash logs..."
     local -a user_logs=(
         "$HOME/Library/Logs/DiagnosticReports"
-        "$HOME/Library/Logs/CrashReporter"
         "$HOME/Library/Logs/corecaptured"
     )
     for target in "${user_logs[@]}"; do

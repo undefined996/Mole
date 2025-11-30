@@ -37,7 +37,6 @@ func isHandledByMoClean(path string) bool {
 		"/Library/Logs/",
 		"/Library/Saved Application State/",
 		"/.Trash/",
-		"/Library/Application Support/CrashReporter/",
 		"/Library/DiagnosticReports/",
 	}
 
