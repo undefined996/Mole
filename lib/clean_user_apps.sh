@@ -95,20 +95,29 @@ clean_productivity_apps() {
 # Note: Spotify cache is protected by default (may contain offline music)
 # Users can override via whitelist settings
 clean_media_players() {
-    # Spotify cache protection: skip if has offline music (>500MB cache)
+    # Spotify cache protection: check for offline music indicators
     local spotify_cache="$HOME/Library/Caches/com.spotify.client"
-    if [[ -d "$spotify_cache" ]]; then
+    local spotify_data="$HOME/Library/Application Support/Spotify"
+    local has_offline_music=false
+
+    # Check for offline music database or large cache (>500MB)
+    if [[ -f "$spotify_data/PersistentCache/Storage/offline.bnk" ]] || \
+       [[ -d "$spotify_data/PersistentCache/Storage" && -n "$(find "$spotify_data/PersistentCache/Storage" -type f -name "*.file" 2>/dev/null | head -1)" ]]; then
+        has_offline_music=true
+    elif [[ -d "$spotify_cache" ]]; then
         local cache_size_kb
         cache_size_kb=$(du -sk "$spotify_cache" 2> /dev/null | awk '{print $1}' || echo "0")
-        # Only clean if cache is small (<500MB, unlikely to have offline music)
-        if [[ $cache_size_kb -lt 512000 ]]; then
-            safe_clean ~/Library/Caches/com.spotify.client/* "Spotify cache"
-        else
-            local cache_human
-            cache_human=$(bytes_to_human "$((cache_size_kb * 1024))")
-            echo -e "  ${YELLOW}${ICON_WARNING}${NC} Spotify cache protected ($cache_human, may contain offline music)"
-            note_activity
+        # Large cache (>500MB) likely contains offline music
+        if [[ $cache_size_kb -ge 512000 ]]; then
+            has_offline_music=true
         fi
+    fi
+
+    if [[ "$has_offline_music" == "true" ]]; then
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Spotify cache protected (offline music detected)"
+        note_activity
+    else
+        safe_clean ~/Library/Caches/com.spotify.client/* "Spotify cache"
     fi
     safe_clean ~/Library/Caches/com.apple.Music "Apple Music cache"
     safe_clean ~/Library/Caches/com.apple.podcasts "Apple Podcasts cache"

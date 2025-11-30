@@ -1,123 +1,8 @@
 #!/bin/bash
 # Maintenance Cleanup Module
-# Universal binary slimming, broken preferences, broken login items
+# Broken preferences and broken login items cleanup
 
 set -euo pipefail
-
-# ============================================================================
-# Universal Binary Slimming
-# Remove unused architecture code from universal binaries
-# ============================================================================
-
-# Slim universal binaries to current architecture only
-# Only processes apps in /Applications, skips signed/notarized apps
-# Env: DRY_RUN
-# Globals: files_cleaned, total_size_cleaned, total_items (modified)
-clean_universal_binaries() {
-    # Only run on Apple Silicon (most benefit)
-    if [[ "$(uname -m)" != "arm64" ]]; then
-        return 0
-    fi
-
-    # Check if lipo is available
-    if ! command -v lipo > /dev/null 2>&1; then
-        return 0
-    fi
-
-    local current_arch="arm64"
-    local remove_arch="x86_64"
-    local total_saved_kb=0
-    local apps_slimmed=0
-    local max_apps=50 # Limit to prevent long runs
-
-    if [[ -t 1 ]]; then
-        MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning universal binaries..."
-    fi
-
-    local app_count=0
-    while IFS= read -r app_path; do
-        [[ -d "$app_path" ]] || continue
-
-        ((app_count++))
-        if [[ $app_count -gt $max_apps ]]; then
-            break
-        fi
-
-        local binary_path="$app_path/Contents/MacOS"
-        [[ -d "$binary_path" ]] || continue
-
-        # Get the main executable
-        local info_plist="$app_path/Contents/Info.plist"
-        [[ -f "$info_plist" ]] || continue
-
-        local exec_name
-        exec_name=$(defaults read "$info_plist" CFBundleExecutable 2> /dev/null || echo "")
-        [[ -z "$exec_name" ]] && continue
-
-        local exec_path="$binary_path/$exec_name"
-        [[ -f "$exec_path" ]] || continue
-
-        # Check if it's a universal binary with both architectures
-        local archs
-        archs=$(lipo -archs "$exec_path" 2> /dev/null || echo "")
-        if [[ "$archs" != *"$current_arch"* ]] || [[ "$archs" != *"$remove_arch"* ]]; then
-            continue
-        fi
-
-        # Skip if app is code signed (removing arch breaks signature)
-        if codesign -v "$app_path" 2> /dev/null; then
-            continue
-        fi
-
-        # Calculate size before
-        local size_before
-        size_before=$(du -sk "$exec_path" 2> /dev/null | awk '{print $1}' || echo "0")
-
-        if [[ "$DRY_RUN" != "true" ]]; then
-            # Create backup and slim
-            local backup_path="${exec_path}.universal.bak"
-            if cp "$exec_path" "$backup_path" 2> /dev/null; then
-                if lipo "$backup_path" -remove "$remove_arch" -output "$exec_path" 2> /dev/null; then
-                    rm -f "$backup_path"
-                    local size_after
-                    size_after=$(du -sk "$exec_path" 2> /dev/null | awk '{print $1}' || echo "0")
-                    local saved=$((size_before - size_after))
-                    if [[ $saved -gt 0 ]]; then
-                        ((total_saved_kb += saved))
-                        ((apps_slimmed++))
-                    fi
-                else
-                    # Restore backup on failure
-                    mv "$backup_path" "$exec_path" 2> /dev/null || true
-                fi
-            fi
-        else
-            # Dry run: estimate savings (roughly 40-50% of binary size)
-            local estimated_save=$((size_before / 2))
-            ((total_saved_kb += estimated_save))
-            ((apps_slimmed++))
-        fi
-    done < <(find /Applications -maxdepth 2 -type d -name "*.app" 2> /dev/null || true)
-
-    if [[ -t 1 ]]; then
-        stop_inline_spinner
-    fi
-
-    if [[ $apps_slimmed -gt 0 && $total_saved_kb -gt 1024 ]]; then
-        local saved_human
-        saved_human=$(bytes_to_human "$((total_saved_kb * 1024))")
-        if [[ "$DRY_RUN" == "true" ]]; then
-            echo -e "  ${YELLOW}→${NC} Universal binaries: $apps_slimmed apps ${YELLOW}(~$saved_human dry)${NC}"
-        else
-            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Slimmed $apps_slimmed apps ${GREEN}($saved_human)${NC}"
-        fi
-        # Update global statistics
-        ((files_cleaned += apps_slimmed))
-        ((total_size_cleaned += total_saved_kb))
-        ((total_items++))
-        note_activity
-    fi
-}
 
 # ============================================================================
 # Broken Preferences Detection and Cleanup
@@ -243,13 +128,13 @@ clean_broken_login_items() {
                 ;;
         esac
 
-        # Extract Program or ProgramArguments[0] from plist
+        # Extract Program or ProgramArguments[0] from plist using plutil
         local program=""
-        program=$(defaults read "$plist_file" Program 2> /dev/null || echo "")
+        program=$(plutil -extract Program raw "$plist_file" 2> /dev/null || echo "")
 
         if [[ -z "$program" ]]; then
-            # Try ProgramArguments array
-            program=$(defaults read "$plist_file" ProgramArguments 2> /dev/null | head -2 | tail -1 | sed 's/^[[:space:]]*"//' | sed 's/".*$//' || echo "")
+            # Try ProgramArguments array (first element)
+            program=$(plutil -extract ProgramArguments.0 raw "$plist_file" 2> /dev/null || echo "")
         fi
 
         # Skip if no program found or program exists
@@ -295,8 +180,4 @@ clean_broken_login_items() {
 clean_maintenance() {
     clean_broken_preferences
     clean_broken_login_items
-    # Universal binary slimming is risky, only run if explicitly enabled
-    if [[ "${MOLE_SLIM_BINARIES:-false}" == "true" ]]; then
-        clean_universal_binaries
-    fi
 }

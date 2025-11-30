@@ -103,26 +103,16 @@ clean_sandboxed_app_caches() {
 clean_browsers() {
     # Check for running browsers and warn user
     local running_browsers=""
-    local -a browser_checks=(
-        "Safari"
-        "Google Chrome"
-        "Firefox"
-        "Microsoft Edge"
-        "Brave Browser"
-        "Arc"
-        "Opera"
-        "Vivaldi"
-    )
 
-    for browser in "${browser_checks[@]}"; do
-        if pgrep -x "$browser" > /dev/null 2>&1; then
-            if [[ -z "$running_browsers" ]]; then
-                running_browsers="$browser"
-            else
-                running_browsers="$running_browsers, $browser"
-            fi
-        fi
-    done
+    # Check each browser with case-insensitive process name matching
+    pgrep -i "safari" > /dev/null 2>&1 && running_browsers="Safari"
+    pgrep -i "chrome" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Chrome"
+    pgrep -i "firefox" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Firefox"
+    pgrep -i "edge" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Edge"
+    pgrep -i "brave" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Brave"
+    pgrep -i "arc" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Arc"
+    pgrep -i "opera" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Opera"
+    pgrep -i "vivaldi" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Vivaldi"
 
     if [[ -n "$running_browsers" ]]; then
         echo -e "  ${YELLOW}${ICON_WARNING}${NC} Running: $running_browsers (some files may be locked)"
