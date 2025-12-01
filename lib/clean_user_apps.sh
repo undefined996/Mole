@@ -101,8 +101,8 @@ clean_media_players() {
     local has_offline_music=false
 
     # Check for offline music database or large cache (>500MB)
-    if [[ -f "$spotify_data/PersistentCache/Storage/offline.bnk" ]] || \
-       [[ -d "$spotify_data/PersistentCache/Storage" && -n "$(find "$spotify_data/PersistentCache/Storage" -type f -name "*.file" 2>/dev/null | head -1)" ]]; then
+    if [[ -f "$spotify_data/PersistentCache/Storage/offline.bnk" ]] ||
+        [[ -d "$spotify_data/PersistentCache/Storage" && -n "$(find "$spotify_data/PersistentCache/Storage" -type f -name "*.file" 2> /dev/null | head -1)" ]]; then
         has_offline_music=true
     elif [[ -d "$spotify_cache" ]]; then
         local cache_size_kb

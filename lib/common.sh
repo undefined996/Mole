@@ -211,9 +211,9 @@ safe_find_delete() {
     local type_filter="${4:-f}"
 
     # Validate base directory exists and is not a symlink
-    # Silently skip if directory does not exist (e.g., old macOS paths)
     if [[ ! -d "$base_dir" ]]; then
-        return 0
+        log_error "Directory does not exist: $base_dir"
+        return 1
     fi
 
     if [[ -L "$base_dir" ]]; then
@@ -247,9 +247,9 @@ safe_sudo_find_delete() {
     local type_filter="${4:-f}"
 
     # Validate base directory exists and is not a symlink
-    # Silently skip if directory does not exist (e.g., old macOS paths)
     if [[ ! -d "$base_dir" ]]; then
-        return 0
+        log_error "Directory does not exist: $base_dir"
+        return 1
     fi
 
     if [[ -L "$base_dir" ]]; then

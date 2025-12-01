@@ -7,31 +7,31 @@ set -euo pipefail
 # Deep system cleanup (requires sudo)
 clean_deep_system() {
     # Clean old system caches
-    safe_sudo_find_delete "/Library/Caches" "*.cache" "$MOLE_TEMP_FILE_AGE_DAYS" "f"
-    safe_sudo_find_delete "/Library/Caches" "*.tmp" "$MOLE_TEMP_FILE_AGE_DAYS" "f"
-    safe_sudo_find_delete "/Library/Caches" "*.log" "$MOLE_LOG_AGE_DAYS" "f"
+    safe_sudo_find_delete "/Library/Caches" "*.cache" "$MOLE_TEMP_FILE_AGE_DAYS" "f" || true
+    safe_sudo_find_delete "/Library/Caches" "*.tmp" "$MOLE_TEMP_FILE_AGE_DAYS" "f" || true
+    safe_sudo_find_delete "/Library/Caches" "*.log" "$MOLE_LOG_AGE_DAYS" "f" || true
 
     # Clean old temp files
     local tmp_cleaned=0
     local tmp_count=$(sudo find /tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
     if [[ "$tmp_count" -gt 0 ]]; then
-        safe_sudo_find_delete "/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f"
+        safe_sudo_find_delete "/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f" || true
         tmp_cleaned=1
     fi
     local var_tmp_count=$(sudo find /var/tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
     if [[ "$var_tmp_count" -gt 0 ]]; then
-        safe_sudo_find_delete "/var/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f"
+        safe_sudo_find_delete "/var/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f" || true
         tmp_cleaned=1
     fi
     [[ $tmp_cleaned -eq 1 ]] && log_success "Old system temp files (${MOLE_TEMP_FILE_AGE_DAYS}+ days)"
 
     # Clean crash reports
-    safe_sudo_find_delete "/Library/Logs/DiagnosticReports" "*" "$MOLE_CRASH_REPORT_AGE_DAYS" "f"
+    safe_sudo_find_delete "/Library/Logs/DiagnosticReports" "*" "$MOLE_CRASH_REPORT_AGE_DAYS" "f" || true
     log_success "Old system crash reports (${MOLE_CRASH_REPORT_AGE_DAYS}+ days)"
 
     # Clean system logs
-    safe_sudo_find_delete "/var/log" "*.log" "$MOLE_LOG_AGE_DAYS" "f"
-    safe_sudo_find_delete "/var/log" "*.gz" "$MOLE_LOG_AGE_DAYS" "f"
+    safe_sudo_find_delete "/var/log" "*.log" "$MOLE_LOG_AGE_DAYS" "f" || true
+    safe_sudo_find_delete "/var/log" "*.gz" "$MOLE_LOG_AGE_DAYS" "f" || true
     log_success "Old system logs (${MOLE_LOG_AGE_DAYS}+ days)"
 
     # Clean Library Updates safely - skip if SIP is enabled to avoid error messages
@@ -40,7 +40,7 @@ clean_deep_system() {
         if is_sip_enabled; then
             # SIP is enabled, skip /Library/Updates entirely to avoid error messages
             # These files are system-protected and cannot be removed
-            :  # No-op, silently skip
+            : # No-op, silently skip
         else
             # SIP is disabled, attempt cleanup with restricted flag check
             local updates_cleaned=0

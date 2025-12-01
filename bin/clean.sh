@@ -11,6 +11,7 @@ export LANG=C
 # Get script directory and source common functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/common.sh"
+source "$SCRIPT_DIR/../lib/sudo_manager.sh"
 source "$SCRIPT_DIR/../lib/clean_brew.sh"
 source "$SCRIPT_DIR/../lib/clean_caches.sh"
 source "$SCRIPT_DIR/../lib/clean_apps.sh"
@@ -119,7 +120,6 @@ SECTION_ACTIVITY=0
 files_cleaned=0
 total_size_cleaned=0
 whitelist_skipped_count=0
-SUDO_KEEPALIVE_PID=""
 
 note_activity() {
     if [[ $TRACK_SECTION -eq 1 ]]; then
@@ -140,12 +140,6 @@ cleanup() {
     CLEANUP_DONE=true
 
     # Stop all spinners and clear the line
-    if [[ -n "$SPINNER_PID" ]]; then
-        kill "$SPINNER_PID" 2> /dev/null || true
-        wait "$SPINNER_PID" 2> /dev/null || true
-        SPINNER_PID=""
-    fi
-
     if [[ -n "$INLINE_SPINNER_PID" ]]; then
         kill "$INLINE_SPINNER_PID" 2> /dev/null || true
         wait "$INLINE_SPINNER_PID" 2> /dev/null || true
@@ -157,12 +151,8 @@ cleanup() {
         printf "\r\033[K"
     fi
 
-    # Stop sudo keepalive
-    if [[ -n "$SUDO_KEEPALIVE_PID" ]]; then
-        kill "$SUDO_KEEPALIVE_PID" 2> /dev/null || true
-        wait "$SUDO_KEEPALIVE_PID" 2> /dev/null || true
-        SUDO_KEEPALIVE_PID=""
-    fi
+    # Stop sudo session
+    stop_sudo_session
 
     show_cursor
 
@@ -176,51 +166,6 @@ cleanup() {
 trap 'cleanup EXIT $?' EXIT
 trap 'cleanup INT 130; exit 130' INT
 trap 'cleanup TERM 143; exit 143' TERM
-
-# Loading animation functions
-SPINNER_PID=""
-start_spinner() {
-    local message="$1"
-
-    if [[ ! -t 1 ]]; then
-        echo -n "  ${BLUE}${ICON_CONFIRM}${NC} $message"
-        return
-    fi
-
-    echo -n "  ${BLUE}${ICON_CONFIRM}${NC} $message"
-    (
-        local delay=0.5
-        while true; do
-            printf "\r  ${BLUE}${ICON_CONFIRM}${NC} $message.  "
-            sleep $delay
-            printf "\r  ${BLUE}${ICON_CONFIRM}${NC} $message.. "
-            sleep $delay
-            printf "\r  ${BLUE}${ICON_CONFIRM}${NC} $message..."
-            sleep $delay
-            printf "\r  ${BLUE}${ICON_CONFIRM}${NC} $message   "
-            sleep $delay
-        done
-    ) &
-    SPINNER_PID=$!
-}
-
-stop_spinner() {
-    local result_message="${1:-Done}"
-
-    if [[ ! -t 1 ]]; then
-        echo " ✓ $result_message"
-        return
-    fi
-
-    if [[ -n "$SPINNER_PID" ]]; then
-        kill "$SPINNER_PID" 2> /dev/null
-        wait "$SPINNER_PID" 2> /dev/null
-        SPINNER_PID=""
-        printf "\r  ${GREEN}${ICON_SUCCESS}${NC} %s\n" "$result_message"
-    else
-        echo "  ${GREEN}${ICON_SUCCESS}${NC} $result_message"
-    fi
-}
 
 start_section() {
     TRACK_SECTION=1
@@ -459,38 +404,10 @@ start_cleanup() {
         # Enter = yes, do system cleanup
         elif [[ "$choice" == "ENTER" ]]; then
             printf "\r\033[K" # Clear the prompt line
-            if request_sudo_access "System cleanup requires admin access"; then
+            if ensure_sudo_session "System cleanup requires admin access"; then
                 SYSTEM_CLEAN=true
                 echo -e "${GREEN}${ICON_SUCCESS}${NC} Admin access granted"
                 echo ""
-                # Start sudo keepalive with robust parent checking
-                # Store parent PID to ensure keepalive exits if parent dies
-                parent_pid=$$
-                (
-                    # Initial delay to let sudo cache stabilize after password entry
-                    # This prevents immediately triggering Touch ID again
-                    sleep 2
-
-                    local retry_count=0
-                    while true; do
-                        # Check if parent process still exists first
-                        if ! kill -0 "$parent_pid" 2> /dev/null; then
-                            exit 0
-                        fi
-
-                        if ! sudo -n true 2> /dev/null; then
-                            ((retry_count++))
-                            if [[ $retry_count -ge 3 ]]; then
-                                exit 1
-                            fi
-                            sleep 5
-                            continue
-                        fi
-                        retry_count=0
-                        sleep 30
-                    done
-                ) 2> /dev/null &
-                SUDO_KEEPALIVE_PID=$!
             else
                 SYSTEM_CLEAN=false
                 echo ""
