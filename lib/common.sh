@@ -45,6 +45,19 @@ readonly MOLE_CRASH_REPORT_AGE_DAYS=30   # Crash report retention
 readonly MOLE_SAVED_STATE_AGE_DAYS=7     # App saved state retention
 readonly MOLE_TM_BACKUP_SAFE_HOURS=48    # Time Machine failed backup safety window
 
+# Whitelist configuration
+readonly FINDER_METADATA_SENTINEL="FINDER_METADATA"
+declare -a DEFAULT_WHITELIST_PATTERNS=(
+    "$HOME/Library/Caches/ms-playwright*"
+    "$HOME/.cache/huggingface*"
+    "$HOME/.m2/repository/*"
+    "$HOME/.ollama/models/*"
+    "$HOME/Library/Caches/com.nssurge.surge-mac/*"
+    "$HOME/Library/Application Support/com.nssurge.surge-mac/*"
+    "$HOME/Library/Caches/org.R-project.R/R/renv/*"
+    "$FINDER_METADATA_SENTINEL"
+)
+
 # Get spinner characters (overridable via MO_SPINNER_CHARS)
 mo_spinner_chars() {
     local chars="${MO_SPINNER_CHARS:-|/-\\}"

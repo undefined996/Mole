@@ -32,18 +32,9 @@ readonly PROTECTED_SW_DOMAINS=(
     "photopea.com"
     "pixlr.com"
 )
-readonly FINDER_METADATA_SENTINEL="FINDER_METADATA"
-# Default whitelist patterns (preselected, user can disable)
-declare -a DEFAULT_WHITELIST_PATTERNS=(
-    "$HOME/Library/Caches/ms-playwright*"
-    "$HOME/.cache/huggingface*"
-    "$HOME/.m2/repository/*"
-    "$HOME/.ollama/models/*"
-    "$HOME/Library/Caches/com.nssurge.surge-mac/*"
-    "$HOME/Library/Application Support/com.nssurge.surge-mac/*"
-    "$HOME/Library/Caches/org.R-project.R/R/renv/*"
-    "$FINDER_METADATA_SENTINEL"
-)
+
+# Whitelist patterns (loaded from common.sh)
+# FINDER_METADATA_SENTINEL and DEFAULT_WHITELIST_PATTERNS defined in lib/common.sh
 declare -a WHITELIST_PATTERNS=()
 WHITELIST_WARNINGS=()
 
@@ -66,17 +57,20 @@ if [[ -f "$HOME/.config/mole/whitelist" ]]; then
             continue
         fi
 
-        # Path validation with support for spaces and wildcards
-        # Allow: letters, numbers, /, _, ., -, @, spaces, and * anywhere in path
-        if [[ ! "$line" =~ ^[a-zA-Z0-9/_.@\ *-]+$ ]]; then
-            WHITELIST_WARNINGS+=("Invalid path format: $line")
-            continue
-        fi
+        # Skip validation for special sentinel values
+        if [[ "$line" != "$FINDER_METADATA_SENTINEL" ]]; then
+            # Path validation with support for spaces and wildcards
+            # Allow: letters, numbers, /, _, ., -, @, spaces, and * anywhere in path
+            if [[ ! "$line" =~ ^[a-zA-Z0-9/_.@\ *-]+$ ]]; then
+                WHITELIST_WARNINGS+=("Invalid path format: $line")
+                continue
+            fi
 
-        # Require absolute paths (must start with /)
-        if [[ "$line" != /* ]]; then
-            WHITELIST_WARNINGS+=("Must be absolute path: $line")
-            continue
+            # Require absolute paths (must start with /)
+            if [[ "$line" != /* ]]; then
+                WHITELIST_WARNINGS+=("Must be absolute path: $line")
+                continue
+            fi
         fi
 
         # Reject paths with consecutive slashes (e.g., //)
@@ -525,12 +519,35 @@ perform_cleanup() {
     check_tcc_permissions
 
     # Show whitelist info if patterns are active
-    local active_count=${#WHITELIST_PATTERNS[@]}
-    if [[ $active_count -gt 2 ]]; then
-        local custom_count=$((active_count - 2))
-        echo -e "${BLUE}${ICON_SUCCESS}${NC} Whitelist: $custom_count custom + 2 core patterns active"
-    elif [[ $active_count -eq 2 ]]; then
-        echo -e "${BLUE}${ICON_SUCCESS}${NC} Whitelist: 2 core patterns active"
+    if [[ ${#WHITELIST_PATTERNS[@]} -gt 0 ]]; then
+        # Count predefined vs custom patterns
+        local predefined_count=0
+        local custom_count=0
+
+        for pattern in "${WHITELIST_PATTERNS[@]}"; do
+            local is_predefined=false
+            for default in "${DEFAULT_WHITELIST_PATTERNS[@]}"; do
+                if [[ "$pattern" == "$default" ]]; then
+                    is_predefined=true
+                    break
+                fi
+            done
+
+            if [[ "$is_predefined" == "true" ]]; then
+                ((predefined_count++))
+            else
+                ((custom_count++))
+            fi
+        done
+
+        # Display whitelist status
+        if [[ $custom_count -gt 0 && $predefined_count -gt 0 ]]; then
+            echo -e "${BLUE}${ICON_SUCCESS}${NC} Whitelist: $predefined_count core + $custom_count custom patterns active"
+        elif [[ $custom_count -gt 0 ]]; then
+            echo -e "${BLUE}${ICON_SUCCESS}${NC} Whitelist: $custom_count custom patterns active"
+        elif [[ $predefined_count -gt 0 ]]; then
+            echo -e "${BLUE}${ICON_SUCCESS}${NC} Whitelist: $predefined_count core patterns active"
+        fi
     fi
 
     # Initialize counters
