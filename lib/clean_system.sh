@@ -34,22 +34,30 @@ clean_deep_system() {
     safe_sudo_find_delete "/var/log" "*.gz" "$MOLE_LOG_AGE_DAYS" "f"
     log_success "Old system logs (${MOLE_LOG_AGE_DAYS}+ days)"
 
-    # Clean Library Updates safely - iterate and delete individual items
+    # Clean Library Updates safely - skip if SIP is enabled to avoid error messages
+    # SIP-protected files in /Library/Updates cannot be deleted even with sudo
     if [[ -d "/Library/Updates" && ! -L "/Library/Updates" ]]; then
-        local updates_cleaned=0
-        while IFS= read -r -d '' item; do
-            # Skip system-protected files (restricted flag)
-            local item_flags
-            item_flags=$(stat -f%Sf "$item" 2> /dev/null || echo "")
-            if [[ "$item_flags" == *"restricted"* ]]; then
-                continue
-            fi
+        if is_sip_enabled; then
+            # SIP is enabled, skip /Library/Updates entirely to avoid error messages
+            # These files are system-protected and cannot be removed
+            :  # No-op, silently skip
+        else
+            # SIP is disabled, attempt cleanup with restricted flag check
+            local updates_cleaned=0
+            while IFS= read -r -d '' item; do
+                # Skip system-protected files (restricted flag)
+                local item_flags
+                item_flags=$(stat -f%Sf "$item" 2> /dev/null || echo "")
+                if [[ "$item_flags" == *"restricted"* ]]; then
+                    continue
+                fi
 
-            if safe_sudo_remove "$item"; then
-                ((updates_cleaned++))
-            fi
-        done < <(find /Library/Updates -mindepth 1 -maxdepth 1 -print0 2> /dev/null)
-        [[ $updates_cleaned -gt 0 ]] && log_success "System library updates"
+                if safe_sudo_remove "$item"; then
+                    ((updates_cleaned++))
+                fi
+            done < <(find /Library/Updates -mindepth 1 -maxdepth 1 -print0 2> /dev/null)
+            [[ $updates_cleaned -gt 0 ]] && log_success "System library updates"
+        fi
     fi
 
     # Clean orphaned cask records (delegated to clean_brew module)

@@ -58,6 +58,24 @@ declare -a DEFAULT_WHITELIST_PATTERNS=(
     "$FINDER_METADATA_SENTINEL"
 )
 
+# Check if System Integrity Protection is enabled
+# Returns: 0 if SIP is enabled, 1 if disabled or cannot determine
+is_sip_enabled() {
+    if ! command -v csrutil > /dev/null 2>&1; then
+        # If csrutil not available, assume SIP is enabled for safety
+        return 0
+    fi
+
+    local sip_status
+    sip_status=$(csrutil status 2> /dev/null || echo "")
+
+    if echo "$sip_status" | grep -qi "enabled"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Get spinner characters (overridable via MO_SPINNER_CHARS)
 mo_spinner_chars() {
     local chars="${MO_SPINNER_CHARS:-|/-\\}"
