@@ -6,13 +6,13 @@ set -euo pipefail
 
 # Get script directory and source dependencies
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/common.sh"
-source "$SCRIPT_DIR/menu_simple.sh"
+source "$SCRIPT_DIR/../core/common.sh"
+source "$SCRIPT_DIR/../ui/menu_simple.sh"
 
 # Config file path
 WHITELIST_CONFIG="$HOME/.config/mole/whitelist"
 
-# Default whitelist patterns defined in lib/common.sh:
+# Default whitelist patterns defined in lib/core/common.sh:
 # - DEFAULT_WHITELIST_PATTERNS
 # - FINDER_METADATA_SENTINEL
 

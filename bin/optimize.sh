@@ -4,18 +4,14 @@ set -euo pipefail
 
 # Load common functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-source "$SCRIPT_DIR/lib/common.sh"
-source "$SCRIPT_DIR/lib/optimize_health.sh"
-source "$SCRIPT_DIR/lib/sudo_manager.sh"
-source "$SCRIPT_DIR/lib/update_manager.sh"
-source "$SCRIPT_DIR/lib/autofix_manager.sh"
-source "$SCRIPT_DIR/lib/optimization_tasks.sh"
+source "$SCRIPT_DIR/lib/core/common.sh"
+source "$SCRIPT_DIR/lib/core/sudo.sh"
+source "$SCRIPT_DIR/lib/manage/update.sh"
+source "$SCRIPT_DIR/lib/manage/autofix.sh"
+source "$SCRIPT_DIR/lib/optimize/tasks.sh"
 
 # Load check modules
-source "$SCRIPT_DIR/lib/check_updates.sh"
-source "$SCRIPT_DIR/lib/check_health.sh"
-source "$SCRIPT_DIR/lib/check_security.sh"
-source "$SCRIPT_DIR/lib/check_config.sh"
+source "$SCRIPT_DIR/lib/check/all.sh"
 
 # Colors and icons from common.sh
 

@@ -42,7 +42,7 @@ create_app_artifacts() {
     result="$(
         HOME="$HOME" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
 find_app_files "com.example.TestApp" "TestApp"
 EOF
     )"
@@ -62,7 +62,7 @@ EOF
     result="$(
         HOME="$HOME" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
 files="$(printf '%s\n%s\n' "$HOME/sized/file1" "$HOME/sized/file2")"
 calculate_total_size "$files"
 EOF
@@ -77,8 +77,8 @@ EOF
 
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/uninstall_batch.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/uninstall.sh"
 
 # Test stubs
 request_sudo_access() { return 0; }
@@ -119,8 +119,8 @@ EOF
 @test "decode_file_list validates base64 encoding" {
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/uninstall_batch.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/uninstall.sh"
 
 # Valid base64 encoded path list
 valid_data=$(printf '/path/one\n/path/two' | base64)
@@ -134,8 +134,8 @@ EOF
 @test "decode_file_list rejects invalid base64" {
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/uninstall_batch.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/uninstall.sh"
 
 # Invalid base64 - function should return empty and fail
 if result=$(decode_file_list "not-valid-base64!!!" "TestApp" 2>/dev/null); then
@@ -153,8 +153,8 @@ EOF
 @test "decode_file_list handles empty input" {
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/uninstall_batch.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/uninstall.sh"
 
 # Empty base64
 empty_data=$(printf '' | base64)
@@ -169,8 +169,8 @@ EOF
 @test "decode_file_list rejects non-absolute paths" {
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/uninstall_batch.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/uninstall.sh"
 
 # Relative path - function should reject it
 bad_data=$(printf 'relative/path' | base64)

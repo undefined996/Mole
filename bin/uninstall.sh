@@ -14,12 +14,12 @@ export LANG=C
 
 # Get script directory and source common functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../lib/common.sh"
-source "$SCRIPT_DIR/../lib/menu_paginated.sh"
-source "$SCRIPT_DIR/../lib/ui_app_selector.sh"
-source "$SCRIPT_DIR/../lib/uninstall_batch.sh"
+source "$SCRIPT_DIR/../lib/core/common.sh"
+source "$SCRIPT_DIR/../lib/ui/menu_paginated.sh"
+source "$SCRIPT_DIR/../lib/ui/app_selector.sh"
+source "$SCRIPT_DIR/../lib/uninstall.sh"
 
-# Note: Bundle preservation logic is now in lib/common.sh
+# Note: Bundle preservation logic is now in lib/core/common.sh
 
 # Initialize global variables
 selected_apps=() # Global array for app selection
@@ -404,7 +404,7 @@ load_applications() {
 # Read a single key with proper escape sequence handling
 # This function has been replaced by the menu.sh library
 
-# Note: App file discovery and size calculation functions moved to lib/common.sh
+# Note: App file discovery and size calculation functions moved to lib/core/common.sh
 # Use find_app_files() and calculate_total_size() from common.sh
 
 # Uninstall selected applications

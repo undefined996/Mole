@@ -10,16 +10,16 @@ export LANG=C
 
 # Get script directory and source common functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../lib/common.sh"
-source "$SCRIPT_DIR/../lib/sudo_manager.sh"
-source "$SCRIPT_DIR/../lib/clean_brew.sh"
-source "$SCRIPT_DIR/../lib/clean_caches.sh"
-source "$SCRIPT_DIR/../lib/clean_apps.sh"
-source "$SCRIPT_DIR/../lib/clean_dev.sh"
-source "$SCRIPT_DIR/../lib/clean_user_apps.sh"
-source "$SCRIPT_DIR/../lib/clean_system.sh"
-source "$SCRIPT_DIR/../lib/clean_user_data.sh"
-source "$SCRIPT_DIR/../lib/clean_maintenance.sh"
+source "$SCRIPT_DIR/../lib/core/common.sh"
+source "$SCRIPT_DIR/../lib/core/sudo.sh"
+source "$SCRIPT_DIR/../lib/clean/brew.sh"
+source "$SCRIPT_DIR/../lib/clean/caches.sh"
+source "$SCRIPT_DIR/../lib/clean/apps.sh"
+source "$SCRIPT_DIR/../lib/clean/dev.sh"
+source "$SCRIPT_DIR/../lib/clean/app_caches.sh"
+source "$SCRIPT_DIR/../lib/clean/system.sh"
+source "$SCRIPT_DIR/../lib/clean/user.sh"
+source "$SCRIPT_DIR/../lib/clean/maintenance.sh"
 
 # Configuration
 SYSTEM_CLEAN=false
@@ -35,7 +35,7 @@ readonly PROTECTED_SW_DOMAINS=(
 )
 
 # Whitelist patterns (loaded from common.sh)
-# FINDER_METADATA_SENTINEL and DEFAULT_WHITELIST_PATTERNS defined in lib/common.sh
+# FINDER_METADATA_SENTINEL and DEFAULT_WHITELIST_PATTERNS defined in lib/core/common.sh
 declare -a WHITELIST_PATTERNS=()
 WHITELIST_WARNINGS=()
 
@@ -846,7 +846,7 @@ main() {
                 DRY_RUN=true
                 ;;
             "--whitelist")
-                source "$SCRIPT_DIR/../lib/whitelist_manager.sh"
+                source "$SCRIPT_DIR/../lib/manage/whitelist.sh"
                 manage_whitelist
                 exit 0
                 ;;

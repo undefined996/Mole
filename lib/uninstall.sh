@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Ensure common.sh is loaded
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-[[ -z "${MOLE_COMMON_LOADED:-}" ]] && source "$SCRIPT_DIR/lib/common.sh"
+[[ -z "${MOLE_COMMON_LOADED:-}" ]] && source "$SCRIPT_DIR/lib/core/common.sh"
 
 # Batch uninstall functionality with minimal confirmations
 # Replaces the overly verbose individual confirmation approach
@@ -42,7 +42,7 @@ decode_file_list() {
     echo "$decoded"
     return 0
 }
-# Note: find_app_files() and calculate_total_size() functions now in lib/common.sh
+# Note: find_app_files() and calculate_total_size() functions now in lib/core/common.sh
 
 # Batch uninstall with single confirmation
 batch_uninstall_applications() {

@@ -32,7 +32,7 @@ setup() {
     run bash --noprofile --norc -c '
         set -euo pipefail
         PATH="/usr/bin:/bin"
-        source "'"$PROJECT_ROOT"'/lib/common.sh"
+        source "'"$PROJECT_ROOT"'/lib/core/common.sh"
         run_with_timeout 1 sleep 0.1
     '
     [ "$status" -eq 0 ]
@@ -42,7 +42,7 @@ setup() {
     run bash --noprofile --norc -c '
         set -euo pipefail
         PATH="/usr/bin:/bin"
-        source "'"$PROJECT_ROOT"'/lib/common.sh"
+        source "'"$PROJECT_ROOT"'/lib/core/common.sh"
         run_with_timeout 1 sleep 5
     '
     [ "$status" -eq 124 ]
@@ -56,8 +56,8 @@ setup() {
 
     run env HOME="$HOME" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/optimization_tasks.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/optimize/tasks.sh"
 # Mock sudo and defaults to avoid system changes
 sudo() { return 0; }
 defaults() { return 0; }
@@ -74,8 +74,8 @@ EOF
 
     run env HOME="$HOME" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/optimization_tasks.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/optimize/tasks.sh"
 sudo() { return 0; }
 defaults() { return 0; }
 export -f sudo defaults
@@ -96,8 +96,8 @@ EOF
 
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/optimization_tasks.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/optimize/tasks.sh"
 opt_saved_state_cleanup
 EOF
 
@@ -109,8 +109,8 @@ EOF
 
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/optimization_tasks.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/optimize/tasks.sh"
 opt_saved_state_cleanup
 EOF
 
@@ -124,8 +124,8 @@ EOF
 
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/optimization_tasks.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/optimize/tasks.sh"
 # Mock qlmanage and cleanup_path to avoid system calls
 qlmanage() { return 0; }
 cleanup_path() {
@@ -148,8 +148,8 @@ EOF
 
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/optimization_tasks.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/optimize/tasks.sh"
 # MOLE_MAIL_DOWNLOADS_MIN_KB is readonly, defaults to 5120 KB (~5MB)
 opt_mail_downloads
 EOF
@@ -170,8 +170,8 @@ EOF
 
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/optimization_tasks.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/optimize/tasks.sh"
 # MOLE_MAIL_DOWNLOADS_MIN_KB and MOLE_LOG_AGE_DAYS are readonly constants
 opt_mail_downloads
 EOF
@@ -182,8 +182,8 @@ EOF
 @test "_opt_get_dir_size_kb returns zero for missing directory" {
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/optimization_tasks.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/optimize/tasks.sh"
 size=$(_opt_get_dir_size_kb "/nonexistent/path")
 echo "$size"
 EOF
@@ -198,8 +198,8 @@ EOF
 
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
-source "$PROJECT_ROOT/lib/common.sh"
-source "$PROJECT_ROOT/lib/optimization_tasks.sh"
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/optimize/tasks.sh"
 size=$(_opt_get_dir_size_kb "$HOME/test_size")
 echo "$size"
 EOF
