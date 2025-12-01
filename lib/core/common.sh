@@ -933,7 +933,7 @@ update_via_homebrew() {
     fi
 
     # Clear version check cache
-    rm -f "$HOME/.cache/mole/version_check" "$HOME/.cache/mole/update_message"
+    rm -f "$HOME/.cache/mole/update_message"
     return 0
 }
 
