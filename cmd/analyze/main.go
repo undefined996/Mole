@@ -141,7 +141,10 @@ func main() {
 	}
 
 	// Prefetch overview cache in background (non-blocking)
-	go prefetchOverviewCache()
+	// Use context with timeout to prevent hanging
+	prefetchCtx, prefetchCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer prefetchCancel()
+	go prefetchOverviewCache(prefetchCtx)
 
 	p := tea.NewProgram(newModel(abs, isOverview), tea.WithAltScreen())
 	if err := p.Start(); err != nil {
@@ -509,7 +512,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle delete confirmation
 	if m.deleteConfirm {
-		if msg.String() == "delete" || msg.String() == "backspace" {
+		switch msg.String() {
+		case "delete", "backspace":
 			// Confirm delete - start async deletion
 			if m.deleteTarget != nil {
 				m.deleteConfirm = false
@@ -525,17 +529,14 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.deleteConfirm = false
 			m.deleteTarget = nil
 			return m, nil
-		} else if msg.String() == "esc" || msg.String() == "q" {
+		case "esc", "q":
 			// Cancel delete with ESC or Q
 			m.status = "Cancelled"
 			m.deleteConfirm = false
 			m.deleteTarget = nil
 			return m, nil
-		} else {
-			// Any other key also cancels
-			m.status = "Cancelled"
-			m.deleteConfirm = false
-			m.deleteTarget = nil
+		default:
+			// Ignore other keys - keep showing confirmation
 			return m, nil
 		}
 	}
