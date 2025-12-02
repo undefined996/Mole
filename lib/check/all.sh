@@ -374,8 +374,10 @@ check_mole_update() {
     fi
 
     # Normalize version strings (remove leading 'v' or 'V')
-    current_version=$(echo "$current_version" | sed 's/^[vV]//')
-    latest_version=$(echo "$latest_version" | sed 's/^[vV]//')
+    current_version="${current_version#v}"
+    current_version="${current_version#V}"
+    latest_version="${latest_version#v}"
+    latest_version="${latest_version#V}"
 
     if [[ -n "$latest_version" && "$current_version" != "$latest_version" ]]; then
         # Compare versions
@@ -398,7 +400,8 @@ check_all_updates() {
     check_homebrew_updates
 
     # Preload software update data to avoid delays between subsequent checks
-    get_software_updates > /dev/null 2>&1
+    # Only redirect stdout, keep stderr for spinner display
+    get_software_updates > /dev/null
 
     check_appstore_updates
     check_macos_update
@@ -599,7 +602,7 @@ check_swap_usage() {
         local swap_info=$(sysctl vm.swapusage 2> /dev/null || echo "")
         if [[ -n "$swap_info" ]]; then
             local swap_used=$(echo "$swap_info" | grep -o "used = [0-9.]*[GM]" | awk '{print $3}' || echo "0M")
-            local swap_num=$(echo "$swap_used" | sed 's/[GM]//')
+            local swap_num="${swap_used//[GM]/}"
 
             if [[ "$swap_used" == *"G"* ]]; then
                 local swap_gb=${swap_num%.*}

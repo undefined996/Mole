@@ -44,10 +44,9 @@ temp/
 CLAUDE.md
 copilot-instructions.md
 
-# Go build artifacts
+# Go build artifacts (development)
 cmd/analyze/analyze
 cmd/status/status
 /status
-bin/analyze-go
-bin/status-go
 mole-analyze
+# Note: bin/analyze-go and bin/status-go are released binaries and should be tracked

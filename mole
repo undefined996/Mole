@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/core/common.sh"
 
 # Version info
-VERSION="1.11.13"
+VERSION="1.11.14"
 MOLE_TAGLINE="can dig deep to clean your Mac."
 
 # Check if Touch ID is already configured
@@ -46,7 +46,9 @@ get_latest_version_from_github() {
         "https://api.github.com/repos/tw93/mole/releases/latest" 2> /dev/null |
         grep '"tag_name"' | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
     # Remove 'v' or 'V' prefix if present
-    echo "$version" | sed 's/^[vV]//'
+    version="${version#v}"
+    version="${version#V}"
+    echo "$version"
 }
 
 # Check if installed via Homebrew
@@ -695,7 +697,6 @@ main() {
             ;;
         "remove")
             remove_mole
-            exit 0
             ;;
         "help" | "--help" | "-h")
             show_help

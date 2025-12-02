@@ -27,6 +27,7 @@ setup() {
     # We can't actually test sudo without prompting, but we can test structure
 
     # Mock sudo to avoid actual auth
+    # shellcheck disable=SC2329
     function sudo() {
         return 1  # Simulate no sudo available
     }

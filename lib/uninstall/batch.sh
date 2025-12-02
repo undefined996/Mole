@@ -98,9 +98,11 @@ remove_file_list() {
 }
 
 # Batch uninstall with single confirmation
+# Globals: selected_apps (read) - array of selected applications
 batch_uninstall_applications() {
     local total_size_freed=0
 
+    # shellcheck disable=SC2154
     if [[ ${#selected_apps[@]} -eq 0 ]]; then
         log_warning "No applications selected for uninstallation"
         return 0
@@ -132,12 +134,16 @@ batch_uninstall_applications() {
         local app_size_kb=$(get_path_size_kb "$app_path")
         local related_files=$(find_app_files "$bundle_id" "$app_name")
         local related_size_kb=$(calculate_total_size "$related_files")
+        # system_files is a newline-separated string, not an array
+        # shellcheck disable=SC2178,SC2128
         local system_files=$(find_app_system_files "$bundle_id" "$app_name")
+        # shellcheck disable=SC2128
         local system_size_kb=$(calculate_total_size "$system_files")
         local total_kb=$((app_size_kb + related_size_kb + system_size_kb))
         ((total_estimated_size += total_kb))
 
         # Check if system files require sudo
+        # shellcheck disable=SC2128
         if [[ -n "$system_files" ]]; then
             sudo_apps+=("$app_name")
         fi
@@ -165,7 +171,7 @@ batch_uninstall_applications() {
         local app_size_display=$(bytes_to_human "$((total_kb * 1024))")
 
         echo -e "${BLUE}${ICON_CONFIRM}${NC} ${app_name} ${GRAY}(${app_size_display})${NC}"
-        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $(echo "$app_path" | sed "s|$HOME|~|")"
+        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} ${app_path/$HOME/~}"
 
         # Show related files (limit to 5 most important ones for brevity)
         local file_count=0
@@ -173,7 +179,7 @@ batch_uninstall_applications() {
         while IFS= read -r file; do
             if [[ -n "$file" && -e "$file" ]]; then
                 if [[ $file_count -lt $max_files ]]; then
-                    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $(echo "$file" | sed "s|$HOME|~|")"
+                    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} ${file/$HOME/~}"
                 fi
                 ((file_count++))
             fi

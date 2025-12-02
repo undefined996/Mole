@@ -28,6 +28,7 @@ setup() {
 
 # Test brew_has_outdated function
 @test "brew_has_outdated returns 1 when brew not installed" {
+    # shellcheck disable=SC2329
     function brew() {
         return 127  # Command not found
     }
@@ -39,6 +40,7 @@ setup() {
 
 @test "brew_has_outdated checks formula by default" {
     # Mock brew to simulate outdated formulas
+    # shellcheck disable=SC2329
     function brew() {
         if [[ "$1" == "outdated" && "$2" != "--cask" ]]; then
             echo "package1"

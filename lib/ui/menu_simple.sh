@@ -109,6 +109,7 @@ paginated_multi_select() {
     }
 
     # Interrupt handler
+    # shellcheck disable=SC2329
     handle_interrupt() {
         cleanup
         exit 130 # Standard exit code for Ctrl+C
@@ -129,6 +130,7 @@ paginated_multi_select() {
     hide_cursor
 
     # Helper functions
+    # shellcheck disable=SC2329
     print_line() { printf "\r\033[2K%s\n" "$1" >&2; }
 
     render_item() {

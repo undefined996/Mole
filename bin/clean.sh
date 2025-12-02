@@ -43,8 +43,10 @@ WHITELIST_WARNINGS=()
 if [[ -f "$HOME/.config/mole/whitelist" ]]; then
     while IFS= read -r line; do
         # Trim whitespace
-        line="${line#${line%%[![:space:]]*}}"
-        line="${line%${line##*[![:space:]]}}"
+        # shellcheck disable=SC2295
+        line="${line#"${line%%[![:space:]]*}"}"
+        # shellcheck disable=SC2295
+        line="${line%"${line##*[![:space:]]}"}"
 
         # Skip empty lines and comments
         [[ -z "$line" || "$line" =~ ^# ]] && continue

@@ -88,7 +88,7 @@ is_interactive() {
 # Get spinner characters (overridable via MO_SPINNER_CHARS)
 mo_spinner_chars() {
     local chars="${MO_SPINNER_CHARS:-|/-\\}"
-    [[ -z "$chars" ]] && chars='|/-\\'
+    [[ -z "$chars" ]] && chars="|/-\\"
     printf "%s" "$chars"
 }
 
@@ -803,7 +803,7 @@ request_sudo_access() {
 request_sudo() {
     echo "This operation requires administrator privileges."
     echo -n "Please enter your password: "
-    read -s password
+    read -r -s password
     echo
     if echo "$password" | sudo -S true 2> /dev/null; then
         return 0
@@ -822,6 +822,7 @@ update_via_homebrew() {
     local brew_pid=""
     local brew_tmp_file=""
     local brew_exit_file=""
+    # shellcheck disable=SC2329
     cleanup_brew_update() {
         if [[ -n "$brew_pid" ]] && kill -0 "$brew_pid" 2> /dev/null; then
             kill -TERM "$brew_pid" 2> /dev/null || true
@@ -971,7 +972,7 @@ start_inline_spinner() {
             trap 'exit 0' TERM INT EXIT
             local chars
             chars="$(mo_spinner_chars)"
-            [[ -z "$chars" ]] && chars='|/-\'
+            [[ -z "$chars" ]] && chars="|/-\\"
             local i=0
             while true; do
                 local c="${chars:$((i % ${#chars})):1}"

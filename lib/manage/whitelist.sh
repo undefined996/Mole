@@ -142,8 +142,10 @@ load_whitelist() {
 
     if [[ -f "$WHITELIST_CONFIG" ]]; then
         while IFS= read -r line; do
-            line="${line#${line%%[![:space:]]*}}"
-            line="${line%${line##*[![:space:]]}}"
+            # shellcheck disable=SC2295
+            line="${line#"${line%%[![:space:]]*}"}"
+            # shellcheck disable=SC2295
+            line="${line%"${line##*[![:space:]]}"}"
             [[ -z "$line" || "$line" =~ ^# ]] && continue
             patterns+=("$line")
         done < "$WHITELIST_CONFIG"
