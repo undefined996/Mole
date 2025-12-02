@@ -34,10 +34,10 @@ main() {
 
     # Run all checks in parallel with spinner
     if [[ -t 1 ]]; then
-        echo -ne "${PURPLE}System Check${NC}  "
+        echo -ne "${PURPLE_BOLD}System Check${NC}  "
         start_inline_spinner "Running checks..."
     else
-        echo -e "${PURPLE}System Check${NC}"
+        echo -e "${PURPLE_BOLD}System Check${NC}"
         echo ""
     fi
 

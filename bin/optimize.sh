@@ -17,7 +17,7 @@ source "$SCRIPT_DIR/lib/check/all.sh"
 
 print_header() {
     printf '\n'
-    echo -e "${PURPLE}Optimize and Check${NC}"
+    echo -e "${PURPLE_BOLD}Optimize and Check${NC}"
     echo ""
 }
 
@@ -25,7 +25,7 @@ print_header() {
 run_system_checks() {
     unset AUTO_FIX_SUMMARY AUTO_FIX_DETAILS
     echo ""
-    echo -e "${PURPLE}System Check${NC}"
+    echo -e "${PURPLE_BOLD}System Check${NC}"
     echo ""
 
     # Check updates - real-time display

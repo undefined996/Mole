@@ -10,12 +10,12 @@ import (
 )
 
 var (
-	titleStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#5FD7FF")).Bold(true)
-	subtleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#6C6C6C"))
+	titleStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#C79FD7")).Bold(true)
+	subtleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#9E9E9E"))
 	warnStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD75F"))
-	dangerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5F5F")).Bold(true)
+	dangerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6B6B")).Bold(true)
 	okStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#87D787"))
-	lineStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#4A4A4A"))
+	lineStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#5A5A5A"))
 )
 
 const (
@@ -134,11 +134,11 @@ func renderHeader(m MetricsSnapshot, errMsg string, animFrame int, termWidth int
 
 func getScoreStyle(score int) lipgloss.Style {
 	if score >= 90 {
-		// Excellent - Green
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#87D787")).Bold(true)
+		// Excellent - Bright Green
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#87FF87")).Bold(true)
 	} else if score >= 75 {
-		// Good - Light Green
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#AFD787")).Bold(true)
+		// Good - Green
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#87D787")).Bold(true)
 	} else if score >= 60 {
 		// Fair - Yellow
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD75F")).Bold(true)
@@ -147,7 +147,7 @@ func getScoreStyle(score int) lipgloss.Style {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#FFAF5F")).Bold(true)
 	} else {
 		// Critical - Red
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5F5F")).Bold(true)
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6B6B")).Bold(true)
 	}
 }
 

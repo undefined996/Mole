@@ -794,7 +794,7 @@ func (m model) View() string {
 	fmt.Fprintln(&b)
 
 	if m.inOverviewMode() {
-		fmt.Fprintf(&b, "%sAnalyze Disk%s\n", colorPurple, colorReset)
+		fmt.Fprintf(&b, "%sAnalyze Disk%s\n", colorPurpleBold, colorReset)
 		if m.overviewScanning {
 			// Check if we're in initial scan (all entries are pending)
 			allPending := true
@@ -834,7 +834,7 @@ func (m model) View() string {
 			}
 		}
 	} else {
-		fmt.Fprintf(&b, "%sAnalyze Disk%s  %s%s%s", colorPurple, colorReset, colorGray, displayPath(m.path), colorReset)
+		fmt.Fprintf(&b, "%sAnalyze Disk%s  %s%s%s", colorPurpleBold, colorReset, colorGray, displayPath(m.path), colorReset)
 		if !m.scanning {
 			fmt.Fprintf(&b, "  |  Total: %s", humanizeBytes(m.totalSize))
 		}
@@ -962,7 +962,7 @@ func (m model) View() string {
 						case percent >= 20:
 							sizeColor = colorYellow
 						case percent >= 5:
-							sizeColor = colorCyan
+							sizeColor = colorBlue
 						default:
 							sizeColor = colorGray
 						}
@@ -1050,7 +1050,7 @@ func (m model) View() string {
 					} else if percent >= 20 {
 						sizeColor = colorYellow
 					} else if percent >= 5 {
-						sizeColor = colorCyan
+						sizeColor = colorBlue
 					} else {
 						sizeColor = colorGray
 					}

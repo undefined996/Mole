@@ -14,8 +14,10 @@ readonly MOLE_COMMON_LOADED=1
 readonly ESC=$'\033'
 readonly GREEN="${ESC}[0;32m"
 readonly BLUE="${ESC}[0;34m"
-readonly YELLOW="${ESC}[1;33m"
+readonly CYAN="${ESC}[0;36m"
+readonly YELLOW="${ESC}[0;33m"
 readonly PURPLE="${ESC}[0;35m"
+readonly PURPLE_BOLD="${ESC}[1;35m"
 readonly RED="${ESC}[0;31m"
 readonly GRAY="${ESC}[0;90m"
 readonly NC="${ESC}[0m"
@@ -558,7 +560,7 @@ show_menu_option() {
     local selected="$3"
 
     if [[ "$selected" == "true" ]]; then
-        echo -e "${BLUE}${ICON_ARROW} $number. $text${NC}"
+        echo -e "${CYAN}${ICON_ARROW} $number. $text${NC}"
     else
         echo "  $number. $text"
     fi
@@ -1341,7 +1343,7 @@ start_section() {
     TRACK_SECTION=1
     SECTION_ACTIVITY=0
     echo ""
-    echo -e "${PURPLE}${ICON_ARROW} $1${NC}"
+    echo -e "${PURPLE_BOLD}${ICON_ARROW} $1${NC}"
 }
 
 # End a section (show "Nothing to tidy" if no activity)

@@ -156,7 +156,7 @@ batch_uninstall_applications() {
 
     # Display detailed file list for each app before confirmation
     echo ""
-    echo -e "${PURPLE}Files to be removed:${NC}"
+    echo -e "${PURPLE_BOLD}Files to be removed:${NC}"
     echo ""
     for detail in "${app_details[@]}"; do
         IFS='|' read -r app_name app_path bundle_id total_kb encoded_files encoded_system_files <<< "$detail"

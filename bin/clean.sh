@@ -171,7 +171,7 @@ start_section() {
     TRACK_SECTION=1
     SECTION_ACTIVITY=0
     echo ""
-    echo -e "${PURPLE}${ICON_ARROW} $1${NC}"
+    echo -e "${PURPLE_BOLD}${ICON_ARROW} $1${NC}"
 }
 
 end_section() {
@@ -369,7 +369,7 @@ safe_clean() {
 start_cleanup() {
     clear
     printf '\n'
-    echo -e "${PURPLE}Clean Your Mac${NC}"
+    echo -e "${PURPLE_BOLD}Clean Your Mac${NC}"
     echo ""
 
     if [[ "$DRY_RUN" != "true" && -t 0 ]]; then

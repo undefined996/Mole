@@ -366,7 +366,7 @@ paginated_multi_select() {
         [[ ${selected[real]} == true ]] && checkbox="$ICON_SOLID"
 
         if [[ $is_current == true ]]; then
-            printf "\r\033[2K${BLUE}${ICON_ARROW} %s %s${NC}\n" "$checkbox" "${items[real]}" >&2
+            printf "\r\033[2K${CYAN}${ICON_ARROW} %s %s${NC}\n" "$checkbox" "${items[real]}" >&2
         else
             printf "\r\033[2K  %s %s\n" "$checkbox" "${items[real]}" >&2
         fi
@@ -387,7 +387,7 @@ paginated_multi_select() {
         done
 
         # Header only
-        printf "${clear_line}${PURPLE}%s${NC}  ${GRAY}%d/%d selected${NC}\n" "${title}" "$selected_count" "$total_items" >&2
+        printf "${clear_line}${PURPLE_BOLD}%s${NC}  ${GRAY}%d/%d selected${NC}\n" "${title}" "$selected_count" "$total_items" >&2
 
         # Visible slice
         local visible_total=${#view_indices[@]}
