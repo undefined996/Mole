@@ -123,7 +123,7 @@ clean_time_machine_failed_backups() {
                     continue
                 fi
 
-                local size_kb=$(du -sk "$inprogress_file" 2> /dev/null | awk '{print $1}' || echo "0")
+                local size_kb=$(get_path_size_kb "$inprogress_file")
                 if [[ "$size_kb" -gt 0 ]]; then
                     local backup_name=$(basename "$inprogress_file")
 
@@ -175,7 +175,7 @@ clean_time_machine_failed_backups() {
                         continue
                     fi
 
-                    local size_kb=$(du -sk "$inprogress_file" 2> /dev/null | awk '{print $1}' || echo "0")
+                    local size_kb=$(get_path_size_kb "$inprogress_file")
                     if [[ "$size_kb" -gt 0 ]]; then
                         local backup_name=$(basename "$inprogress_file")
 

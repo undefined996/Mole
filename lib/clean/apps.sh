@@ -232,7 +232,7 @@ clean_orphaned_app_data() {
                 if is_orphaned "$bundle_id" "$match"; then
                     # Use timeout to prevent du from hanging on large/problematic directories
                     local size_kb
-                    size_kb=$(run_with_timeout 2 du -sk "$match" 2> /dev/null | awk '{print $1}' || echo "0")
+                    size_kb=$(run_with_timeout 2 get_path_size_kb "$match")
                     if [[ -z "$size_kb" || "$size_kb" == "0" ]]; then
                         continue
                     fi

@@ -40,7 +40,7 @@ clean_broken_preferences() {
         # Validate plist using plutil
         if ! plutil -lint "$plist_file" > /dev/null 2>&1; then
             local size_kb
-            size_kb=$(du -sk "$plist_file" 2> /dev/null | awk '{print $1}' || echo "0")
+            size_kb=$(get_path_size_kb "$plist_file")
 
             if [[ "$DRY_RUN" != "true" ]]; then
                 rm -f "$plist_file" 2> /dev/null || true
@@ -67,7 +67,7 @@ clean_broken_preferences() {
 
             if ! plutil -lint "$plist_file" > /dev/null 2>&1; then
                 local size_kb
-                size_kb=$(du -sk "$plist_file" 2> /dev/null | awk '{print $1}' || echo "0")
+                size_kb=$(get_path_size_kb "$plist_file")
 
                 if [[ "$DRY_RUN" != "true" ]]; then
                     rm -f "$plist_file" 2> /dev/null || true
@@ -143,7 +143,7 @@ clean_broken_login_items() {
 
         # Program doesn't exist - this is a broken login item
         local size_kb
-        size_kb=$(du -sk "$plist_file" 2> /dev/null | awk '{print $1}' || echo "0")
+        size_kb=$(get_path_size_kb "$plist_file")
 
         if [[ "$DRY_RUN" != "true" ]]; then
             # Unload first if loaded

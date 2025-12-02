@@ -48,3 +48,6 @@ copilot-instructions.md
 cmd/analyze/analyze
 cmd/status/status
 /status
+bin/analyze-go
+bin/status-go
+mole-analyze

@@ -78,6 +78,13 @@ is_sip_enabled() {
     fi
 }
 
+# Check if running in interactive terminal
+# Returns: 0 if interactive (stdout is a terminal), 1 otherwise
+# Usage: if is_interactive; then echo "Interactive mode"; fi
+is_interactive() {
+    [[ -t 1 ]]
+}
+
 # Get spinner characters (overridable via MO_SPINNER_CHARS)
 mo_spinner_chars() {
     local chars="${MO_SPINNER_CHARS:-|/-\\}"
@@ -1131,6 +1138,15 @@ clean_tool_cache() {
 # ============================================================================
 # Size helpers
 # ============================================================================
+
+# Get path size in KB using du
+# Args: $1 - path to measure
+# Returns: size in KB, or 0 if path doesn't exist or error occurs
+get_path_size_kb() {
+    local path="$1"
+    du -sk "$path" 2> /dev/null | awk '{print $1}' || echo "0"
+}
+
 bytes_to_human_kb() { bytes_to_human "$((${1:-0} * 1024))"; }
 
 # ============================================================================
@@ -2064,7 +2080,7 @@ calculate_total_size() {
     while IFS= read -r file; do
         if [[ -n "$file" && -e "$file" ]]; then
             local size_kb
-            size_kb=$(du -sk "$file" 2> /dev/null | awk '{print $1}' || echo "0")
+            size_kb=$(get_path_size_kb "$file")
             ((total_kb += size_kb))
         fi
     done <<< "$files"

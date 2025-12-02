@@ -75,7 +75,7 @@ clean_service_worker_cache() {
         # Pattern matches: letters/numbers, hyphens, then dot, then TLD
         # Example: "abc123_https_example.com_0" → "example.com"
         local domain=$(basename "$cache_dir" | grep -oE '[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}' | head -1 || echo "")
-        local size=$(du -sk "$cache_dir" 2> /dev/null | awk '{print $1}')
+        local size=$(get_path_size_kb "$cache_dir")
 
         # Check if domain is protected
         local is_protected=false

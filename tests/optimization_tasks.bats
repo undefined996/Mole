@@ -179,12 +179,11 @@ EOF
     [ "$status" -eq 0 ]
 }
 
-@test "_opt_get_dir_size_kb returns zero for missing directory" {
+@test "get_path_size_kb returns zero for missing directory" {
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
 source "$PROJECT_ROOT/lib/core/common.sh"
-source "$PROJECT_ROOT/lib/optimize/tasks.sh"
-size=$(_opt_get_dir_size_kb "/nonexistent/path")
+size=$(get_path_size_kb "/nonexistent/path")
 echo "$size"
 EOF
 
@@ -192,15 +191,14 @@ EOF
     [ "$output" = "0" ]
 }
 
-@test "_opt_get_dir_size_kb calculates directory size" {
+@test "get_path_size_kb calculates directory size" {
     mkdir -p "$HOME/test_size"
     dd if=/dev/zero of="$HOME/test_size/file.dat" bs=1024 count=10 2>/dev/null
 
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc << 'EOF'
 set -euo pipefail
 source "$PROJECT_ROOT/lib/core/common.sh"
-source "$PROJECT_ROOT/lib/optimize/tasks.sh"
-size=$(_opt_get_dir_size_kb "$HOME/test_size")
+size=$(get_path_size_kb "$HOME/test_size")
 echo "$size"
 EOF
 

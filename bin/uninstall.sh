@@ -217,8 +217,8 @@ scan_applications() {
         local app_size="N/A"
         local app_size_kb="0"
         if [[ -d "$app_path" ]]; then
-            # Get size in KB, then format for display (single du call)
-            app_size_kb=$(du -sk "$app_path" 2> /dev/null | awk '{print $1}' || echo "0")
+            # Get size in KB, then format for display
+            app_size_kb=$(get_path_size_kb "$app_path")
             app_size=$(bytes_to_human "$((app_size_kb * 1024))")
         fi
 

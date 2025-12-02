@@ -3,15 +3,6 @@
 
 set -euo pipefail
 
-_opt_get_dir_size_kb() {
-    local path="$1"
-    [[ -e "$path" ]] || {
-        echo 0
-        return
-    }
-    du -sk "$path" 2> /dev/null | awk '{print $1}' || echo 0
-}
-
 # System maintenance: rebuild databases and flush caches
 opt_system_maintenance() {
     echo -e "${BLUE}${ICON_ARROW}${NC} Rebuilding LaunchServices database..."
@@ -204,7 +195,7 @@ opt_mail_downloads() {
 
     local total_kb=0
     for target_path in "${mail_dirs[@]}"; do
-        total_kb=$((total_kb + $(_opt_get_dir_size_kb "$target_path")))
+        total_kb=$((total_kb + $(get_path_size_kb "$target_path")))
     done
 
     if [[ $total_kb -lt $MOLE_MAIL_DOWNLOADS_MIN_KB ]]; then
@@ -498,12 +489,6 @@ get_uptime_days() {
 }
 
 # Get directory size in KB
-dir_size_kb() {
-    local path="$1"
-    [[ ! -e "$path" ]] && echo "0" && return
-    du -sk "$path" 2> /dev/null | awk '{print $1}' || echo "0"
-}
-
 # Format size from KB
 format_size_kb() {
     local kb="$1"
@@ -525,7 +510,7 @@ format_size_kb() {
 # Check cache size
 check_cache_refresh() {
     local cache_dir="$HOME/Library/Caches"
-    local size_kb=$(dir_size_kb "$cache_dir")
+    local size_kb=$(get_path_size_kb "$cache_dir")
     local desc="Refresh Finder previews, Quick Look, and Safari caches"
 
     if [[ $size_kb -gt 0 ]]; then
@@ -545,7 +530,7 @@ check_mail_downloads() {
 
     local total_kb=0
     for dir in "${dirs[@]}"; do
-        total_kb=$((total_kb + $(dir_size_kb "$dir")))
+        total_kb=$((total_kb + $(get_path_size_kb "$dir")))
     done
 
     if [[ $total_kb -gt 0 ]]; then
@@ -557,7 +542,7 @@ check_mail_downloads() {
 # Check saved state
 check_saved_state() {
     local state_dir="$HOME/Library/Saved Application State"
-    local size_kb=$(dir_size_kb "$state_dir")
+    local size_kb=$(get_path_size_kb "$state_dir")
 
     if [[ $size_kb -gt 0 ]]; then
         local size_str=$(format_size_kb "$size_kb")
@@ -605,7 +590,7 @@ check_developer_cleanup() {
 
     local total_kb=0
     for dir in "${dirs[@]}"; do
-        total_kb=$((total_kb + $(dir_size_kb "$dir")))
+        total_kb=$((total_kb + $(get_path_size_kb "$dir")))
     done
 
     if [[ $total_kb -gt 0 ]]; then

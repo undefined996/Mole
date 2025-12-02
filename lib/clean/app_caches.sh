@@ -106,7 +106,7 @@ clean_media_players() {
         has_offline_music=true
     elif [[ -d "$spotify_cache" ]]; then
         local cache_size_kb
-        cache_size_kb=$(du -sk "$spotify_cache" 2> /dev/null | awk '{print $1}' || echo "0")
+        cache_size_kb=$(get_path_size_kb "$spotify_cache")
         # Large cache (>500MB) likely contains offline music
         if [[ $cache_size_kb -ge 512000 ]]; then
             has_offline_music=true

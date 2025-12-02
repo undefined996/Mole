@@ -179,7 +179,7 @@ cleanup_path() {
     fi
 
     local size_kb
-    size_kb=$(du -sk "$expanded_path" 2> /dev/null | awk '{print $1}' || echo "0")
+    size_kb=$(get_path_size_kb "$expanded_path")
     local size_display=""
     if [[ "$size_kb" =~ ^[0-9]+$ && "$size_kb" -gt 0 ]]; then
         size_display=$(bytes_to_human "$((size_kb * 1024))")

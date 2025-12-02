@@ -273,7 +273,7 @@ clean_application_support_logs() {
 check_ios_device_backups() {
     local backup_dir="$HOME/Library/Application Support/MobileSync/Backup"
     if [[ -d "$backup_dir" ]] && find "$backup_dir" -mindepth 1 -maxdepth 1 | read -r _; then
-        local backup_kb=$(du -sk "$backup_dir" 2> /dev/null | awk '{print $1}')
+        local backup_kb=$(get_path_size_kb "$backup_dir")
         if [[ -n "${backup_kb:-}" && "$backup_kb" -gt 102400 ]]; then
             local backup_human=$(du -sh "$backup_dir" 2> /dev/null | awk '{print $1}')
             note_activity

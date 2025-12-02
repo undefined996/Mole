@@ -129,7 +129,7 @@ batch_uninstall_applications() {
         fi
 
         # Calculate size for summary (including system files)
-        local app_size_kb=$(du -sk "$app_path" 2> /dev/null | awk '{print $1}' || echo "0")
+        local app_size_kb=$(get_path_size_kb "$app_path")
         local related_files=$(find_app_files "$bundle_id" "$app_name")
         local related_size_kb=$(calculate_total_size "$related_files")
         local system_files=$(find_app_system_files "$bundle_id" "$app_name")

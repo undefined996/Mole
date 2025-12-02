@@ -258,7 +258,7 @@ safe_clean() {
         for path in "${existing_paths[@]}"; do
             (
                 local size
-                size=$(du -sk "$path" 2> /dev/null | awk '{print $1}' || echo "0")
+                size=$(get_path_size_kb "$path")
                 local count
                 count=$(find "$path" -type f 2> /dev/null | wc -l | tr -d ' ')
                 # Use index + PID for unique filename
@@ -317,7 +317,7 @@ safe_clean() {
 
         for path in "${existing_paths[@]}"; do
             local size_bytes
-            size_bytes=$(du -sk "$path" 2> /dev/null | awk '{print $1}' || echo "0")
+            size_bytes=$(get_path_size_kb "$path")
             local count
             count=$(find "$path" -type f 2> /dev/null | wc -l | tr -d ' ')
 
@@ -718,7 +718,7 @@ perform_cleanup() {
                     if is_orphaned "$bundle_id" "$match"; then
                         # Use timeout to prevent du from hanging on large/problematic directories
                         local size_kb
-                        size_kb=$(run_with_timeout 2 du -sk "$match" 2> /dev/null | awk '{print $1}' || echo "0")
+                        size_kb=$(run_with_timeout 2 get_path_size_kb "$match")
                         if [[ -z "$size_kb" || "$size_kb" == "0" ]]; then
                             continue
                         fi

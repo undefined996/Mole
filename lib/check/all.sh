@@ -567,7 +567,7 @@ check_cache_size() {
     for cache_path in "${cache_paths[@]}"; do
         if [[ -d "$cache_path" ]]; then
             local size_output
-            size_output=$(du -sk "$cache_path" 2> /dev/null | awk 'NR==1 {print $1}' | tr -d '[:space:]' || echo "")
+            size_output=$(get_path_size_kb "$cache_path")
             [[ "$size_output" =~ ^[0-9]+$ ]] || size_output=0
             cache_size_kb=$((cache_size_kb + size_output))
         fi
