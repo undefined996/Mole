@@ -27,6 +27,10 @@ DRY_RUN=false
 PROTECT_FINDER_METADATA=false
 IS_M_SERIES=$([[ "$(uname -m)" == "arm64" ]] && echo "true" || echo "false")
 
+# Export list configuration
+EXPORT_LIST_FILE="$HOME/.config/mole/clean-list.txt"
+CURRENT_SECTION=""
+
 # Protected Service Worker domains (web-based editing tools)
 readonly PROTECTED_SW_DOMAINS=(
     "capcut.com"
@@ -172,8 +176,15 @@ trap 'cleanup TERM 143; exit 143' TERM
 start_section() {
     TRACK_SECTION=1
     SECTION_ACTIVITY=0
+    CURRENT_SECTION="$1"
     echo ""
     echo -e "${PURPLE_BOLD}${ICON_ARROW} $1${NC}"
+
+    # Write section header to export list in dry-run mode
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "" >> "$EXPORT_LIST_FILE"
+        echo "=== $1 ===" >> "$EXPORT_LIST_FILE"
+    fi
 }
 
 end_section() {
@@ -356,6 +367,64 @@ safe_clean() {
 
         if [[ "$DRY_RUN" == "true" ]]; then
             echo -e "  ${YELLOW}→${NC} $label ${YELLOW}($size_human dry)${NC}"
+
+            # Group paths by parent directory for export (Bash 3.2 compatible)
+            local paths_temp=$(create_temp_file)
+
+            idx=0
+            for path in "${existing_paths[@]}"; do
+                local size=0
+
+                # Get size from result file if it exists (parallel processing with temp_dir)
+                if [[ -n "${temp_dir:-}" && -f "$temp_dir/result_${idx}" ]]; then
+                    read -r size count < "$temp_dir/result_${idx}" 2>/dev/null || true
+                else
+                    # Get size directly (small batch processing or no temp_dir)
+                    size=$(get_path_size_kb "$path" 2>/dev/null || echo "0")
+                fi
+
+                [[ "$size" == "0" || -z "$size" ]] && { ((idx++)); continue; }
+
+                # Write parent|size|path to temp file
+                echo "$(dirname "$path")|$size|$path" >> "$paths_temp"
+                ((idx++))
+            done
+
+            # Group and export paths
+            if [[ -f "$paths_temp" && -s "$paths_temp" ]]; then
+                # Sort by parent directory to group children together
+                sort -t'|' -k1,1 "$paths_temp" | awk -F'|' '
+                {
+                    parent = $1
+                    size = $2
+                    path = $3
+
+                    parent_size[parent] += size
+                    if (parent_count[parent] == 0) {
+                        parent_first[parent] = path
+                    }
+                    parent_count[parent]++
+                }
+                END {
+                    for (parent in parent_size) {
+                        if (parent_count[parent] > 1) {
+                            printf "%s|%d|%d\n", parent, parent_size[parent], parent_count[parent]
+                        } else {
+                            printf "%s|%d|1\n", parent_first[parent], parent_size[parent]
+                        }
+                    }
+                }
+                ' | while IFS='|' read -r display_path total_size child_count; do
+                    local size_human=$(bytes_to_human "$((total_size * 1024))")
+                    if [[ $child_count -gt 1 ]]; then
+                        echo "$display_path  # $size_human ($child_count items)" >> "$EXPORT_LIST_FILE"
+                    else
+                        echo "$display_path  # $size_human" >> "$EXPORT_LIST_FILE"
+                    fi
+                done
+
+                rm -f "$paths_temp"
+            fi
         else
             echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $label ${GREEN}($size_human)${NC}"
         fi
@@ -382,6 +451,21 @@ start_cleanup() {
         echo -e "${YELLOW}Dry Run Mode${NC} - Preview only, no deletions"
         echo ""
         SYSTEM_CLEAN=false
+
+        # Initialize export list file
+        mkdir -p "$(dirname "$EXPORT_LIST_FILE")"
+        cat > "$EXPORT_LIST_FILE" << EOF
+# Mole Cleanup Preview - $(date '+%Y-%m-%d %H:%M:%S')
+#
+# How to protect files:
+# 1. Copy any path below to ~/.config/mole/whitelist
+# 2. Run: mo clean --whitelist
+#
+# Example:
+#   /Users/*/Library/Caches/com.example.app
+#
+
+EOF
         return
     fi
 
@@ -799,7 +883,21 @@ perform_cleanup() {
             [[ $total_items -gt 0 ]] && stats+=" | Categories: $total_items"
             [[ $whitelist_skipped_count -gt 0 ]] && stats+=" | Protected: $whitelist_skipped_count"
             summary_details+=("$stats")
-            summary_details+=("Use ${GRAY}mo clean --whitelist${NC} to protect caches")
+
+            # Add summary to export file
+            {
+                echo ""
+                echo "# ============================================"
+                echo "# Summary"
+                echo "# ============================================"
+                echo "# Potential cleanup: ${freed_gb}GB"
+                echo "# Files: $files_cleaned"
+                echo "# Categories: $total_items"
+                [[ $whitelist_skipped_count -gt 0 ]] && echo "# Protected by whitelist: $whitelist_skipped_count"
+            } >> "$EXPORT_LIST_FILE"
+
+            summary_details+=("Detailed file list: ${GRAY}$EXPORT_LIST_FILE${NC}")
+            summary_details+=("Use ${GRAY}mo clean --whitelist${NC} to add protection rules")
         else
             summary_details+=("Space freed: ${GREEN}${freed_gb}GB${NC}")
             summary_details+=("Free space now: $(get_free_space)")
