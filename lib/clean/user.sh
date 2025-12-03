@@ -213,8 +213,11 @@ clean_application_support_logs() {
         app_name=$(basename "$app_dir")
 
         # Skip system and protected apps
-        case "$app_name" in
-            com.apple.* | Adobe* | JetBrains* | 1Password | Claude | *ClashX* | *clash* | mihomo* | *Surge* | iTerm* | *iterm* | Warp* | Kitty* | Alacritty* | WezTerm* | Ghostty*)
+        # Convert to lowercase for case-insensitive matching
+        local app_name_lower
+        app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]')
+        case "$app_name_lower" in
+            com.apple.* | adobe* | jetbrains* | 1password | claude | *clashx* | *clash* | mihomo* | *surge* | iterm* | warp* | kitty* | alacritty* | wezterm* | ghostty*)
                 continue
                 ;;
         esac
