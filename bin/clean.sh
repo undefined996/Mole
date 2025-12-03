@@ -273,7 +273,7 @@ safe_clean() {
                 local size
                 size=$(get_path_size_kb "$path")
                 local count
-                count=$(find "$path" -type f 2> /dev/null | wc -l | tr -d ' ')
+                count=$(find -- "$path" -type f 2> /dev/null | wc -l | tr -d ' ')
                 # Use index + PID for unique filename
                 local tmp_file="$temp_dir/result_${idx}.$$"
                 echo "$size $count" > "$tmp_file"
@@ -332,7 +332,7 @@ safe_clean() {
             local size_bytes
             size_bytes=$(get_path_size_kb "$path")
             local count
-            count=$(find "$path" -type f 2> /dev/null | wc -l | tr -d ' ')
+            count=$(find -- "$path" -type f 2> /dev/null | wc -l | tr -d ' ')
 
             if [[ "$count" -gt 0 && "$size_bytes" -gt 0 ]]; then
                 if [[ "$DRY_RUN" != "true" ]]; then

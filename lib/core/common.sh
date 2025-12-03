@@ -241,7 +241,7 @@ safe_find_delete() {
     fi
 
     # Execute find with safety limits
-    find "$base_dir" \
+    find -- "$base_dir" \
         -maxdepth 3 \
         -name "$pattern" \
         -type "$type_filter" \
@@ -277,7 +277,7 @@ safe_sudo_find_delete() {
     fi
 
     # Execute find with safety limits
-    sudo find "$base_dir" \
+    sudo find -- "$base_dir" \
         -maxdepth 3 \
         -name "$pattern" \
         -type "$type_filter" \
@@ -1150,7 +1150,7 @@ clean_tool_cache() {
 get_path_size_kb() {
     local path="$1"
     local result
-    result=$(du -sk "$path" 2> /dev/null | awk '{print $1}')
+    result=$(du -sk -- "$path" 2> /dev/null | awk '{print $1}')
     echo "${result:-0}"
 }
 
