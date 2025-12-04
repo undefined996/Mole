@@ -1201,27 +1201,56 @@ force_kill_app() {
     # Use executable name for precise matching, fallback to app name
     local match_pattern="${exec_name:-$app_name}"
 
-    # Check if process is actually running using exact match (-x)
-    if ! pgrep -x "$match_pattern" > /dev/null 2>&1; then
-        # Not running, return success
+    # Check if main process is running using exact match
+    local has_main_process=false
+    if pgrep -x "$match_pattern" > /dev/null 2>&1; then
+        has_main_process=true
+    fi
+
+    # Also check for related processes using fuzzy match
+    local has_related_processes=false
+    if pgrep -i "$match_pattern" > /dev/null 2>&1; then
+        has_related_processes=true
+    fi
+
+    # If nothing is running, return success
+    if [[ "$has_main_process" == false && "$has_related_processes" == false ]]; then
         return 0
     fi
 
-    # Try graceful termination first
-    pkill -x "$match_pattern" 2> /dev/null || true
-    sleep 1
+    # Try graceful termination first for exact match
+    if [[ "$has_main_process" == true ]]; then
+        pkill -x "$match_pattern" 2> /dev/null || true
+    fi
+
+    # Also try graceful termination for related processes
+    if [[ "$has_related_processes" == true ]]; then
+        pkill -i "$match_pattern" 2> /dev/null || true
+    fi
+
+    sleep 2
 
     # Check again after graceful kill
-    if ! pgrep -x "$match_pattern" > /dev/null 2>&1; then
+    if ! pgrep -i "$match_pattern" > /dev/null 2>&1; then
         return 0
     fi
 
     # Force kill if still running
-    pkill -9 -x "$match_pattern" 2> /dev/null || true
-    sleep 1
+    pkill -9 -i "$match_pattern" 2> /dev/null || true
+    sleep 2
 
-    # Final check
-    pgrep -x "$match_pattern" > /dev/null 2>&1 && return 1 || return 0
+    # Final check with longer timeout for stubborn processes
+    local retries=3
+    while [[ $retries -gt 0 ]]; do
+        if ! pgrep -i "$match_pattern" > /dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+        ((retries--))
+    done
+
+    # Still running after all attempts
+    pgrep -i "$match_pattern" > /dev/null 2>&1 && return 1 || return 0
 }
 
 # Remove application icons from the Dock (best effort)
