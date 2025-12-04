@@ -207,7 +207,9 @@ opt_mail_downloads() {
     local deleted=0
     for target_path in "${mail_dirs[@]}"; do
         if [[ -d "$target_path" ]]; then
-            local file_count=$(find "$target_path" -type f -mtime "+$MOLE_LOG_AGE_DAYS" 2> /dev/null | wc -l | tr -d ' ')
+            # Timeout protection: prevent find from hanging on large mail directories
+            local file_count=$(run_with_timeout 15 sh -c "find \"$target_path\" -type f -mtime \"+$MOLE_LOG_AGE_DAYS\" 2> /dev/null | wc -l | tr -d ' '")
+            [[ -z "$file_count" || ! "$file_count" =~ ^[0-9]+$ ]] && file_count=0
             if [[ "$file_count" -gt 0 ]]; then
                 safe_find_delete "$target_path" "*" "$MOLE_LOG_AGE_DAYS" "f"
                 deleted=$((deleted + file_count))
@@ -238,7 +240,7 @@ opt_saved_state_cleanup() {
         if safe_remove "$state_path" true; then
             ((deleted++))
         fi
-    done < <(find "$state_dir" -type d -name "*.savedState" -mtime "+$MOLE_SAVED_STATE_AGE_DAYS" -print0 2> /dev/null)
+    done < <(command find "$state_dir" -type d -name "*.savedState" -mtime "+$MOLE_SAVED_STATE_AGE_DAYS" -print0 2> /dev/null)
 
     if [[ $deleted -gt 0 ]]; then
         echo -e "${GREEN}${ICON_SUCCESS}${NC} Removed $deleted old saved state(s)"
@@ -448,7 +450,7 @@ get_disk_info() {
     local home="${HOME:-/}"
     local df_output total_gb used_gb used_percent
 
-    df_output=$(df -k "$home" 2> /dev/null | tail -1)
+    df_output=$(command df -k "$home" 2> /dev/null | tail -1)
 
     local total_kb used_kb
     total_kb=$(echo "$df_output" | awk '{print $2}' 2> /dev/null || echo "0")

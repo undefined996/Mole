@@ -441,7 +441,7 @@ get_macos_update_labels() {
 # ============================================================================
 
 check_disk_space() {
-    local free_gb=$(df -H / | awk 'NR==2 {print $4}' | sed 's/G//')
+    local free_gb=$(command df -H / | awk 'NR==2 {print $4}' | sed 's/G//')
     local free_num=$(echo "$free_gb" | tr -d 'G' | cut -d'.' -f1)
 
     export DISK_FREE_GB=$free_num

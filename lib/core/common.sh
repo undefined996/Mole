@@ -241,7 +241,7 @@ safe_find_delete() {
     fi
 
     # Execute find with safety limits
-    find "$base_dir" \
+    command find "$base_dir" \
         -maxdepth 3 \
         -name "$pattern" \
         -type "$type_filter" \
@@ -277,7 +277,7 @@ safe_sudo_find_delete() {
     fi
 
     # Execute find with safety limits
-    sudo find "$base_dir" \
+    sudo command find "$base_dir" \
         -maxdepth 3 \
         -name "$pattern" \
         -type "$type_filter" \
@@ -386,7 +386,7 @@ detect_architecture() {
 
 # Get free disk space on root volume (human-readable)
 get_free_space() {
-    df -h / | awk 'NR==2 {print $4}'
+    command df -h / | awk 'NR==2 {print $4}'
 }
 
 # Clear terminal screen and move cursor to home
@@ -396,12 +396,16 @@ clear_screen() {
 
 # Hide terminal cursor
 hide_cursor() {
-    printf '\033[?25l'
+    [[ -t 1 ]] || return 0
+    # Output to stderr for consistency with spinner, ensure unbuffered
+    printf '\033[?25l' >&2
 }
 
 # Show terminal cursor
 show_cursor() {
-    printf '\033[?25h'
+    [[ -t 1 ]] || return 0
+    # Output to stderr for consistency with spinner, ensure unbuffered
+    printf '\033[?25h' >&2
 }
 
 # Read single keypress and return normalized key name
@@ -997,7 +1001,13 @@ start_inline_spinner() {
 # Stop inline spinner
 stop_inline_spinner() {
     if [[ -n "$INLINE_SPINNER_PID" ]]; then
-        kill "$INLINE_SPINNER_PID" 2> /dev/null || true
+        # Try graceful TERM first, then force KILL if needed
+        if kill -0 "$INLINE_SPINNER_PID" 2> /dev/null; then
+            kill -TERM "$INLINE_SPINNER_PID" 2> /dev/null || true
+            sleep 0.05 2> /dev/null || true
+            # Force kill if still running
+            kill -KILL "$INLINE_SPINNER_PID" 2> /dev/null || true
+        fi
         wait "$INLINE_SPINNER_PID" 2> /dev/null || true
         INLINE_SPINNER_PID=""
         # Clear the line - use \033[2K to clear entire line, not just to end
@@ -1150,7 +1160,7 @@ clean_tool_cache() {
 get_path_size_kb() {
     local path="$1"
     local result
-    result=$(du -sk "$path" 2> /dev/null | awk '{print $1}')
+    result=$(command du -sk "$path" 2> /dev/null | awk '{print $1}')
     echo "${result:-0}"
 }
 
@@ -1177,22 +1187,36 @@ force_kill_app() {
     local app_name="$1"
     local app_path="${2:-}"
 
-    # Use app path for precise matching if provided
-    local match_pattern="$app_name"
-    if [[ -n "$app_path" && -e "$app_path" ]]; then
-        # Use the app bundle path for more precise matching
-        match_pattern="$app_path"
+    # Get the executable name from bundle if app_path is provided
+    local exec_name=""
+    if [[ -n "$app_path" && -e "$app_path/Contents/Info.plist" ]]; then
+        exec_name=$(defaults read "$app_path/Contents/Info.plist" CFBundleExecutable 2> /dev/null || echo "")
     fi
 
-    if pgrep -f "$match_pattern" > /dev/null 2>&1; then
-        pkill -f "$match_pattern" 2> /dev/null || true
-        sleep 1
+    # Use executable name for precise matching, fallback to app name
+    local match_pattern="${exec_name:-$app_name}"
+
+    # Check if process is actually running using exact match (-x)
+    if ! pgrep -x "$match_pattern" > /dev/null 2>&1; then
+        # Not running, return success
+        return 0
     fi
-    if pgrep -f "$match_pattern" > /dev/null 2>&1; then
-        pkill -9 -f "$match_pattern" 2> /dev/null || true
-        sleep 1
+
+    # Try graceful termination first
+    pkill -x "$match_pattern" 2> /dev/null || true
+    sleep 1
+
+    # Check again after graceful kill
+    if ! pgrep -x "$match_pattern" > /dev/null 2>&1; then
+        return 0
     fi
-    pgrep -f "$match_pattern" > /dev/null 2>&1 && return 1 || return 0
+
+    # Force kill if still running
+    pkill -9 -x "$match_pattern" 2> /dev/null || true
+    sleep 1
+
+    # Final check
+    pgrep -x "$match_pattern" > /dev/null 2>&1 && return 1 || return 0
 }
 
 # Remove application icons from the Dock (best effort)
@@ -1791,7 +1815,7 @@ find_app_files() {
     [[ -f ~/Library/Preferences/"$bundle_id".plist ]] && files_to_clean+=("$HOME/Library/Preferences/$bundle_id.plist")
     while IFS= read -r -d '' pref; do
         files_to_clean+=("$pref")
-    done < <(find ~/Library/Preferences/ByHost \( -name "$bundle_id*.plist" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Preferences/ByHost \( -name "$bundle_id*.plist" \) -print0 2> /dev/null)
 
     # Logs
     [[ -d ~/Library/Logs/"$app_name" ]] && files_to_clean+=("$HOME/Library/Logs/$app_name")
@@ -1800,7 +1824,7 @@ find_app_files() {
     # Crash Reports and Diagnostics
     while IFS= read -r -d '' report; do
         files_to_clean+=("$report")
-    done < <(find ~/Library/Logs/DiagnosticReports \( -name "*$app_name*" -o -name "*$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Logs/DiagnosticReports \( -name "*$app_name*" -o -name "*$bundle_id*" \) -print0 2> /dev/null)
 
     # Saved Application State
     [[ -d ~/Library/Saved\ Application\ State/"$bundle_id".savedState ]] && files_to_clean+=("$HOME/Library/Saved Application State/$bundle_id.savedState")
@@ -1811,7 +1835,7 @@ find_app_files() {
     # Group Containers
     while IFS= read -r -d '' container; do
         files_to_clean+=("$container")
-    done < <(find ~/Library/Group\ Containers -type d \( -name "*$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Group\ Containers -type d \( -name "*$bundle_id*" \) -print0 2> /dev/null)
 
     # WebKit data
     [[ -d ~/Library/WebKit/"$bundle_id" ]] && files_to_clean+=("$HOME/Library/WebKit/$bundle_id")
@@ -1835,7 +1859,7 @@ find_app_files() {
     # Internet Plug-Ins
     while IFS= read -r -d '' plugin; do
         files_to_clean+=("$plugin")
-    done < <(find ~/Library/Internet\ Plug-Ins \( -name "$bundle_id*" -o -name "$app_name*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Internet\ Plug-Ins \( -name "$bundle_id*" -o -name "$app_name*" \) -print0 2> /dev/null)
 
     # QuickLook Plugins
     [[ -d ~/Library/QuickLook/"$app_name".qlgenerator ]] && files_to_clean+=("$HOME/Library/QuickLook/$app_name.qlgenerator")
@@ -1852,7 +1876,7 @@ find_app_files() {
     # CoreData
     while IFS= read -r -d '' coredata; do
         files_to_clean+=("$coredata")
-    done < <(find ~/Library/CoreData \( -name "*$bundle_id*" -o -name "*$app_name*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/CoreData \( -name "*$bundle_id*" -o -name "*$app_name*" \) -print0 2> /dev/null)
 
     # Autosave Information
     [[ -d ~/Library/Autosave\ Information/"$bundle_id" ]] && files_to_clean+=("$HOME/Library/Autosave Information/$bundle_id")
@@ -1863,7 +1887,7 @@ find_app_files() {
     # Receipts (user-level)
     while IFS= read -r -d '' receipt; do
         files_to_clean+=("$receipt")
-    done < <(find ~/Library/Receipts \( -name "*$bundle_id*" -o -name "*$app_name*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Receipts \( -name "*$bundle_id*" -o -name "*$app_name*" \) -print0 2> /dev/null)
 
     # Spotlight Plugins
     [[ -d ~/Library/Spotlight/"$app_name".mdimporter ]] && files_to_clean+=("$HOME/Library/Spotlight/$app_name.mdimporter")
@@ -1871,7 +1895,7 @@ find_app_files() {
     # Scripting Additions
     while IFS= read -r -d '' scripting; do
         files_to_clean+=("$scripting")
-    done < <(find ~/Library/ScriptingAdditions \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/ScriptingAdditions \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Color Pickers
     [[ -d ~/Library/ColorPickers/"$app_name".colorPicker ]] && files_to_clean+=("$HOME/Library/ColorPickers/$app_name.colorPicker")
@@ -1879,58 +1903,58 @@ find_app_files() {
     # Quartz Compositions
     while IFS= read -r -d '' composition; do
         files_to_clean+=("$composition")
-    done < <(find ~/Library/Compositions \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Compositions \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Address Book Plug-Ins
     while IFS= read -r -d '' plugin; do
         files_to_clean+=("$plugin")
-    done < <(find ~/Library/Address\ Book\ Plug-Ins \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Address\ Book\ Plug-Ins \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Mail Bundles
     while IFS= read -r -d '' bundle; do
         files_to_clean+=("$bundle")
-    done < <(find ~/Library/Mail/Bundles \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Mail/Bundles \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Input Managers (app-specific only)
     while IFS= read -r -d '' manager; do
         files_to_clean+=("$manager")
-    done < <(find ~/Library/InputManagers \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/InputManagers \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Custom Sounds
     while IFS= read -r -d '' sound; do
         files_to_clean+=("$sound")
-    done < <(find ~/Library/Sounds \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Sounds \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Plugins
     while IFS= read -r -d '' plugin; do
         files_to_clean+=("$plugin")
-    done < <(find ~/Library/Plugins \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Plugins \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Private Frameworks
     while IFS= read -r -d '' framework; do
         files_to_clean+=("$framework")
-    done < <(find ~/Library/PrivateFrameworks \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/PrivateFrameworks \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Audio Plug-Ins
     while IFS= read -r -d '' plugin; do
         files_to_clean+=("$plugin")
-    done < <(find ~/Library/Audio/Plug-Ins \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Audio/Plug-Ins \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Components
     while IFS= read -r -d '' component; do
         files_to_clean+=("$component")
-    done < <(find ~/Library/Components \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Components \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Metadata
     while IFS= read -r -d '' metadata; do
         files_to_clean+=("$metadata")
-    done < <(find ~/Library/Metadata \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Metadata \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Workflows
     [[ -d ~/Library/Workflows/"$app_name".workflow ]] && files_to_clean+=("$HOME/Library/Workflows/$app_name.workflow")
     while IFS= read -r -d '' workflow; do
         files_to_clean+=("$workflow")
-    done < <(find ~/Library/Workflows \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Workflows \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Favorites (excluding Safari)
     while IFS= read -r -d '' favorite; do
@@ -1939,7 +1963,7 @@ find_app_files() {
             *Safari*) continue ;;
         esac
         files_to_clean+=("$favorite")
-    done < <(find ~/Library/Favorites \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find ~/Library/Favorites \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Unix-style configuration directories and files (cross-platform apps)
     [[ -d ~/.config/"$app_name" ]] && files_to_clean+=("$HOME/.config/$app_name")
@@ -1972,7 +1996,7 @@ find_app_system_files() {
     # Privileged Helper Tools
     while IFS= read -r -d '' helper; do
         system_files+=("$helper")
-    done < <(find /Library/PrivilegedHelperTools \( -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find /Library/PrivilegedHelperTools \( -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # System Preferences
     [[ -f /Library/Preferences/"$bundle_id".plist ]] && system_files+=("/Library/Preferences/$bundle_id.plist")
@@ -1980,7 +2004,7 @@ find_app_system_files() {
     # Installation Receipts
     while IFS= read -r -d '' receipt; do
         system_files+=("$receipt")
-    done < <(find /private/var/db/receipts \( -name "*$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find /private/var/db/receipts \( -name "*$bundle_id*" \) -print0 2> /dev/null)
 
     # System Logs
     [[ -d /Library/Logs/"$app_name" ]] && system_files+=("/Library/Logs/$app_name")
@@ -1989,7 +2013,7 @@ find_app_system_files() {
     # System Crash Reports and Diagnostics
     while IFS= read -r -d '' report; do
         system_files+=("$report")
-    done < <(find /Library/Logs/DiagnosticReports \( -name "*$app_name*" -o -name "*$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find /Library/Logs/DiagnosticReports \( -name "*$app_name*" -o -name "*$bundle_id*" \) -print0 2> /dev/null)
 
     # System Frameworks
     [[ -d /Library/Frameworks/"$app_name".framework ]] && system_files+=("/Library/Frameworks/$app_name.framework")
@@ -1997,7 +2021,7 @@ find_app_system_files() {
     # System Internet Plug-Ins
     while IFS= read -r -d '' plugin; do
         system_files+=("$plugin")
-    done < <(find /Library/Internet\ Plug-Ins \( -name "$bundle_id*" -o -name "$app_name*" \) -print0 2> /dev/null)
+    done < <(command find /Library/Internet\ Plug-Ins \( -name "$bundle_id*" -o -name "$app_name*" \) -print0 2> /dev/null)
 
     # System QuickLook Plugins
     [[ -d /Library/QuickLook/"$app_name".qlgenerator ]] && system_files+=("/Library/QuickLook/$app_name.qlgenerator")
@@ -2005,7 +2029,7 @@ find_app_system_files() {
     # System Receipts
     while IFS= read -r -d '' receipt; do
         system_files+=("$receipt")
-    done < <(find /Library/Receipts \( -name "*$bundle_id*" -o -name "*$app_name*" \) -print0 2> /dev/null)
+    done < <(command find /Library/Receipts \( -name "*$bundle_id*" -o -name "*$app_name*" \) -print0 2> /dev/null)
 
     # System Spotlight Plugins
     [[ -d /Library/Spotlight/"$app_name".mdimporter ]] && system_files+=("/Library/Spotlight/$app_name.mdimporter")
@@ -2013,7 +2037,7 @@ find_app_system_files() {
     # System Scripting Additions
     while IFS= read -r -d '' scripting; do
         system_files+=("$scripting")
-    done < <(find /Library/ScriptingAdditions \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find /Library/ScriptingAdditions \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # System Color Pickers
     [[ -d /Library/ColorPickers/"$app_name".colorPicker ]] && system_files+=("/Library/ColorPickers/$app_name.colorPicker")
@@ -2021,32 +2045,32 @@ find_app_system_files() {
     # System Quartz Compositions
     while IFS= read -r -d '' composition; do
         system_files+=("$composition")
-    done < <(find /Library/Compositions \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find /Library/Compositions \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # System Address Book Plug-Ins
     while IFS= read -r -d '' plugin; do
         system_files+=("$plugin")
-    done < <(find /Library/Address\ Book\ Plug-Ins \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find /Library/Address\ Book\ Plug-Ins \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # System Mail Bundles
     while IFS= read -r -d '' bundle; do
         system_files+=("$bundle")
-    done < <(find /Library/Mail/Bundles \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find /Library/Mail/Bundles \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # System Input Managers
     while IFS= read -r -d '' manager; do
         system_files+=("$manager")
-    done < <(find /Library/InputManagers \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find /Library/InputManagers \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # System Sounds
     while IFS= read -r -d '' sound; do
         system_files+=("$sound")
-    done < <(find /Library/Sounds \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find /Library/Sounds \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # System Contextual Menu Items
     while IFS= read -r -d '' item; do
         system_files+=("$item")
-    done < <(find /Library/Contextual\ Menu\ Items \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find /Library/Contextual\ Menu\ Items \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # System Preference Panes
     [[ -d /Library/PreferencePanes/"$app_name".prefPane ]] && system_files+=("/Library/PreferencePanes/$app_name.prefPane")
@@ -2061,17 +2085,17 @@ find_app_system_files() {
     # System Audio Plug-Ins
     while IFS= read -r -d '' plugin; do
         system_files+=("$plugin")
-    done < <(find /Library/Audio/Plug-Ins \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find /Library/Audio/Plug-Ins \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # System Components
     while IFS= read -r -d '' component; do
         system_files+=("$component")
-    done < <(find /Library/Components \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find /Library/Components \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # System Extensions
     while IFS= read -r -d '' extension; do
         system_files+=("$extension")
-    done < <(find /Library/Extensions \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
+    done < <(command find /Library/Extensions \( -name "$app_name*" -o -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # Only print if array has elements
     if [[ ${#system_files[@]} -gt 0 ]]; then

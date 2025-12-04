@@ -13,12 +13,12 @@ clean_deep_system() {
 
     # Clean old temp files
     local tmp_cleaned=0
-    local tmp_count=$(sudo find /tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
+    local tmp_count=$(sudo command find /tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
     if [[ "$tmp_count" -gt 0 ]]; then
         safe_sudo_find_delete "/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f" || true
         tmp_cleaned=1
     fi
-    local var_tmp_count=$(sudo find /var/tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
+    local var_tmp_count=$(sudo command find /var/tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
     if [[ "$var_tmp_count" -gt 0 ]]; then
         safe_sudo_find_delete "/var/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f" || true
         tmp_cleaned=1
@@ -47,7 +47,7 @@ clean_deep_system() {
             while IFS= read -r -d '' item; do
                 # Skip system-protected files (restricted flag)
                 local item_flags
-                item_flags=$(stat -f%Sf "$item" 2> /dev/null || echo "")
+                item_flags=$(command stat -f%Sf "$item" 2> /dev/null || echo "")
                 if [[ "$item_flags" == *"restricted"* ]]; then
                     continue
                 fi
@@ -55,7 +55,7 @@ clean_deep_system() {
                 if safe_sudo_remove "$item"; then
                     ((updates_cleaned++))
                 fi
-            done < <(find /Library/Updates -mindepth 1 -maxdepth 1 -print0 2> /dev/null)
+            done < <(command find /Library/Updates -mindepth 1 -maxdepth 1 -print0 2> /dev/null)
             [[ $updates_cleaned -gt 0 ]] && log_success "System library updates"
         fi
     fi
@@ -103,7 +103,7 @@ clean_time_machine_failed_backups() {
             fi
         fi
 
-        local fs_type=$(df -T "$volume" 2> /dev/null | tail -1 | awk '{print $2}')
+        local fs_type=$(command df -T "$volume" 2> /dev/null | tail -1 | awk '{print $2}')
         case "$fs_type" in
             nfs | smbfs | afpfs | cifs | webdav) continue ;;
         esac
@@ -150,7 +150,7 @@ clean_time_machine_failed_backups() {
                         note_activity
                     fi
                 fi
-            done < <(find "$backupdb_dir" -maxdepth 3 -type d \( -name "*.inProgress" -o -name "*.inprogress" \) 2> /dev/null || true)
+            done < <(command find "$backupdb_dir" -maxdepth 3 -type d \( -name "*.inProgress" -o -name "*.inprogress" \) 2> /dev/null || true)
         fi
 
         # APFS style backups (.backupbundle or .sparsebundle)
@@ -200,7 +200,7 @@ clean_time_machine_failed_backups() {
                             note_activity
                         fi
                     fi
-                done < <(find "$mounted_path" -maxdepth 3 -type d \( -name "*.inProgress" -o -name "*.inprogress" \) 2> /dev/null || true)
+                done < <(command find "$mounted_path" -maxdepth 3 -type d \( -name "*.inProgress" -o -name "*.inprogress" \) 2> /dev/null || true)
             fi
         done
     done

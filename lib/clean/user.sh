@@ -15,7 +15,7 @@ clean_user_essentials() {
             [[ -d "$volume" && -d "$volume/.Trashes" && -w "$volume" ]] || continue
 
             # Skip network volumes
-            local fs_type=$(df -T "$volume" 2> /dev/null | tail -1 | awk '{print $2}')
+            local fs_type=$(command df -T "$volume" 2> /dev/null | tail -1 | awk '{print $2}')
             case "$fs_type" in
                 nfs | smbfs | afpfs | cifs | webdav) continue ;;
             esac
@@ -26,7 +26,7 @@ clean_user_essentials() {
                     # Safely iterate and remove each item
                     while IFS= read -r -d '' item; do
                         safe_remove "$item" true || true
-                    done < <(find "$volume/.Trashes" -mindepth 1 -maxdepth 1 -print0 2> /dev/null)
+                    done < <(command find "$volume/.Trashes" -mindepth 1 -maxdepth 1 -print0 2> /dev/null)
                 fi
             fi
         done
@@ -65,7 +65,7 @@ clean_finder_metadata() {
                 [[ -d "$volume" && -w "$volume" ]] || continue
 
                 local fs_type=""
-                fs_type=$(df -T "$volume" 2> /dev/null | tail -1 | awk '{print $2}')
+                fs_type=$(command df -T "$volume" 2> /dev/null | tail -1 | awk '{print $2}')
                 case "$fs_type" in
                     nfs | smbfs | afpfs | cifs | webdav) continue ;;
                 esac
@@ -150,7 +150,7 @@ clean_browsers() {
         [[ "$sw_path" == *"Arc"* ]] && browser_name="Arc"
         [[ "$profile_name" != "Default" ]] && browser_name="$browser_name ($profile_name)"
         clean_service_worker_cache "$browser_name" "$sw_path"
-    done < <(find "$HOME/Library/Application Support/Google/Chrome" \
+    done < <(command find "$HOME/Library/Application Support/Google/Chrome" \
         "$HOME/Library/Application Support/Microsoft Edge" \
         "$HOME/Library/Application Support/BraveSoftware/Brave-Browser" \
         "$HOME/Library/Application Support/Arc/User Data" \
@@ -250,7 +250,7 @@ clean_application_support_logs() {
             local profile_name=$(basename "$profile_path")
             [[ "$profile_name" == "User Data" ]] && profile_name=$(basename "$(dirname "$profile_path")")
             clean_service_worker_cache "$app_name ($profile_name)" "$sw_cache"
-        done < <(find "$app_dir" -maxdepth 4 -type d \( -name "CacheStorage" -o -name "ScriptCache" \) -path "*/Service Worker/*" 2> /dev/null || true)
+        done < <(command find "$app_dir" -maxdepth 4 -type d \( -name "CacheStorage" -o -name "ScriptCache" \) -path "*/Service Worker/*" 2> /dev/null || true)
 
         # Clean stale update downloads (older than 7 days)
         if [[ -d "$app_dir/update" ]] && ls "$app_dir/update" > /dev/null 2>&1; then
@@ -259,7 +259,7 @@ clean_application_support_logs() {
                 if [[ $dir_age_days -ge $MOLE_TEMP_FILE_AGE_DAYS ]]; then
                     safe_clean "$update_dir" "Stale update: $app_name"
                 fi
-            done < <(find "$app_dir/update" -mindepth 1 -maxdepth 1 -type d 2> /dev/null || true)
+            done < <(command find "$app_dir/update" -mindepth 1 -maxdepth 1 -type d 2> /dev/null || true)
         fi
     done
 
@@ -268,17 +268,17 @@ clean_application_support_logs() {
         while IFS= read -r logs_dir; do
             local container_name=$(basename "$(dirname "$logs_dir")")
             safe_clean "$logs_dir"/* "Group container logs: $container_name"
-        done < <(find "$HOME/Library/Group Containers" -maxdepth 2 -type d -name "Logs" 2> /dev/null || true)
+        done < <(command find "$HOME/Library/Group Containers" -maxdepth 2 -type d -name "Logs" 2> /dev/null || true)
     fi
 }
 
 # Check and show iOS device backup info
 check_ios_device_backups() {
     local backup_dir="$HOME/Library/Application Support/MobileSync/Backup"
-    if [[ -d "$backup_dir" ]] && find "$backup_dir" -mindepth 1 -maxdepth 1 | read -r _; then
+    if [[ -d "$backup_dir" ]] && command find "$backup_dir" -mindepth 1 -maxdepth 1 | read -r _; then
         local backup_kb=$(get_path_size_kb "$backup_dir")
         if [[ -n "${backup_kb:-}" && "$backup_kb" -gt 102400 ]]; then
-            local backup_human=$(du -sh "$backup_dir" 2> /dev/null | awk '{print $1}')
+            local backup_human=$(command du -sh "$backup_dir" 2> /dev/null | awk '{print $1}')
             note_activity
             echo -e "  Found ${GREEN}${backup_human}${NC} iOS backups"
             echo -e "  You can delete them manually: ${backup_dir}"

@@ -183,8 +183,8 @@ scan_applications() {
     done < <(
         # Scan both system and user application directories
         # Using maxdepth 3 to find apps in subdirectories (e.g., Adobe apps in /Applications/Adobe X/)
-        find /Applications -name "*.app" -maxdepth 3 -print0 2> /dev/null
-        find ~/Applications -name "*.app" -maxdepth 3 -print0 2> /dev/null
+        command find /Applications -name "*.app" -maxdepth 3 -print0 2> /dev/null
+        command find ~/Applications -name "*.app" -maxdepth 3 -print0 2> /dev/null
     )
 
     # Second pass: process each app with parallel size calculation

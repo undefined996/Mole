@@ -32,7 +32,7 @@ clean_ds_store_tree() {
     )
 
     # Build find command to avoid unbound array expansion with set -u
-    local -a find_cmd=("find" "$target")
+    local -a find_cmd=("command" "find" "$target")
     if [[ "$target" == "$HOME" ]]; then
         find_cmd+=("-maxdepth" "5")
     fi
@@ -100,7 +100,7 @@ clean_orphaned_app_data() {
 
     for app_dir in "${app_dirs[@]}"; do
         [[ -d "$app_dir" ]] || continue
-        find "$app_dir" -name "*.app" -maxdepth 3 -type d 2> /dev/null | while IFS= read -r app_path; do
+        command find "$app_dir" -name "*.app" -maxdepth 3 -type d 2> /dev/null | while IFS= read -r app_path; do
             local bundle_id
             bundle_id=$(defaults read "$app_path/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "")
             [[ -n "$bundle_id" ]] && echo "$bundle_id"

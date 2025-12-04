@@ -152,9 +152,9 @@ cleanup() {
         INLINE_SPINNER_PID=""
     fi
 
-    # Clear any spinner output
+    # Clear any spinner output - spinner outputs to stderr
     if [[ -t 1 ]]; then
-        printf "\r\033[K"
+        printf "\r\033[K" >&2
     fi
 
     # Stop sudo session
@@ -164,8 +164,8 @@ cleanup() {
 
     # If interrupted, show message
     if [[ "$signal" == "INT" ]] || [[ $exit_code -eq 130 ]]; then
-        printf "\r\033[K"
-        echo -e "${YELLOW}Interrupted by user${NC}"
+        printf "\r\033[K" >&2
+        echo -e "${YELLOW}Interrupted by user${NC}" >&2
     fi
 }
 
@@ -271,9 +271,14 @@ safe_clean() {
         for path in "${existing_paths[@]}"; do
             (
                 local size
-                size=$(get_path_size_kb "$path")
+                # Timeout protection: prevent du from hanging on problematic paths
+                size=$(run_with_timeout 5 get_path_size_kb "$path")
+                [[ -z "$size" || ! "$size" =~ ^[0-9]+$ ]] && size=0
                 local count
-                count=$(find "$path" -type f 2> /dev/null | wc -l | tr -d ' ')
+                # Timeout protection: prevent find from hanging on problematic paths
+                count=$(run_with_timeout 10 sh -c "find \"$path\" -type f 2> /dev/null | wc -l | tr -d ' '")
+                # If timeout or error, set count to 0 to skip this path
+                [[ -z "$count" || ! "$count" =~ ^[0-9]+$ ]] && count=0
                 # Use index + PID for unique filename
                 local tmp_file="$temp_dir/result_${idx}.$$"
                 echo "$size $count" > "$tmp_file"
@@ -330,9 +335,14 @@ safe_clean() {
 
         for path in "${existing_paths[@]}"; do
             local size_bytes
-            size_bytes=$(get_path_size_kb "$path")
+            # Timeout protection: prevent du from hanging on problematic paths
+            size_bytes=$(run_with_timeout 5 get_path_size_kb "$path")
+            [[ -z "$size_bytes" || ! "$size_bytes" =~ ^[0-9]+$ ]] && size_bytes=0
             local count
-            count=$(find "$path" -type f 2> /dev/null | wc -l | tr -d ' ')
+            # Timeout protection: prevent find from hanging on problematic paths
+            count=$(run_with_timeout 10 sh -c "find \"$path\" -type f 2> /dev/null | wc -l | tr -d ' '")
+            # If timeout or error, set count to 0 to skip this path
+            [[ -z "$count" || ! "$count" =~ ^[0-9]+$ ]] && count=0
 
             if [[ "$count" -gt 0 && "$size_bytes" -gt 0 ]]; then
                 if [[ "$DRY_RUN" != "true" ]]; then
@@ -676,7 +686,7 @@ perform_cleanup() {
                 [[ -f "$app/Contents/Info.plist" ]] || continue
                 bundle_id=$(defaults read "$app/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "")
                 [[ -n "$bundle_id" ]] && echo "$bundle_id" >> "$installed_bundles"
-            done < <(run_with_timeout 10 find "$search_path" -maxdepth 2 -type d -name "*.app" 2> /dev/null || true)
+            done < <(run_with_timeout 10 command find "$search_path" -maxdepth 2 -type d -name "*.app" 2> /dev/null || true)
         done
 
         # Get running applications and LaunchAgents with timeout protection

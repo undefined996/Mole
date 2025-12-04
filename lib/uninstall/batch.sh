@@ -120,8 +120,13 @@ batch_uninstall_applications() {
         [[ -z "$selected_app" ]] && continue
         IFS='|' read -r _ app_path app_name bundle_id _ _ <<< "$selected_app"
 
-        # Check if app is running (use app path for precise matching)
-        if pgrep -f "$app_path" > /dev/null 2>&1; then
+        # Check if app is running using executable name from bundle
+        local exec_name=""
+        if [[ -e "$app_path/Contents/Info.plist" ]]; then
+            exec_name=$(defaults read "$app_path/Contents/Info.plist" CFBundleExecutable 2> /dev/null || echo "")
+        fi
+        local check_pattern="${exec_name:-$app_name}"
+        if pgrep -x "$check_pattern" > /dev/null 2>&1; then
             running_apps+=("$app_name")
         fi
 

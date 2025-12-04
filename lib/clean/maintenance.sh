@@ -49,7 +49,7 @@ clean_broken_preferences() {
             ((broken_count++))
             ((total_size_kb += size_kb))
         fi
-    done < <(find "$prefs_dir" -maxdepth 1 -name "*.plist" -type f 2> /dev/null || true)
+    done < <(command find "$prefs_dir" -maxdepth 1 -name "*.plist" -type f 2> /dev/null || true)
 
     # Check ByHost preferences
     local byhost_dir="$prefs_dir/ByHost"
@@ -76,7 +76,7 @@ clean_broken_preferences() {
                 ((broken_count++))
                 ((total_size_kb += size_kb))
             fi
-        done < <(find "$byhost_dir" -name "*.plist" -type f 2> /dev/null || true)
+        done < <(command find "$byhost_dir" -name "*.plist" -type f 2> /dev/null || true)
     fi
 
     if [[ -t 1 ]]; then
@@ -153,7 +153,7 @@ clean_broken_login_items() {
 
         ((broken_count++))
         ((total_size_kb += size_kb))
-    done < <(find "$launch_agents_dir" -name "*.plist" -type f 2> /dev/null || true)
+    done < <(command find "$launch_agents_dir" -name "*.plist" -type f 2> /dev/null || true)
 
     if [[ -t 1 ]]; then
         stop_inline_spinner
