@@ -39,9 +39,9 @@ clean_orphaned_casks() {
         true > "$cask_cache"
 
         while IFS= read -r cask; do
-            # Get app path from cask info (expensive call, hence caching)
+            # Get app path from cask info with timeout protection (expensive call, hence caching)
             local cask_info
-            cask_info=$(brew info --cask "$cask" 2> /dev/null || true)
+            cask_info=$(run_with_timeout 10 brew info --cask "$cask" 2> /dev/null || true)
 
             # Extract app name from "AppName.app (App)" format in cask info output
             local app_name

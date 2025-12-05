@@ -100,7 +100,7 @@ clean_orphaned_app_data() {
 
     for app_dir in "${app_dirs[@]}"; do
         [[ -d "$app_dir" ]] || continue
-        command find "$app_dir" -name "*.app" -maxdepth 3 -type d 2> /dev/null | while IFS= read -r app_path; do
+        find "$app_dir" -name "*.app" -maxdepth 3 -type d 2> /dev/null | while IFS= read -r app_path; do
             local bundle_id
             bundle_id=$(defaults read "$app_path/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "")
             [[ -n "$bundle_id" ]] && echo "$bundle_id"
@@ -112,9 +112,8 @@ clean_orphaned_app_data() {
     echo "$running_apps" | tr ',' '\n' | sed -e 's/^ *//;s/ *$//' -e '/^$/d' >> "$installed_bundles"
 
     run_with_timeout 5 find ~/Library/LaunchAgents /Library/LaunchAgents \
-        -name "*.plist" -type f 2> /dev/null | while IFS= read -r plist; do
-        basename "$plist" .plist
-    done >> "$installed_bundles" 2> /dev/null || true
+        -name "*.plist" -type f 2> /dev/null |
+        xargs -I {} basename {} .plist >> "$installed_bundles" 2> /dev/null || true
 
     # Deduplicate
     sort -u "$installed_bundles" -o "$installed_bundles"
@@ -230,9 +229,9 @@ clean_orphaned_app_data() {
                 bundle_id="${bundle_id%.binarycookies}"
 
                 if is_orphaned "$bundle_id" "$match"; then
-                    # Use timeout to prevent du from hanging on large/problematic directories
+                    # Use timeout to prevent du from hanging on network mounts or problematic paths
                     local size_kb
-                    size_kb=$(run_with_timeout 2 get_path_size_kb "$match")
+                    size_kb=$(run_with_timeout 5 get_path_size_kb "$match")
                     if [[ -z "$size_kb" || "$size_kb" == "0" ]]; then
                         continue
                     fi

@@ -21,14 +21,14 @@ clean_user_essentials() {
             esac
 
             # Verify volume is mounted and not a symlink
-            if mount | grep -q "on $volume " && [[ ! -L "$volume/.Trashes" ]]; then
-                if [[ "$DRY_RUN" != "true" ]]; then
-                    # Safely iterate and remove each item
-                    while IFS= read -r -d '' item; do
-                        safe_remove "$item" true || true
-                    done < <(command find "$volume/.Trashes" -mindepth 1 -maxdepth 1 -print0 2> /dev/null)
-                fi
-            fi
+            mount | grep -q "on $volume " || continue
+            [[ -L "$volume/.Trashes" ]] && continue
+            [[ "$DRY_RUN" == "true" ]] && continue
+
+            # Safely iterate and remove each item
+            while IFS= read -r -d '' item; do
+                safe_remove "$item" true || true
+            done < <(command find "$volume/.Trashes" -mindepth 1 -maxdepth 1 -print0 2> /dev/null)
         done
     fi
 
@@ -55,8 +55,7 @@ clean_user_essentials() {
 clean_finder_metadata() {
     if [[ "$PROTECT_FINDER_METADATA" == "true" ]]; then
         note_activity
-        echo -e "  ${YELLOW}☻${NC} Finder metadata protected by whitelist"
-        echo -e "  ${YELLOW}☻${NC} Run ${GRAY}mo clean --whitelist${NC} to allow cleaning .DS_Store files"
+        echo -e "  ${GRAY}${ICON_SUCCESS}${NC} Finder metadata (whitelisted)"
     else
         clean_ds_store_tree "$HOME" "Home directory (.DS_Store)"
 
@@ -99,26 +98,7 @@ clean_sandboxed_app_caches() {
 }
 
 # Clean browser caches (Safari, Chrome, Edge, Firefox, etc.)
-# Warns if browsers are running (some cache files may be locked)
 clean_browsers() {
-    # Check for running browsers and warn user
-    local running_browsers=""
-
-    # Check each browser with case-insensitive process name matching
-    pgrep -i "safari" > /dev/null 2>&1 && running_browsers="Safari"
-    pgrep -i "chrome" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Chrome"
-    pgrep -i "firefox" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Firefox"
-    pgrep -i "edge" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Edge"
-    pgrep -i "brave" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Brave"
-    pgrep -i "arc" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Arc"
-    pgrep -i "opera" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Opera"
-    pgrep -i "vivaldi" > /dev/null 2>&1 && running_browsers="${running_browsers:+$running_browsers, }Vivaldi"
-
-    if [[ -n "$running_browsers" ]]; then
-        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Running: $running_browsers (some files may be locked)"
-        note_activity
-    fi
-
     safe_clean ~/Library/Caches/com.apple.Safari/* "Safari cache"
 
     # Chrome/Chromium
@@ -140,7 +120,12 @@ clean_browsers() {
     safe_clean ~/Library/Application\ Support/Firefox/Profiles/*/cache2/* "Firefox profile cache"
 
     # Service Worker CacheStorage (all profiles)
-    # Limit search depth to prevent hanging on large profile directories
+    # Show loading indicator for potentially slow scan
+    if [[ -t 1 ]]; then
+        MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning browser Service Worker caches..."
+    fi
+
+    # Scan for Service Worker caches with timeout protection
     while IFS= read -r sw_path; do
         [[ -z "$sw_path" ]] && continue
         local profile_name=$(basename "$(dirname "$(dirname "$sw_path")")")
@@ -150,11 +135,16 @@ clean_browsers() {
         [[ "$sw_path" == *"Arc"* ]] && browser_name="Arc"
         [[ "$profile_name" != "Default" ]] && browser_name="$browser_name ($profile_name)"
         clean_service_worker_cache "$browser_name" "$sw_path"
-    done < <(command find "$HOME/Library/Application Support/Google/Chrome" \
+    done < <(run_with_timeout 10 find "$HOME/Library/Application Support/Google/Chrome" \
         "$HOME/Library/Application Support/Microsoft Edge" \
         "$HOME/Library/Application Support/BraveSoftware/Brave-Browser" \
         "$HOME/Library/Application Support/Arc/User Data" \
         -maxdepth 6 -type d -name "CacheStorage" -path "*/Service Worker/*" 2> /dev/null || true)
+
+    # Stop spinner after scan completes
+    if [[ -t 1 ]]; then
+        stop_inline_spinner
+    fi
 }
 
 # Clean cloud storage app caches
@@ -197,14 +187,21 @@ clean_application_support_logs() {
         return 0
     fi
 
+    # Show loading indicator for this potentially slow operation
+    if [[ -t 1 ]]; then
+        MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning Application Support directories..."
+    fi
+
     # Clean log directories and cache patterns with iteration limit
+    # Limit iterations to balance thoroughness and performance
     local iteration_count=0
-    local max_iterations=200
+    local max_iterations=100
+    local cleaned_any=false
 
     for app_dir in ~/Library/Application\ Support/*; do
         [[ -d "$app_dir" ]] || continue
 
-        # Safety: limit iterations
+        # Safety: limit iterations to avoid excessive scanning
         ((iteration_count++))
         if [[ $iteration_count -gt $max_iterations ]]; then
             break
@@ -244,15 +241,15 @@ clean_application_support_logs() {
             safe_clean "$app_dir/Crashpad/completed"/* "Crash reports: $app_name"
         fi
 
-        # Clean Service Worker caches (CacheStorage and ScriptCache)
+        # Clean Service Worker caches (CacheStorage and ScriptCache) with timeout protection
         while IFS= read -r -d '' sw_cache; do
             local profile_path=$(dirname "$(dirname "$sw_cache")")
             local profile_name=$(basename "$profile_path")
             [[ "$profile_name" == "User Data" ]] && profile_name=$(basename "$(dirname "$profile_path")")
             clean_service_worker_cache "$app_name ($profile_name)" "$sw_cache"
-        done < <(command find "$app_dir" -maxdepth 4 -type d \( -name "CacheStorage" -o -name "ScriptCache" \) -path "*/Service Worker/*" 2> /dev/null || true)
+        done < <(find "$app_dir" -maxdepth 4 -type d \( -name "CacheStorage" -o -name "ScriptCache" \) -path "*/Service Worker/*" -print0 2> /dev/null || true)
 
-        # Clean stale update downloads (older than 7 days)
+        # Clean stale update downloads (older than 7 days) with timeout protection
         if [[ -d "$app_dir/update" ]] && ls "$app_dir/update" > /dev/null 2>&1; then
             while IFS= read -r update_dir; do
                 local dir_age_days=$((($(date +%s) - $(get_file_mtime "$update_dir")) / 86400))
@@ -263,19 +260,24 @@ clean_application_support_logs() {
         fi
     done
 
-    # Clean Group Containers logs
+    # Clean Group Containers logs with timeout protection
     if [[ -d "$HOME/Library/Group Containers" ]]; then
         while IFS= read -r logs_dir; do
             local container_name=$(basename "$(dirname "$logs_dir")")
             safe_clean "$logs_dir"/* "Group container logs: $container_name"
         done < <(command find "$HOME/Library/Group Containers" -maxdepth 2 -type d -name "Logs" 2> /dev/null || true)
     fi
+
+    # Stop loading indicator
+    if [[ -t 1 ]]; then
+        stop_inline_spinner
+    fi
 }
 
 # Check and show iOS device backup info
 check_ios_device_backups() {
     local backup_dir="$HOME/Library/Application Support/MobileSync/Backup"
-    if [[ -d "$backup_dir" ]] && command find "$backup_dir" -mindepth 1 -maxdepth 1 | read -r _; then
+    if [[ -d "$backup_dir" ]] && command find "$backup_dir" -mindepth 1 -maxdepth 1 2> /dev/null | read -r _; then
         local backup_kb=$(get_path_size_kb "$backup_dir")
         if [[ -n "${backup_kb:-}" && "$backup_kb" -gt 102400 ]]; then
             local backup_human=$(command du -sh "$backup_dir" 2> /dev/null | awk '{print $1}')

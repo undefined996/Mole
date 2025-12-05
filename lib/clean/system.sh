@@ -13,12 +13,12 @@ clean_deep_system() {
 
     # Clean old temp files
     local tmp_cleaned=0
-    local tmp_count=$(sudo command find /tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
+    local tmp_count=$(sudo find /tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
     if [[ "$tmp_count" -gt 0 ]]; then
         safe_sudo_find_delete "/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f" || true
         tmp_cleaned=1
     fi
-    local var_tmp_count=$(sudo command find /var/tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
+    local var_tmp_count=$(sudo find /var/tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
     if [[ "$var_tmp_count" -gt 0 ]]; then
         safe_sudo_find_delete "/var/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f" || true
         tmp_cleaned=1
@@ -42,7 +42,7 @@ clean_deep_system() {
             # These files are system-protected and cannot be removed
             : # No-op, silently skip
         else
-            # SIP is disabled, attempt cleanup with restricted flag check
+            # SIP is disabled, attempt cleanup with restricted flag check and timeout protection
             local updates_cleaned=0
             while IFS= read -r -d '' item; do
                 # Skip system-protected files (restricted flag)
@@ -55,7 +55,7 @@ clean_deep_system() {
                 if safe_sudo_remove "$item"; then
                     ((updates_cleaned++))
                 fi
-            done < <(command find /Library/Updates -mindepth 1 -maxdepth 1 -print0 2> /dev/null)
+            done < <(command find /Library/Updates -mindepth 1 -maxdepth 1 -print0 2> /dev/null || true)
             [[ $updates_cleaned -gt 0 ]] && log_success "System library updates"
         fi
     fi
@@ -124,33 +124,35 @@ clean_time_machine_failed_backups() {
                 fi
 
                 local size_kb=$(get_path_size_kb "$inprogress_file")
-                if [[ "$size_kb" -gt 0 ]]; then
-                    local backup_name=$(basename "$inprogress_file")
+                [[ "$size_kb" -le 0 ]] && continue
 
-                    if [[ "$DRY_RUN" != "true" ]]; then
-                        if command -v tmutil > /dev/null 2>&1; then
-                            if tmutil delete "$inprogress_file" 2> /dev/null; then
-                                local size_human=$(bytes_to_human "$((size_kb * 1024))")
-                                echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Failed backup: $backup_name ${GREEN}($size_human)${NC}"
-                                ((tm_cleaned++))
-                                ((files_cleaned++))
-                                ((total_size_cleaned += size_kb))
-                                ((total_items++))
-                                note_activity
-                            else
-                                echo -e "  ${YELLOW}!${NC} Could not delete: $backup_name (try manually with sudo)"
-                            fi
-                        else
-                            echo -e "  ${YELLOW}!${NC} tmutil not available, skipping: $backup_name"
-                        fi
-                    else
-                        local size_human=$(bytes_to_human "$((size_kb * 1024))")
-                        echo -e "  ${YELLOW}→${NC} Failed backup: $backup_name ${YELLOW}($size_human dry)${NC}"
-                        ((tm_cleaned++))
-                        note_activity
-                    fi
+                local backup_name=$(basename "$inprogress_file")
+                local size_human=$(bytes_to_human "$((size_kb * 1024))")
+
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    echo -e "  ${YELLOW}→${NC} Failed backup: $backup_name ${YELLOW}($size_human dry)${NC}"
+                    ((tm_cleaned++))
+                    note_activity
+                    continue
                 fi
-            done < <(command find "$backupdb_dir" -maxdepth 3 -type d \( -name "*.inProgress" -o -name "*.inprogress" \) 2> /dev/null || true)
+
+                # Real deletion
+                if ! command -v tmutil > /dev/null 2>&1; then
+                    echo -e "  ${YELLOW}!${NC} tmutil not available, skipping: $backup_name"
+                    continue
+                fi
+
+                if tmutil delete "$inprogress_file" 2> /dev/null; then
+                    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Failed backup: $backup_name ${GREEN}($size_human)${NC}"
+                    ((tm_cleaned++))
+                    ((files_cleaned++))
+                    ((total_size_cleaned += size_kb))
+                    ((total_items++))
+                    note_activity
+                else
+                    echo -e "  ${YELLOW}!${NC} Could not delete: $backup_name (try manually with sudo)"
+                fi
+            done < <(run_with_timeout 15 find "$backupdb_dir" -maxdepth 3 -type d \( -name "*.inProgress" -o -name "*.inprogress" \) 2> /dev/null || true)
         fi
 
         # APFS style backups (.backupbundle or .sparsebundle)
@@ -176,31 +178,34 @@ clean_time_machine_failed_backups() {
                     fi
 
                     local size_kb=$(get_path_size_kb "$inprogress_file")
-                    if [[ "$size_kb" -gt 0 ]]; then
-                        local backup_name=$(basename "$inprogress_file")
+                    [[ "$size_kb" -le 0 ]] && continue
 
-                        if [[ "$DRY_RUN" != "true" ]]; then
-                            if command -v tmutil > /dev/null 2>&1; then
-                                if tmutil delete "$inprogress_file" 2> /dev/null; then
-                                    local size_human=$(bytes_to_human "$((size_kb * 1024))")
-                                    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Failed APFS backup in $bundle_name: $backup_name ${GREEN}($size_human)${NC}"
-                                    ((tm_cleaned++))
-                                    ((files_cleaned++))
-                                    ((total_size_cleaned += size_kb))
-                                    ((total_items++))
-                                    note_activity
-                                else
-                                    echo -e "  ${YELLOW}!${NC} Could not delete from bundle: $backup_name"
-                                fi
-                            fi
-                        else
-                            local size_human=$(bytes_to_human "$((size_kb * 1024))")
-                            echo -e "  ${YELLOW}→${NC} Failed APFS backup in $bundle_name: $backup_name ${YELLOW}($size_human dry)${NC}"
-                            ((tm_cleaned++))
-                            note_activity
-                        fi
+                    local backup_name=$(basename "$inprogress_file")
+                    local size_human=$(bytes_to_human "$((size_kb * 1024))")
+
+                    if [[ "$DRY_RUN" == "true" ]]; then
+                        echo -e "  ${YELLOW}→${NC} Failed APFS backup in $bundle_name: $backup_name ${YELLOW}($size_human dry)${NC}"
+                        ((tm_cleaned++))
+                        note_activity
+                        continue
                     fi
-                done < <(command find "$mounted_path" -maxdepth 3 -type d \( -name "*.inProgress" -o -name "*.inprogress" \) 2> /dev/null || true)
+
+                    # Real deletion
+                    if ! command -v tmutil > /dev/null 2>&1; then
+                        continue
+                    fi
+
+                    if tmutil delete "$inprogress_file" 2> /dev/null; then
+                        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Failed APFS backup in $bundle_name: $backup_name ${GREEN}($size_human)${NC}"
+                        ((tm_cleaned++))
+                        ((files_cleaned++))
+                        ((total_size_cleaned += size_kb))
+                        ((total_items++))
+                        note_activity
+                    else
+                        echo -e "  ${YELLOW}!${NC} Could not delete from bundle: $backup_name"
+                    fi
+                done < <(run_with_timeout 15 find "$mounted_path" -maxdepth 3 -type d \( -name "*.inProgress" -o -name "*.inprogress" \) 2> /dev/null || true)
             fi
         done
     done

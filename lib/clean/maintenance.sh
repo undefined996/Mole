@@ -38,20 +38,18 @@ clean_broken_preferences() {
         esac
 
         # Validate plist using plutil
-        if ! plutil -lint "$plist_file" > /dev/null 2>&1; then
-            local size_kb
-            size_kb=$(get_path_size_kb "$plist_file")
+        plutil -lint "$plist_file" > /dev/null 2>&1 && continue
 
-            if [[ "$DRY_RUN" != "true" ]]; then
-                rm -f "$plist_file" 2> /dev/null || true
-            fi
+        local size_kb
+        size_kb=$(get_path_size_kb "$plist_file")
 
-            ((broken_count++))
-            ((total_size_kb += size_kb))
-        fi
+        [[ "$DRY_RUN" != "true" ]] && rm -f "$plist_file" 2> /dev/null || true
+
+        ((broken_count++))
+        ((total_size_kb += size_kb))
     done < <(command find "$prefs_dir" -maxdepth 1 -name "*.plist" -type f 2> /dev/null || true)
 
-    # Check ByHost preferences
+    # Check ByHost preferences with timeout protection
     local byhost_dir="$prefs_dir/ByHost"
     if [[ -d "$byhost_dir" ]]; then
         while IFS= read -r plist_file; do
@@ -65,17 +63,15 @@ clean_broken_preferences() {
                     ;;
             esac
 
-            if ! plutil -lint "$plist_file" > /dev/null 2>&1; then
-                local size_kb
-                size_kb=$(get_path_size_kb "$plist_file")
+            plutil -lint "$plist_file" > /dev/null 2>&1 && continue
 
-                if [[ "$DRY_RUN" != "true" ]]; then
-                    rm -f "$plist_file" 2> /dev/null || true
-                fi
+            local size_kb
+            size_kb=$(get_path_size_kb "$plist_file")
 
-                ((broken_count++))
-                ((total_size_kb += size_kb))
-            fi
+            [[ "$DRY_RUN" != "true" ]] && rm -f "$plist_file" 2> /dev/null || true
+
+            ((broken_count++))
+            ((total_size_kb += size_kb))
         done < <(command find "$byhost_dir" -name "*.plist" -type f 2> /dev/null || true)
     fi
 
@@ -146,7 +142,6 @@ clean_broken_login_items() {
         size_kb=$(get_path_size_kb "$plist_file")
 
         if [[ "$DRY_RUN" != "true" ]]; then
-            # Unload first if loaded
             launchctl unload "$plist_file" 2> /dev/null || true
             rm -f "$plist_file" 2> /dev/null || true
         fi

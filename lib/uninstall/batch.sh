@@ -115,7 +115,8 @@ batch_uninstall_applications() {
     local -a app_details=()
     local -a dock_cleanup_paths=()
 
-    # Silent analysis without spinner output (avoid visual flicker)
+    # Analyze selected apps with progress indicator
+    if [[ -t 1 ]]; then start_inline_spinner "Scanning files..."; fi
     for selected_app in "${selected_apps[@]}"; do
         [[ -z "$selected_app" ]] && continue
         IFS='|' read -r _ app_path app_name bundle_id _ _ <<< "$selected_app"
@@ -161,6 +162,7 @@ batch_uninstall_applications() {
         encoded_system_files=$(printf '%s' "$system_files" | base64 | tr -d '\n')
         app_details+=("$app_name|$app_path|$bundle_id|$total_kb|$encoded_files|$encoded_system_files")
     done
+    if [[ -t 1 ]]; then stop_inline_spinner; fi
 
     # Format size display (convert KB to bytes for bytes_to_human())
     local size_display=$(bytes_to_human "$((total_estimated_size * 1024))")
@@ -292,7 +294,7 @@ batch_uninstall_applications() {
             reason="still running"
         fi
 
-        # Remove the application
+        # Remove the application only if not running
         if [[ -z "$reason" ]]; then
             if [[ "$needs_sudo" == true ]]; then
                 safe_sudo_remove "$app_path" || reason="remove failed"
@@ -301,7 +303,7 @@ batch_uninstall_applications() {
             fi
         fi
 
-        # Remove user-level and system-level files
+        # Remove related files if app removal succeeded
         if [[ -z "$reason" ]]; then
             # Remove user-level files
             remove_file_list "$related_files" "false" > /dev/null

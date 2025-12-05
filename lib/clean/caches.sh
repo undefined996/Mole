@@ -97,13 +97,29 @@ clean_service_worker_cache() {
     done < <(command find "$cache_path" -type d -depth 2 2> /dev/null)
 
     if [[ $cleaned_size -gt 0 ]]; then
+        # Temporarily stop spinner for clean output
+        local spinner_was_running=false
+        if [[ -t 1 && -n "${INLINE_SPINNER_PID:-}" ]]; then
+            stop_inline_spinner
+            spinner_was_running=true
+        fi
+
         local cleaned_mb=$((cleaned_size / 1024))
         if [[ "$DRY_RUN" != "true" ]]; then
-            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $browser_name Service Worker cache (${cleaned_mb}MB cleaned, $protected_count protected)"
+            if [[ $protected_count -gt 0 ]]; then
+                echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $browser_name Service Worker (${cleaned_mb}MB, ${protected_count} protected)"
+            else
+                echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $browser_name Service Worker (${cleaned_mb}MB)"
+            fi
         else
-            echo -e "  ${YELLOW}→${NC} $browser_name Service Worker cache (would clean ${cleaned_mb}MB, $protected_count protected)"
+            echo -e "  ${YELLOW}→${NC} $browser_name Service Worker (would clean ${cleaned_mb}MB, ${protected_count} protected)"
         fi
         note_activity
+
+        # Restart spinner if it was running
+        if [[ "$spinner_was_running" == "true" ]]; then
+            MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning browser Service Worker caches..."
+        fi
     fi
 }
 

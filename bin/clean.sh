@@ -271,7 +271,7 @@ safe_clean() {
         for path in "${existing_paths[@]}"; do
             (
                 local size
-                # Timeout protection: prevent du from hanging on problematic paths
+                # Get size quickly with depth limit
                 size=$(get_path_size_kb "$path")
                 [[ -z "$size" || ! "$size" =~ ^[0-9]+$ ]] && size=0
                 local count
@@ -338,7 +338,7 @@ safe_clean() {
 
         for path in "${existing_paths[@]}"; do
             local size_bytes count
-            # Get size quickly - du is fast
+            # Get size quickly with depth limit
             size_bytes=$(get_path_size_kb "$path")
             [[ -z "$size_bytes" || ! "$size_bytes" =~ ^[0-9]+$ ]] && size_bytes=0
             # Quick file count for display - limit for performance
@@ -695,11 +695,11 @@ perform_cleanup() {
                 grep -v "^$" >> "$installed_bundles" || true
         done
 
-        # Get running applications - no timeout needed for fast osascript
-        osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null |
+        # Get running applications - timeout protection for osascript
+        run_with_timeout 5 osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null |
             tr ',' '\n' | sed -e 's/^ *//;s/ *$//' -e '/^$/d' >> "$installed_bundles" || true
 
-        # Get LaunchAgents - fast operation, no timeout needed
+        # Get LaunchAgents
         find ~/Library/LaunchAgents /Library/LaunchAgents -name "*.plist" -type f 2> /dev/null |
             xargs -I {} basename {} .plist >> "$installed_bundles" 2> /dev/null || true
 
@@ -817,9 +817,9 @@ perform_cleanup() {
                     bundle_id="${bundle_id%.binarycookies}"
 
                     if is_orphaned "$bundle_id" "$match"; then
-                        # Use timeout to prevent du from hanging on large/problematic directories
+                        # Use timeout to prevent du from hanging on network mounts or problematic paths
                         local size_kb
-                        size_kb=$(run_with_timeout 2 get_path_size_kb "$match")
+                        size_kb=$(run_with_timeout 5 get_path_size_kb "$match")
                         if [[ -z "$size_kb" || "$size_kb" == "0" ]]; then
                             continue
                         fi
