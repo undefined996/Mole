@@ -191,6 +191,9 @@ start_section() {
 end_section() {
     if [[ $TRACK_SECTION -eq 1 && $SECTION_ACTIVITY -eq 0 ]]; then
         echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Nothing to clean"
+        debug_log "End section: ${CURRENT_SECTION:-unknown} (no activity)"
+    else
+        debug_log "End section: ${CURRENT_SECTION:-unknown} (had activity: $SECTION_ACTIVITY)"
     fi
     TRACK_SECTION=0
 }

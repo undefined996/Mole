@@ -99,61 +99,93 @@ clean_sandboxed_app_caches() {
 
 # Clean browser caches (Safari, Chrome, Edge, Firefox, etc.)
 clean_browsers() {
-    debug_log "clean_browsers: Starting browser cache cleanup"
+    debug_log "clean_browsers: Entering function"
 
     # Use a helper to only call safe_clean if parent directory exists
     local cache_dir
+    local checked_count=0
+    local cleaned_count=0
 
     # Safari
     cache_dir="$HOME/Library/Caches/com.apple.Safari"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Safari cache"
+    ((checked_count++))
+    if [[ -d "$cache_dir" ]]; then
+        debug_log "clean_browsers: Found Safari cache directory"
+        safe_clean "$cache_dir"/* "Safari cache" && ((cleaned_count++)) || true
+    else
+        debug_log "clean_browsers: Safari cache directory not found"
+    fi
 
     # Chrome/Chromium
     cache_dir="$HOME/Library/Caches/Google/Chrome"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Chrome cache"
+    ((checked_count++))
+    if [[ -d "$cache_dir" ]]; then
+        debug_log "clean_browsers: Found Chrome cache directory"
+        safe_clean "$cache_dir"/* "Chrome cache" && ((cleaned_count++)) || true
+    else
+        debug_log "clean_browsers: Chrome cache directory not found"
+    fi
 
     cache_dir="$HOME/Library/Application Support/Google/Chrome"
+    ((checked_count++))
     if [[ -d "$cache_dir" ]]; then
-        safe_clean "$cache_dir"/*/Application\ Cache/* "Chrome app cache"
-        safe_clean "$cache_dir"/*/GPUCache/* "Chrome GPU cache"
+        debug_log "clean_browsers: Found Chrome Application Support directory"
+        safe_clean "$cache_dir"/*/Application\ Cache/* "Chrome app cache" && ((cleaned_count++)) || true
+        safe_clean "$cache_dir"/*/GPUCache/* "Chrome GPU cache" && ((cleaned_count++)) || true
+    else
+        debug_log "clean_browsers: Chrome Application Support directory not found"
     fi
 
     cache_dir="$HOME/Library/Caches/Chromium"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Chromium cache"
+    ((checked_count++))
+    [[ -d "$cache_dir" ]] && { debug_log "clean_browsers: Found Chromium cache"; safe_clean "$cache_dir"/* "Chromium cache" && ((cleaned_count++)) || true; } || debug_log "clean_browsers: Chromium cache not found"
 
     # Other browsers
     cache_dir="$HOME/Library/Caches/com.microsoft.edgemac"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Edge cache"
+    ((checked_count++))
+    [[ -d "$cache_dir" ]] && { debug_log "clean_browsers: Found Edge cache"; safe_clean "$cache_dir"/* "Edge cache" && ((cleaned_count++)) || true; } || debug_log "clean_browsers: Edge cache not found"
 
     cache_dir="$HOME/Library/Caches/company.thebrowser.Browser"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Arc cache"
+    ((checked_count++))
+    [[ -d "$cache_dir" ]] && { debug_log "clean_browsers: Found Arc cache"; safe_clean "$cache_dir"/* "Arc cache" && ((cleaned_count++)) || true; } || debug_log "clean_browsers: Arc cache not found"
 
     cache_dir="$HOME/Library/Caches/company.thebrowser.dia"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Dia cache"
+    ((checked_count++))
+    [[ -d "$cache_dir" ]] && { debug_log "clean_browsers: Found Dia cache"; safe_clean "$cache_dir"/* "Dia cache" && ((cleaned_count++)) || true; } || debug_log "clean_browsers: Dia cache not found"
 
     cache_dir="$HOME/Library/Caches/BraveSoftware/Brave-Browser"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Brave cache"
+    ((checked_count++))
+    [[ -d "$cache_dir" ]] && { debug_log "clean_browsers: Found Brave cache"; safe_clean "$cache_dir"/* "Brave cache" && ((cleaned_count++)) || true; } || debug_log "clean_browsers: Brave cache not found"
 
     cache_dir="$HOME/Library/Caches/Firefox"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Firefox cache"
+    ((checked_count++))
+    [[ -d "$cache_dir" ]] && { debug_log "clean_browsers: Found Firefox cache"; safe_clean "$cache_dir"/* "Firefox cache" && ((cleaned_count++)) || true; } || debug_log "clean_browsers: Firefox cache not found"
 
     cache_dir="$HOME/Library/Caches/com.operasoftware.Opera"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Opera cache"
+    ((checked_count++))
+    [[ -d "$cache_dir" ]] && { debug_log "clean_browsers: Found Opera cache"; safe_clean "$cache_dir"/* "Opera cache" && ((cleaned_count++)) || true; } || debug_log "clean_browsers: Opera cache not found"
 
     cache_dir="$HOME/Library/Caches/com.vivaldi.Vivaldi"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Vivaldi cache"
+    ((checked_count++))
+    [[ -d "$cache_dir" ]] && { debug_log "clean_browsers: Found Vivaldi cache"; safe_clean "$cache_dir"/* "Vivaldi cache" && ((cleaned_count++)) || true; } || debug_log "clean_browsers: Vivaldi cache not found"
 
     cache_dir="$HOME/Library/Caches/Comet"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Comet cache"
+    ((checked_count++))
+    [[ -d "$cache_dir" ]] && { debug_log "clean_browsers: Found Comet cache"; safe_clean "$cache_dir"/* "Comet cache" && ((cleaned_count++)) || true; } || debug_log "clean_browsers: Comet cache not found"
 
     cache_dir="$HOME/Library/Caches/com.kagi.kagimacOS"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Orion cache"
+    ((checked_count++))
+    [[ -d "$cache_dir" ]] && { debug_log "clean_browsers: Found Orion cache"; safe_clean "$cache_dir"/* "Orion cache" && ((cleaned_count++)) || true; } || debug_log "clean_browsers: Orion cache not found"
 
     cache_dir="$HOME/Library/Caches/zen"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Zen cache"
+    ((checked_count++))
+    [[ -d "$cache_dir" ]] && { debug_log "clean_browsers: Found Zen cache"; safe_clean "$cache_dir"/* "Zen cache" && ((cleaned_count++)) || true; } || debug_log "clean_browsers: Zen cache not found"
 
     cache_dir="$HOME/Library/Application Support/Firefox/Profiles"
-    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/*/cache2/* "Firefox profile cache"
+    ((checked_count++))
+    [[ -d "$cache_dir" ]] && { debug_log "clean_browsers: Found Firefox profiles"; safe_clean "$cache_dir"/*/cache2/* "Firefox profile cache" && ((cleaned_count++)) || true; } || debug_log "clean_browsers: Firefox profiles not found"
+
+    debug_log "clean_browsers: Checked $checked_count browsers, cleaned $cleaned_count"
 
     # Service Worker CacheStorage (all profiles)
     # Show loading indicator for potentially slow scan
@@ -192,62 +224,99 @@ clean_browsers() {
         stop_inline_spinner
     fi
     debug_log "clean_browsers: Found $sw_count Service Worker cache paths"
+    debug_log "clean_browsers: Exiting function successfully"
 }
 
 # Clean cloud storage app caches
 clean_cloud_storage() {
+    debug_log "clean_cloud_storage: Entering function"
     local cache_base="$HOME/Library/Caches"
     local matches
+    local checked_count=0
+
     # For glob patterns, check if any match exists before calling safe_clean
+    debug_log "clean_cloud_storage: Checking Dropbox wildcard patterns"
     shopt -s nullglob
     matches=("$cache_base"/com.dropbox.*)
-    [[ ${#matches[@]} -gt 0 ]] && safe_clean "${matches[@]}" "Dropbox cache"
     shopt -u nullglob
+    if [[ ${#matches[@]} -gt 0 ]]; then
+        debug_log "clean_cloud_storage: Found ${#matches[@]} Dropbox cache directories"
+        safe_clean "${matches[@]}" "Dropbox cache" && ((checked_count++)) || true
+    else
+        debug_log "clean_cloud_storage: No Dropbox cache directories found"
+    fi
 
-    [[ -d "$cache_base/com.getdropbox.dropbox" ]] && safe_clean "$cache_base/com.getdropbox.dropbox" "Dropbox cache"
-    [[ -d "$cache_base/com.google.GoogleDrive" ]] && safe_clean "$cache_base/com.google.GoogleDrive" "Google Drive cache"
-    [[ -d "$cache_base/com.baidu.netdisk" ]] && safe_clean "$cache_base/com.baidu.netdisk" "Baidu Netdisk cache"
-    [[ -d "$cache_base/com.alibaba.teambitiondisk" ]] && safe_clean "$cache_base/com.alibaba.teambitiondisk" "Alibaba Cloud cache"
-    [[ -d "$cache_base/com.box.desktop" ]] && safe_clean "$cache_base/com.box.desktop" "Box cache"
-    [[ -d "$cache_base/com.microsoft.OneDrive" ]] && safe_clean "$cache_base/com.microsoft.OneDrive" "OneDrive cache"
+    [[ -d "$cache_base/com.getdropbox.dropbox" ]] && { debug_log "clean_cloud_storage: Found Dropbox app cache"; safe_clean "$cache_base/com.getdropbox.dropbox" "Dropbox cache" && ((checked_count++)) || true; } || debug_log "clean_cloud_storage: Dropbox app cache not found"
+    [[ -d "$cache_base/com.google.GoogleDrive" ]] && { debug_log "clean_cloud_storage: Found Google Drive cache"; safe_clean "$cache_base/com.google.GoogleDrive" "Google Drive cache" && ((checked_count++)) || true; } || debug_log "clean_cloud_storage: Google Drive cache not found"
+    [[ -d "$cache_base/com.baidu.netdisk" ]] && { debug_log "clean_cloud_storage: Found Baidu Netdisk cache"; safe_clean "$cache_base/com.baidu.netdisk" "Baidu Netdisk cache" && ((checked_count++)) || true; } || debug_log "clean_cloud_storage: Baidu Netdisk cache not found"
+    [[ -d "$cache_base/com.alibaba.teambitiondisk" ]] && { debug_log "clean_cloud_storage: Found Alibaba Cloud cache"; safe_clean "$cache_base/com.alibaba.teambitiondisk" "Alibaba Cloud cache" && ((checked_count++)) || true; } || debug_log "clean_cloud_storage: Alibaba Cloud cache not found"
+    [[ -d "$cache_base/com.box.desktop" ]] && { debug_log "clean_cloud_storage: Found Box cache"; safe_clean "$cache_base/com.box.desktop" "Box cache" && ((checked_count++)) || true; } || debug_log "clean_cloud_storage: Box cache not found"
+    [[ -d "$cache_base/com.microsoft.OneDrive" ]] && { debug_log "clean_cloud_storage: Found OneDrive cache"; safe_clean "$cache_base/com.microsoft.OneDrive" "OneDrive cache" && ((checked_count++)) || true; } || debug_log "clean_cloud_storage: OneDrive cache not found"
+
+    debug_log "clean_cloud_storage: Checked cloud storage apps, cleaned $checked_count"
+    debug_log "clean_cloud_storage: Exiting function successfully"
     return 0
 }
 
 # Clean office application caches
 clean_office_applications() {
+    debug_log "clean_office_applications: Entering function"
     local cache_base="$HOME/Library/Caches"
     local matches
-    [[ -d "$cache_base/com.microsoft.Word" ]] && safe_clean "$cache_base/com.microsoft.Word" "Microsoft Word cache"
-    [[ -d "$cache_base/com.microsoft.Excel" ]] && safe_clean "$cache_base/com.microsoft.Excel" "Microsoft Excel cache"
-    [[ -d "$cache_base/com.microsoft.Powerpoint" ]] && safe_clean "$cache_base/com.microsoft.Powerpoint" "Microsoft PowerPoint cache"
-    [[ -d "$cache_base/com.microsoft.Outlook" ]] && safe_clean "$cache_base/com.microsoft.Outlook"/* "Microsoft Outlook cache"
+    local checked_count=0
+
+    [[ -d "$cache_base/com.microsoft.Word" ]] && { debug_log "clean_office_applications: Found Word cache"; safe_clean "$cache_base/com.microsoft.Word" "Microsoft Word cache" && ((checked_count++)) || true; } || debug_log "clean_office_applications: Word cache not found"
+    [[ -d "$cache_base/com.microsoft.Excel" ]] && { debug_log "clean_office_applications: Found Excel cache"; safe_clean "$cache_base/com.microsoft.Excel" "Microsoft Excel cache" && ((checked_count++)) || true; } || debug_log "clean_office_applications: Excel cache not found"
+    [[ -d "$cache_base/com.microsoft.Powerpoint" ]] && { debug_log "clean_office_applications: Found PowerPoint cache"; safe_clean "$cache_base/com.microsoft.Powerpoint" "Microsoft PowerPoint cache" && ((checked_count++)) || true; } || debug_log "clean_office_applications: PowerPoint cache not found"
+    [[ -d "$cache_base/com.microsoft.Outlook" ]] && { debug_log "clean_office_applications: Found Outlook cache"; safe_clean "$cache_base/com.microsoft.Outlook"/* "Microsoft Outlook cache" && ((checked_count++)) || true; } || debug_log "clean_office_applications: Outlook cache not found"
 
     # For glob patterns, check if any match exists before calling safe_clean
+    debug_log "clean_office_applications: Checking iWork wildcard patterns"
     shopt -s nullglob
     matches=("$cache_base"/com.apple.iWork.*)
-    [[ ${#matches[@]} -gt 0 ]] && safe_clean "${matches[@]}" "Apple iWork cache"
     shopt -u nullglob
+    if [[ ${#matches[@]} -gt 0 ]]; then
+        debug_log "clean_office_applications: Found ${#matches[@]} iWork cache directories"
+        safe_clean "${matches[@]}" "Apple iWork cache" && ((checked_count++)) || true
+    else
+        debug_log "clean_office_applications: No iWork cache directories found"
+    fi
 
-    [[ -d "$cache_base/com.kingsoft.wpsoffice.mac" ]] && safe_clean "$cache_base/com.kingsoft.wpsoffice.mac" "WPS Office cache"
-    [[ -d "$cache_base/org.mozilla.thunderbird" ]] && safe_clean "$cache_base/org.mozilla.thunderbird"/* "Thunderbird cache"
-    [[ -d "$cache_base/com.apple.mail" ]] && safe_clean "$cache_base/com.apple.mail"/* "Apple Mail cache"
+    [[ -d "$cache_base/com.kingsoft.wpsoffice.mac" ]] && { debug_log "clean_office_applications: Found WPS Office cache"; safe_clean "$cache_base/com.kingsoft.wpsoffice.mac" "WPS Office cache" && ((checked_count++)) || true; } || debug_log "clean_office_applications: WPS Office cache not found"
+    [[ -d "$cache_base/org.mozilla.thunderbird" ]] && { debug_log "clean_office_applications: Found Thunderbird cache"; safe_clean "$cache_base/org.mozilla.thunderbird"/* "Thunderbird cache" && ((checked_count++)) || true; } || debug_log "clean_office_applications: Thunderbird cache not found"
+    [[ -d "$cache_base/com.apple.mail" ]] && { debug_log "clean_office_applications: Found Mail cache"; safe_clean "$cache_base/com.apple.mail"/* "Apple Mail cache" && ((checked_count++)) || true; } || debug_log "clean_office_applications: Mail cache not found"
+
+    debug_log "clean_office_applications: Checked office apps, cleaned $checked_count"
+    debug_log "clean_office_applications: Exiting function successfully"
     return 0
 }
 
 # Clean virtualization tools
 clean_virtualization_tools() {
+    debug_log "clean_virtualization_tools: Entering function"
     local cache_base="$HOME/Library/Caches"
     local matches
-    [[ -d "$cache_base/com.vmware.fusion" ]] && safe_clean "$cache_base/com.vmware.fusion" "VMware Fusion cache"
+    local checked_count=0
+
+    [[ -d "$cache_base/com.vmware.fusion" ]] && { debug_log "clean_virtualization_tools: Found VMware cache"; safe_clean "$cache_base/com.vmware.fusion" "VMware Fusion cache" && ((checked_count++)) || true; } || debug_log "clean_virtualization_tools: VMware cache not found"
 
     # For glob patterns, check if any match exists before calling safe_clean
+    debug_log "clean_virtualization_tools: Checking Parallels wildcard patterns"
     shopt -s nullglob
     matches=("$cache_base"/com.parallels.*)
-    [[ ${#matches[@]} -gt 0 ]] && safe_clean "${matches[@]}" "Parallels cache"
     shopt -u nullglob
+    if [[ ${#matches[@]} -gt 0 ]]; then
+        debug_log "clean_virtualization_tools: Found ${#matches[@]} Parallels cache directories"
+        safe_clean "${matches[@]}" "Parallels cache" && ((checked_count++)) || true
+    else
+        debug_log "clean_virtualization_tools: No Parallels cache directories found"
+    fi
 
-    [[ -d "$HOME/VirtualBox VMs/.cache" ]] && safe_clean "$HOME/VirtualBox VMs/.cache" "VirtualBox cache"
-    [[ -d "$HOME/.vagrant.d/tmp" ]] && safe_clean "$HOME/.vagrant.d/tmp"/* "Vagrant temporary files"
+    [[ -d "$HOME/VirtualBox VMs/.cache" ]] && { debug_log "clean_virtualization_tools: Found VirtualBox cache"; safe_clean "$HOME/VirtualBox VMs/.cache" "VirtualBox cache" && ((checked_count++)) || true; } || debug_log "clean_virtualization_tools: VirtualBox cache not found"
+    [[ -d "$HOME/.vagrant.d/tmp" ]] && { debug_log "clean_virtualization_tools: Found Vagrant tmp"; safe_clean "$HOME/.vagrant.d/tmp"/* "Vagrant temporary files" && ((checked_count++)) || true; } || debug_log "clean_virtualization_tools: Vagrant tmp not found"
+
+    debug_log "clean_virtualization_tools: Checked virtualization tools, cleaned $checked_count"
+    debug_log "clean_virtualization_tools: Exiting function successfully"
     return 0
 }
 
