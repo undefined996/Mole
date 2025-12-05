@@ -130,21 +130,27 @@ clean_browsers() {
     # Scan for Service Worker caches
     # Use process substitution to avoid subshell issues with set -e
     local sw_count=0
-    while IFS= read -r sw_path; do
-        ((sw_count++))
-        [[ -z "$sw_path" ]] && continue
-        local profile_name=$(basename "$(dirname "$(dirname "$sw_path")")")
-        local browser_name="Chrome"
-        [[ "$sw_path" == *"Microsoft Edge"* ]] && browser_name="Edge"
-        [[ "$sw_path" == *"Brave"* ]] && browser_name="Brave"
-        [[ "$sw_path" == *"Arc"* ]] && browser_name="Arc"
-        [[ "$profile_name" != "Default" ]] && browser_name="$browser_name ($profile_name)"
-        clean_service_worker_cache "$browser_name" "$sw_path"
-    done < <(find "$HOME/Library/Application Support/Google/Chrome" \
-        "$HOME/Library/Application Support/Microsoft Edge" \
-        "$HOME/Library/Application Support/BraveSoftware/Brave-Browser" \
-        "$HOME/Library/Application Support/Arc/User Data" \
-        -maxdepth 6 -type d -name "CacheStorage" -path "*/Service Worker/*" 2> /dev/null || true)
+    # Build list of existing browser directories
+    local -a search_dirs=()
+    [[ -d "$HOME/Library/Application Support/Google/Chrome" ]] && search_dirs+=("$HOME/Library/Application Support/Google/Chrome")
+    [[ -d "$HOME/Library/Application Support/Microsoft Edge" ]] && search_dirs+=("$HOME/Library/Application Support/Microsoft Edge")
+    [[ -d "$HOME/Library/Application Support/BraveSoftware/Brave-Browser" ]] && search_dirs+=("$HOME/Library/Application Support/BraveSoftware/Brave-Browser")
+    [[ -d "$HOME/Library/Application Support/Arc/User Data" ]] && search_dirs+=("$HOME/Library/Application Support/Arc/User Data")
+    
+    if [[ ${#search_dirs[@]} -gt 0 ]]; then
+        while IFS= read -r sw_path; do
+            ((sw_count++))
+            [[ -z "$sw_path" ]] && continue
+            local profile_name=$(basename "$(dirname "$(dirname "$sw_path")")")
+            local browser_name="Chrome"
+            [[ "$sw_path" == *"Microsoft Edge"* ]] && browser_name="Edge"
+            [[ "$sw_path" == *"Brave"* ]] && browser_name="Brave"
+            [[ "$sw_path" == *"Arc"* ]] && browser_name="Arc"
+            [[ "$profile_name" != "Default" ]] && browser_name="$browser_name ($profile_name)"
+            clean_service_worker_cache "$browser_name" "$sw_path"
+        done < <(find "${search_dirs[@]}" \
+            -maxdepth 6 -type d -name "CacheStorage" -path "*/Service Worker/*" 2> /dev/null || true)
+    fi
 
     # Stop spinner after scan completes
     if [[ -t 1 ]]; then
