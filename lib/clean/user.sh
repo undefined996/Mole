@@ -120,6 +120,11 @@ clean_browsers() {
     safe_clean ~/Library/Application\ Support/Firefox/Profiles/*/cache2/* "Firefox profile cache"
 
     # Service Worker CacheStorage (all profiles)
+    # Show loading indicator for this potentially slow scanning operation
+    if [[ -t 1 ]]; then
+        MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning browser Service Worker caches..."
+    fi
+
     # Limit search depth to prevent hanging on large profile directories
     while IFS= read -r sw_path; do
         [[ -z "$sw_path" ]] && continue
@@ -135,6 +140,11 @@ clean_browsers() {
         "$HOME/Library/Application Support/BraveSoftware/Brave-Browser" \
         "$HOME/Library/Application Support/Arc/User Data" \
         -maxdepth 6 -type d -name "CacheStorage" -path "*/Service Worker/*" 2> /dev/null || true)
+
+    # Stop loading indicator
+    if [[ -t 1 ]]; then
+        stop_inline_spinner
+    fi
 }
 
 # Clean cloud storage app caches
@@ -251,11 +261,12 @@ clean_application_support_logs() {
     done
 
     # Clean Group Containers logs with timeout protection
+    # Search depth 4 to cover both direct (*/Logs) and nested (*/Library/Logs) patterns
     if [[ -d "$HOME/Library/Group Containers" ]]; then
         while IFS= read -r logs_dir; do
             local container_name=$(basename "$(dirname "$logs_dir")")
             safe_clean "$logs_dir"/* "Group container logs: $container_name"
-        done < <(command find "$HOME/Library/Group Containers" -maxdepth 2 -type d -name "Logs" 2> /dev/null || true)
+        done < <(command find "$HOME/Library/Group Containers" -maxdepth 4 -type d -name "Logs" 2> /dev/null || true)
     fi
 
     # Stop loading indicator
