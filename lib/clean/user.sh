@@ -100,25 +100,60 @@ clean_sandboxed_app_caches() {
 # Clean browser caches (Safari, Chrome, Edge, Firefox, etc.)
 clean_browsers() {
     debug_log "clean_browsers: Starting browser cache cleanup"
-    safe_clean ~/Library/Caches/com.apple.Safari/* "Safari cache"
+
+    # Use a helper to only call safe_clean if parent directory exists
+    local cache_dir
+
+    # Safari
+    cache_dir="$HOME/Library/Caches/com.apple.Safari"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Safari cache"
 
     # Chrome/Chromium
-    safe_clean ~/Library/Caches/Google/Chrome/* "Chrome cache"
-    safe_clean ~/Library/Application\ Support/Google/Chrome/*/Application\ Cache/* "Chrome app cache"
-    safe_clean ~/Library/Application\ Support/Google/Chrome/*/GPUCache/* "Chrome GPU cache"
-    safe_clean ~/Library/Caches/Chromium/* "Chromium cache"
+    cache_dir="$HOME/Library/Caches/Google/Chrome"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Chrome cache"
 
-    safe_clean ~/Library/Caches/com.microsoft.edgemac/* "Edge cache"
-    safe_clean ~/Library/Caches/company.thebrowser.Browser/* "Arc cache"
-    safe_clean ~/Library/Caches/company.thebrowser.dia/* "Dia cache"
-    safe_clean ~/Library/Caches/BraveSoftware/Brave-Browser/* "Brave cache"
-    safe_clean ~/Library/Caches/Firefox/* "Firefox cache"
-    safe_clean ~/Library/Caches/com.operasoftware.Opera/* "Opera cache"
-    safe_clean ~/Library/Caches/com.vivaldi.Vivaldi/* "Vivaldi cache"
-    safe_clean ~/Library/Caches/Comet/* "Comet cache"
-    safe_clean ~/Library/Caches/com.kagi.kagimacOS/* "Orion cache"
-    safe_clean ~/Library/Caches/zen/* "Zen cache"
-    safe_clean ~/Library/Application\ Support/Firefox/Profiles/*/cache2/* "Firefox profile cache"
+    cache_dir="$HOME/Library/Application Support/Google/Chrome"
+    if [[ -d "$cache_dir" ]]; then
+        safe_clean "$cache_dir"/*/Application\ Cache/* "Chrome app cache"
+        safe_clean "$cache_dir"/*/GPUCache/* "Chrome GPU cache"
+    fi
+
+    cache_dir="$HOME/Library/Caches/Chromium"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Chromium cache"
+
+    # Other browsers
+    cache_dir="$HOME/Library/Caches/com.microsoft.edgemac"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Edge cache"
+
+    cache_dir="$HOME/Library/Caches/company.thebrowser.Browser"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Arc cache"
+
+    cache_dir="$HOME/Library/Caches/company.thebrowser.dia"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Dia cache"
+
+    cache_dir="$HOME/Library/Caches/BraveSoftware/Brave-Browser"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Brave cache"
+
+    cache_dir="$HOME/Library/Caches/Firefox"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Firefox cache"
+
+    cache_dir="$HOME/Library/Caches/com.operasoftware.Opera"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Opera cache"
+
+    cache_dir="$HOME/Library/Caches/com.vivaldi.Vivaldi"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Vivaldi cache"
+
+    cache_dir="$HOME/Library/Caches/Comet"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Comet cache"
+
+    cache_dir="$HOME/Library/Caches/com.kagi.kagimacOS"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Orion cache"
+
+    cache_dir="$HOME/Library/Caches/zen"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Zen cache"
+
+    cache_dir="$HOME/Library/Application Support/Firefox/Profiles"
+    [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/*/cache2/* "Firefox profile cache"
 
     # Service Worker CacheStorage (all profiles)
     # Show loading indicator for potentially slow scan
@@ -161,33 +196,59 @@ clean_browsers() {
 
 # Clean cloud storage app caches
 clean_cloud_storage() {
-    safe_clean ~/Library/Caches/com.dropbox.* "Dropbox cache"
-    safe_clean ~/Library/Caches/com.getdropbox.dropbox "Dropbox cache"
-    safe_clean ~/Library/Caches/com.google.GoogleDrive "Google Drive cache"
-    safe_clean ~/Library/Caches/com.baidu.netdisk "Baidu Netdisk cache"
-    safe_clean ~/Library/Caches/com.alibaba.teambitiondisk "Alibaba Cloud cache"
-    safe_clean ~/Library/Caches/com.box.desktop "Box cache"
-    safe_clean ~/Library/Caches/com.microsoft.OneDrive "OneDrive cache"
+    local cache_base="$HOME/Library/Caches"
+    local matches
+    # For glob patterns, check if any match exists before calling safe_clean
+    shopt -s nullglob
+    matches=("$cache_base"/com.dropbox.*)
+    [[ ${#matches[@]} -gt 0 ]] && safe_clean "${matches[@]}" "Dropbox cache"
+    shopt -u nullglob
+
+    [[ -d "$cache_base/com.getdropbox.dropbox" ]] && safe_clean "$cache_base/com.getdropbox.dropbox" "Dropbox cache"
+    [[ -d "$cache_base/com.google.GoogleDrive" ]] && safe_clean "$cache_base/com.google.GoogleDrive" "Google Drive cache"
+    [[ -d "$cache_base/com.baidu.netdisk" ]] && safe_clean "$cache_base/com.baidu.netdisk" "Baidu Netdisk cache"
+    [[ -d "$cache_base/com.alibaba.teambitiondisk" ]] && safe_clean "$cache_base/com.alibaba.teambitiondisk" "Alibaba Cloud cache"
+    [[ -d "$cache_base/com.box.desktop" ]] && safe_clean "$cache_base/com.box.desktop" "Box cache"
+    [[ -d "$cache_base/com.microsoft.OneDrive" ]] && safe_clean "$cache_base/com.microsoft.OneDrive" "OneDrive cache"
+    return 0
 }
 
 # Clean office application caches
 clean_office_applications() {
-    safe_clean ~/Library/Caches/com.microsoft.Word "Microsoft Word cache"
-    safe_clean ~/Library/Caches/com.microsoft.Excel "Microsoft Excel cache"
-    safe_clean ~/Library/Caches/com.microsoft.Powerpoint "Microsoft PowerPoint cache"
-    safe_clean ~/Library/Caches/com.microsoft.Outlook/* "Microsoft Outlook cache"
-    safe_clean ~/Library/Caches/com.apple.iWork.* "Apple iWork cache"
-    safe_clean ~/Library/Caches/com.kingsoft.wpsoffice.mac "WPS Office cache"
-    safe_clean ~/Library/Caches/org.mozilla.thunderbird/* "Thunderbird cache"
-    safe_clean ~/Library/Caches/com.apple.mail/* "Apple Mail cache"
+    local cache_base="$HOME/Library/Caches"
+    local matches
+    [[ -d "$cache_base/com.microsoft.Word" ]] && safe_clean "$cache_base/com.microsoft.Word" "Microsoft Word cache"
+    [[ -d "$cache_base/com.microsoft.Excel" ]] && safe_clean "$cache_base/com.microsoft.Excel" "Microsoft Excel cache"
+    [[ -d "$cache_base/com.microsoft.Powerpoint" ]] && safe_clean "$cache_base/com.microsoft.Powerpoint" "Microsoft PowerPoint cache"
+    [[ -d "$cache_base/com.microsoft.Outlook" ]] && safe_clean "$cache_base/com.microsoft.Outlook"/* "Microsoft Outlook cache"
+
+    # For glob patterns, check if any match exists before calling safe_clean
+    shopt -s nullglob
+    matches=("$cache_base"/com.apple.iWork.*)
+    [[ ${#matches[@]} -gt 0 ]] && safe_clean "${matches[@]}" "Apple iWork cache"
+    shopt -u nullglob
+
+    [[ -d "$cache_base/com.kingsoft.wpsoffice.mac" ]] && safe_clean "$cache_base/com.kingsoft.wpsoffice.mac" "WPS Office cache"
+    [[ -d "$cache_base/org.mozilla.thunderbird" ]] && safe_clean "$cache_base/org.mozilla.thunderbird"/* "Thunderbird cache"
+    [[ -d "$cache_base/com.apple.mail" ]] && safe_clean "$cache_base/com.apple.mail"/* "Apple Mail cache"
+    return 0
 }
 
 # Clean virtualization tools
 clean_virtualization_tools() {
-    safe_clean ~/Library/Caches/com.vmware.fusion "VMware Fusion cache"
-    safe_clean ~/Library/Caches/com.parallels.* "Parallels cache"
-    safe_clean ~/VirtualBox\ VMs/.cache "VirtualBox cache"
-    safe_clean ~/.vagrant.d/tmp/* "Vagrant temporary files"
+    local cache_base="$HOME/Library/Caches"
+    local matches
+    [[ -d "$cache_base/com.vmware.fusion" ]] && safe_clean "$cache_base/com.vmware.fusion" "VMware Fusion cache"
+
+    # For glob patterns, check if any match exists before calling safe_clean
+    shopt -s nullglob
+    matches=("$cache_base"/com.parallels.*)
+    [[ ${#matches[@]} -gt 0 ]] && safe_clean "${matches[@]}" "Parallels cache"
+    shopt -u nullglob
+
+    [[ -d "$HOME/VirtualBox VMs/.cache" ]] && safe_clean "$HOME/VirtualBox VMs/.cache" "VirtualBox cache"
+    [[ -d "$HOME/.vagrant.d/tmp" ]] && safe_clean "$HOME/.vagrant.d/tmp"/* "Vagrant temporary files"
+    return 0
 }
 
 # Clean Application Support logs and caches
