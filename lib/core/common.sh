@@ -106,7 +106,10 @@ get_file_size() {
 # Get file modification time (epoch seconds) using BSD stat
 get_file_mtime() {
     local file="$1"
-    [[ -z "$file" ]] && { echo "0"; return; }
+    [[ -z "$file" ]] && {
+        echo "0"
+        return
+    }
     local result
     result=$($STAT_BSD -f%m "$file" 2> /dev/null)
     echo "${result:-0}"
@@ -562,23 +565,41 @@ run_with_timeout() {
     "$@" &
     local cmd_pid=$!
 
-    # More efficient wait: use wait with timeout in subshell
-    (
-        sleep "$duration" &
-        local timer_pid=$!
-        wait "$cmd_pid" 2> /dev/null && kill "$timer_pid" 2> /dev/null && exit 0
-        kill -TERM "$cmd_pid" 2> /dev/null || true
-        sleep 0.5
-        kill -KILL "$cmd_pid" 2> /dev/null || true
-        exit 124
-    ) &
-    local watcher_pid=$!
+    # Create temp marker to track timeout
+    local timeout_marker
+    timeout_marker=$(mktemp 2> /dev/null || echo "/tmp/mole-timeout-$$")
 
+    # Killer: sleep then kill command if still running
+    (
+        sleep "$duration"
+        if kill -0 "$cmd_pid" 2> /dev/null; then
+            echo "1" > "$timeout_marker" 2> /dev/null || true
+            kill -TERM "$cmd_pid" 2> /dev/null || true
+            sleep 0.5
+            kill -KILL "$cmd_pid" 2> /dev/null || true
+        fi
+    ) &
+    local killer_pid=$!
+
+    # Wait for command to finish (disable errexit temporarily to prevent exit on wait failure)
+    local exit_code
+    set +e
     wait "$cmd_pid" 2> /dev/null
-    local exit_code=$?
-    kill "$watcher_pid" 2> /dev/null || true
-    wait "$watcher_pid" 2> /dev/null || true
-    return $exit_code
+    exit_code=$?
+    set -e
+
+    # Kill the killer if command finished early
+    kill "$killer_pid" 2> /dev/null || true
+    wait "$killer_pid" 2> /dev/null || true
+
+    # Check if timeout occurred
+    if [[ -f "$timeout_marker" ]] && [[ "$(cat "$timeout_marker" 2> /dev/null)" == "1" ]]; then
+        rm -f "$timeout_marker" 2> /dev/null || true
+        return 124
+    fi
+
+    rm -f "$timeout_marker" 2> /dev/null || true
+    return "$exit_code"
 }
 
 # Menu display helper
@@ -1172,7 +1193,10 @@ clean_tool_cache() {
 # Returns: size in KB, or 0 if path doesn't exist or error occurs
 get_path_size_kb() {
     local path="$1"
-    [[ -z "$path" || ! -e "$path" ]] && { echo "0"; return; }
+    [[ -z "$path" || ! -e "$path" ]] && {
+        echo "0"
+        return
+    }
     local result
     result=$(command du -sk "$path" 2> /dev/null | awk '{print $1}')
     echo "${result:-0}"

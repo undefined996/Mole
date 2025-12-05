@@ -32,6 +32,7 @@ setup() {
     run bash --noprofile --norc -c '
         set -euo pipefail
         PATH="/usr/bin:/bin"
+        unset MO_TIMEOUT_INITIALIZED MO_TIMEOUT_BIN
         source "'"$PROJECT_ROOT"'/lib/core/common.sh"
         run_with_timeout 1 sleep 0.1
     '
@@ -42,6 +43,7 @@ setup() {
     run bash --noprofile --norc -c '
         set -euo pipefail
         PATH="/usr/bin:/bin"
+        unset MO_TIMEOUT_INITIALIZED MO_TIMEOUT_BIN
         source "'"$PROJECT_ROOT"'/lib/core/common.sh"
         run_with_timeout 1 sleep 5
     '
