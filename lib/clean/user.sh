@@ -28,7 +28,7 @@ clean_user_essentials() {
             # Safely iterate and remove each item
             while IFS= read -r -d '' item; do
                 safe_remove "$item" true || true
-            done < <(command find "$volume/.Trashes" -mindepth 1 -maxdepth 1 -print0 2> /dev/null)
+            done < <(command find "$volume/.Trashes" -mindepth 1 -maxdepth 1 -print0 2> /dev/null || true)
         done
     fi
 

@@ -94,7 +94,7 @@ clean_service_worker_cache() {
             fi
             cleaned_size=$((cleaned_size + size))
         fi
-    done < <(command find "$cache_path" -type d -depth 2 2> /dev/null)
+    done < <(command find "$cache_path" -type d -depth 2 2> /dev/null || true)
 
     if [[ $cleaned_size -gt 0 ]]; then
         # Temporarily stop spinner for clean output

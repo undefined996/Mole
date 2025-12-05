@@ -52,7 +52,7 @@ clean_ds_store_tree() {
         if [[ $file_count -ge 500 ]]; then
             break
         fi
-    done < <("${find_cmd[@]}" 2> /dev/null)
+    done < <("${find_cmd[@]}" 2> /dev/null || true)
 
     if [[ "$spinner_active" == "true" ]]; then
         stop_inline_spinner
