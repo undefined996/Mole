@@ -385,8 +385,8 @@ main() {
         log_error "Invalid system health data format"
         echo -e "${YELLOW}Tip:${NC} Check if jq, awk, sysctl, and df commands are available"
         if [[ "${MO_DEBUG:-}" == "1" ]]; then
-            echo "DEBUG: Generated JSON:"
-            echo "$health_json"
+            debug_log "Generated JSON:"
+            debug_log "$health_json"
         fi
         exit 1
     fi
@@ -398,17 +398,13 @@ main() {
     # Show system health
     show_system_health "$health_json"
 
-    if [[ "${MO_DEBUG:-}" == "1" ]]; then
-        echo "DEBUG: System health displayed"
-    fi
+    debug_log "System health displayed"
 
     # Parse and display optimizations
     local -a safe_items=()
     local -a confirm_items=()
 
-    if [[ "${MO_DEBUG:-}" == "1" ]]; then
-        echo "DEBUG: Parsing optimizations..."
-    fi
+    debug_log "Parsing optimizations..."
 
     # Use temp file instead of process substitution to avoid hanging
     local opts_file
@@ -417,7 +413,7 @@ main() {
 
     if [[ "${MO_DEBUG:-}" == "1" ]]; then
         local opt_count=$(wc -l < "$opts_file" | tr -d ' ')
-        echo "DEBUG: Found $opt_count optimizations"
+        debug_log "Found $opt_count optimizations"
     fi
 
     while IFS= read -r opt_json; do
@@ -438,23 +434,16 @@ main() {
         fi
     done < "$opts_file"
 
-    if [[ "${MO_DEBUG:-}" == "1" ]]; then
-        echo "DEBUG: Parsing complete. Safe: ${#safe_items[@]}, Confirm: ${#confirm_items[@]}"
-    fi
+    debug_log "Parsing complete. Safe: ${#safe_items[@]}, Confirm: ${#confirm_items[@]}"
 
     # Execute all optimizations
     local first_heading=true
 
-    # Debug: show what we're about to do
-    if [[ "${MO_DEBUG:-}" == "1" ]]; then
-        echo "DEBUG: About to request sudo. Safe items: ${#safe_items[@]}, Confirm items: ${#confirm_items[@]}"
-    fi
+    debug_log "About to request sudo. Safe items: ${#safe_items[@]}, Confirm items: ${#confirm_items[@]}"
 
     ensure_sudo_session "System optimization requires admin access" || true
 
-    if [[ "${MO_DEBUG:-}" == "1" ]]; then
-        echo "DEBUG: Sudo session established or skipped"
-    fi
+    debug_log "Sudo session established or skipped"
 
     # Run safe optimizations
     if [[ ${#safe_items[@]} -gt 0 ]]; then

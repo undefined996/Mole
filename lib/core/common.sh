@@ -328,6 +328,13 @@ log_error() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1" >> "$LOG_FILE" 2> /dev/null || true
 }
 
+# Debug logging - only shown when MO_DEBUG=1
+debug_log() {
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        echo -e "${GRAY}[DEBUG]${NC} $*" >&2
+    fi
+}
+
 # Run command with optional error handling
 # Usage: run_silent command args...  # Ignore errors
 #        run_logged command args...  # Log errors but continue

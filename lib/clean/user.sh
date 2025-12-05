@@ -99,6 +99,7 @@ clean_sandboxed_app_caches() {
 
 # Clean browser caches (Safari, Chrome, Edge, Firefox, etc.)
 clean_browsers() {
+    debug_log "clean_browsers: Starting browser cache cleanup"
     safe_clean ~/Library/Caches/com.apple.Safari/* "Safari cache"
 
     # Chrome/Chromium
@@ -121,12 +122,16 @@ clean_browsers() {
 
     # Service Worker CacheStorage (all profiles)
     # Show loading indicator for potentially slow scan
+    debug_log "clean_browsers: Scanning for Service Worker caches"
     if [[ -t 1 ]]; then
         MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning browser Service Worker caches..."
     fi
 
-    # Scan for Service Worker caches with timeout protection
+    # Scan for Service Worker caches
+    # Use process substitution to avoid subshell issues with set -e
+    local sw_count=0
     while IFS= read -r sw_path; do
+        ((sw_count++))
         [[ -z "$sw_path" ]] && continue
         local profile_name=$(basename "$(dirname "$(dirname "$sw_path")")")
         local browser_name="Chrome"
@@ -135,7 +140,7 @@ clean_browsers() {
         [[ "$sw_path" == *"Arc"* ]] && browser_name="Arc"
         [[ "$profile_name" != "Default" ]] && browser_name="$browser_name ($profile_name)"
         clean_service_worker_cache "$browser_name" "$sw_path"
-    done < <(run_with_timeout 10 find "$HOME/Library/Application Support/Google/Chrome" \
+    done < <(find "$HOME/Library/Application Support/Google/Chrome" \
         "$HOME/Library/Application Support/Microsoft Edge" \
         "$HOME/Library/Application Support/BraveSoftware/Brave-Browser" \
         "$HOME/Library/Application Support/Arc/User Data" \
@@ -145,6 +150,7 @@ clean_browsers() {
     if [[ -t 1 ]]; then
         stop_inline_spinner
     fi
+    debug_log "clean_browsers: Found $sw_count Service Worker cache paths"
 }
 
 # Clean cloud storage app caches
