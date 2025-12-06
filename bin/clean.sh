@@ -868,7 +868,6 @@ perform_cleanup() {
     clean_time_machine_failed_backups
     end_section
 
-
     # ===== Final summary =====
     echo ""
 

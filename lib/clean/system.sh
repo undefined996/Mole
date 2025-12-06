@@ -60,15 +60,15 @@ clean_deep_system() {
     if [[ -d "/macOS Install Data" ]]; then
         local mtime=$(get_file_mtime "/macOS Install Data")
         local age_days=$((($(date +%s) - mtime) / 86400))
-        
+
         debug_log "Found macOS Install Data (age: ${age_days} days)"
-        
+
         if [[ $age_days -ge 30 ]]; then
             local size_kb=$(get_path_size_kb "/macOS Install Data")
             if [[ -n "$size_kb" && "$size_kb" -gt 0 ]]; then
                 local size_human=$(bytes_to_human "$((size_kb * 1024))")
                 debug_log "Cleaning macOS Install Data: $size_human (${age_days} days old)"
-                
+
                 if safe_sudo_remove "/macOS Install Data"; then
                     log_success "macOS Install Data ($size_human)"
                 fi
@@ -86,8 +86,8 @@ clean_deep_system() {
         if safe_remove "$cache_dir" true; then
             ((code_sign_cleaned++))
         fi
-    done < <(find /private/var/folders -type d -name "*.code_sign_clone" -path "*/X/*" -print0 2>/dev/null || true)
-    
+    done < <(find /private/var/folders -type d -name "*.code_sign_clone" -path "*/X/*" -print0 2> /dev/null || true)
+
     [[ $code_sign_cleaned -gt 0 ]] && log_success "Browser code signature caches ($code_sign_cleaned items)"
 
     # Clean system diagnostics logs

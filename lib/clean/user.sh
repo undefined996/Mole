@@ -205,12 +205,12 @@ clean_application_support_logs() {
     # Direct path access is fast and won't cause performance issues
     # Add new containers here as users report them
     local known_group_containers=(
-        "group.com.apple.contentdelivery"  # Issue #104: Can accumulate 4GB+ in Library/Logs/Transporter
+        "group.com.apple.contentdelivery" # Issue #104: Can accumulate 4GB+ in Library/Logs/Transporter
     )
-    
+
     for container in "${known_group_containers[@]}"; do
         local container_path="$HOME/Library/Group Containers/$container"
-        
+
         # Check both direct Logs and Library/Logs patterns
         if [[ -d "$container_path/Logs" ]]; then
             debug_log "Scanning Group Container: $container/Logs"
