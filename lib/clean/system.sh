@@ -54,6 +54,51 @@ clean_deep_system() {
 
     # Clean orphaned cask records (delegated to clean_brew module)
     clean_orphaned_casks
+
+    # Clean macOS Install Data (system upgrade leftovers)
+    # Only remove if older than 30 days to ensure system stability
+    if [[ -d "/macOS Install Data" ]]; then
+        local mtime=$(get_file_mtime "/macOS Install Data")
+        local age_days=$((($(date +%s) - mtime) / 86400))
+        
+        debug_log "Found macOS Install Data (age: ${age_days} days)"
+        
+        if [[ $age_days -ge 30 ]]; then
+            local size_kb=$(get_path_size_kb "/macOS Install Data")
+            if [[ -n "$size_kb" && "$size_kb" -gt 0 ]]; then
+                local size_human=$(bytes_to_human "$((size_kb * 1024))")
+                debug_log "Cleaning macOS Install Data: $size_human (${age_days} days old)"
+                
+                if safe_sudo_remove "/macOS Install Data"; then
+                    log_success "macOS Install Data ($size_human)"
+                fi
+            fi
+        else
+            debug_log "Keeping macOS Install Data (only ${age_days} days old, needs 30+)"
+        fi
+    fi
+
+    # Clean browser code signature caches
+    # These are regenerated automatically when needed
+    local code_sign_cleaned=0
+    while IFS= read -r -d '' cache_dir; do
+        debug_log "Found code sign cache: $cache_dir"
+        if safe_remove "$cache_dir" true; then
+            ((code_sign_cleaned++))
+        fi
+    done < <(find /private/var/folders -type d -name "*.code_sign_clone" -path "*/X/*" -print0 2>/dev/null || true)
+    
+    [[ $code_sign_cleaned -gt 0 ]] && log_success "Browser code signature caches ($code_sign_cleaned items)"
+
+    # Clean system diagnostics logs (older than 30 days)
+    safe_sudo_find_delete "/private/var/db/diagnostics/Special" "*" "$MOLE_LOG_AGE_DAYS" "f" || true
+    safe_sudo_find_delete "/private/var/db/diagnostics/Persist" "*" "$MOLE_LOG_AGE_DAYS" "f" || true
+    safe_sudo_find_delete "/private/var/db/DiagnosticPipeline" "*" "$MOLE_LOG_AGE_DAYS" "f" || true
+    log_success "Old system diagnostic logs (${MOLE_LOG_AGE_DAYS}+ days)"
+
+    # Clean power logs (older than 30 days)
+    safe_sudo_find_delete "/private/var/db/powerlog" "*" "$MOLE_LOG_AGE_DAYS" "f" || true
+    log_success "Old power logs (${MOLE_LOG_AGE_DAYS}+ days)"
 }
 
 # Clean Time Machine failed backups
