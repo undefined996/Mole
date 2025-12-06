@@ -26,7 +26,7 @@ Please run the command with `--debug` flag and paste the output here:
 
 ```bash
 mo <command> --debug
-# Example: mo clean --debug or mo clean --dry-run --debug
+# Example: mo clean --debug
 ```
 
 <details>

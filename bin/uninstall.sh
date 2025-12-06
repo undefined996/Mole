@@ -69,7 +69,6 @@ format_last_used_summary() {
 
 # Scan applications and collect information
 scan_applications() {
-    debug_log "scan_applications: Starting application scan"
     # Simplified cache: only check timestamp (24h TTL)
     local cache_dir="$HOME/.cache/mole"
     local cache_file="$cache_dir/app_scan_cache"
@@ -83,13 +82,9 @@ scan_applications() {
         [[ $cache_age -eq $(date +%s) ]] && cache_age=86401 # Handle missing file
         if [[ $cache_age -lt $cache_ttl ]]; then
             # Cache hit - return immediately
-            debug_log "scan_applications: Using cached app list (age: ${cache_age}s)"
             echo "$cache_file"
             return 0
         fi
-        debug_log "scan_applications: Cache expired (age: ${cache_age}s > ${cache_ttl}s)"
-    else
-        debug_log "scan_applications: No cache found, performing fresh scan"
     fi
 
     # Cache miss - show scanning feedback below

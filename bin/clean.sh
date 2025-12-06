@@ -177,7 +177,6 @@ start_section() {
     TRACK_SECTION=1
     SECTION_ACTIVITY=0
     CURRENT_SECTION="$1"
-    debug_log "Starting section: $1"
     echo ""
     echo -e "${PURPLE_BOLD}${ICON_ARROW} $1${NC}"
 
@@ -191,9 +190,6 @@ start_section() {
 end_section() {
     if [[ $TRACK_SECTION -eq 1 && $SECTION_ACTIVITY -eq 0 ]]; then
         echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Nothing to clean"
-        debug_log "End section: ${CURRENT_SECTION:-unknown} (no activity)"
-    else
-        debug_log "End section: ${CURRENT_SECTION:-unknown} (had activity: $SECTION_ACTIVITY)"
     fi
     TRACK_SECTION=0
 }
@@ -215,8 +211,6 @@ safe_clean() {
         # Get all arguments except last as targets array
         targets=("${@:1:$#-1}")
     fi
-
-    debug_log "safe_clean: description='$description', target_count=${#targets[@]}"
 
     local removed_any=0
     local total_size_bytes=0
@@ -253,6 +247,8 @@ safe_clean() {
         [[ "$skip" == "true" ]] && continue
         [[ -e "$path" ]] && existing_paths+=("$path")
     done
+
+    debug_log "Cleaning: $description (${#existing_paths[@]} items)"
 
     # Update global whitelist skip counter
     if [[ $skipped_count -gt 0 ]]; then
@@ -452,9 +448,6 @@ start_cleanup() {
     echo -e "${PURPLE_BOLD}Clean Your Mac${NC}"
     echo ""
 
-    debug_log "Starting cleanup process"
-    debug_log "DRY_RUN=$DRY_RUN, SYSTEM_CLEAN=$SYSTEM_CLEAN"
-
     if [[ "$DRY_RUN" != "true" && -t 0 ]]; then
         echo -e "${YELLOW}☻${NC} First time? Run ${GRAY}mo clean --dry-run${NC} first to preview changes"
     fi
@@ -463,7 +456,6 @@ start_cleanup() {
         echo -e "${YELLOW}Dry Run Mode${NC} - Preview only, no deletions"
         echo ""
         SYSTEM_CLEAN=false
-        debug_log "Dry run mode enabled"
 
         # Initialize export list file
         mkdir -p "$(dirname "$EXPORT_LIST_FILE")"
@@ -530,13 +522,6 @@ EOF
 
 perform_cleanup() {
     echo -e "${BLUE}${ICON_ADMIN}${NC} $(detect_architecture) | Free space: $(get_free_space)"
-
-    debug_log "Whitelist patterns loaded: ${#WHITELIST_PATTERNS[@]}"
-    if [[ "${MO_DEBUG:-}" == "1" && ${#WHITELIST_PATTERNS[@]} -gt 0 ]]; then
-        for pattern in "${WHITELIST_PATTERNS[@]}"; do
-            debug_log "  Whitelist: $pattern"
-        done
-    fi
 
     # Pre-check TCC permissions upfront (delegated to clean_caches module)
     check_tcc_permissions

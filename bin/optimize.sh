@@ -384,10 +384,6 @@ main() {
         echo ""
         log_error "Invalid system health data format"
         echo -e "${YELLOW}Tip:${NC} Check if jq, awk, sysctl, and df commands are available"
-        if [[ "${MO_DEBUG:-}" == "1" ]]; then
-            debug_log "Generated JSON:"
-            debug_log "$health_json"
-        fi
         exit 1
     fi
 
@@ -398,23 +394,14 @@ main() {
     # Show system health
     show_system_health "$health_json"
 
-    debug_log "System health displayed"
-
     # Parse and display optimizations
     local -a safe_items=()
     local -a confirm_items=()
-
-    debug_log "Parsing optimizations..."
 
     # Use temp file instead of process substitution to avoid hanging
     local opts_file
     opts_file=$(mktemp_file)
     parse_optimizations "$health_json" > "$opts_file"
-
-    if [[ "${MO_DEBUG:-}" == "1" ]]; then
-        local opt_count=$(wc -l < "$opts_file" | tr -d ' ')
-        debug_log "Found $opt_count optimizations"
-    fi
 
     while IFS= read -r opt_json; do
         [[ -z "$opt_json" ]] && continue
@@ -434,16 +421,10 @@ main() {
         fi
     done < "$opts_file"
 
-    debug_log "Parsing complete. Safe: ${#safe_items[@]}, Confirm: ${#confirm_items[@]}"
-
     # Execute all optimizations
     local first_heading=true
 
-    debug_log "About to request sudo. Safe items: ${#safe_items[@]}, Confirm items: ${#confirm_items[@]}"
-
     ensure_sudo_session "System optimization requires admin access" || true
-
-    debug_log "Sudo session established or skipped"
 
     # Run safe optimizations
     if [[ ${#safe_items[@]} -gt 0 ]]; then

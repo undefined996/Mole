@@ -48,7 +48,6 @@ decode_file_list() {
 # Args: $1 = bundle_id, $2 = has_system_files (true/false)
 stop_launch_services() {
     local bundle_id="$1"
-    debug_log "stop_launch_services: Stopping services for $bundle_id"
     local has_system_files="${2:-false}"
 
     # User-level Launch Agents

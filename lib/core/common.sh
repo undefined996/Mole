@@ -179,6 +179,8 @@ safe_remove() {
         return 0
     fi
 
+    debug_log "Removing: $path"
+
     # Perform the deletion (log only on error)
     if rm -rf "$path" 2> /dev/null; then
         return 0
@@ -209,6 +211,8 @@ safe_sudo_remove() {
         log_error "Refusing to sudo remove symlink: $path"
         return 1
     fi
+
+    debug_log "Removing (sudo): $path"
 
     # Perform the deletion (log only on error)
     if sudo rm -rf "$path" 2> /dev/null; then
@@ -245,6 +249,8 @@ safe_find_delete() {
     fi
 
     # Execute find with safety limits
+    debug_log "Finding in $base_dir: $pattern (age: ${age_days}d, type: $type_filter)"
+    
     command find "$base_dir" \
         -maxdepth 3 \
         -name "$pattern" \
@@ -281,6 +287,8 @@ safe_sudo_find_delete() {
     fi
 
     # Execute find with safety limits
+    debug_log "Finding (sudo) in $base_dir: $pattern (age: ${age_days}d, type: $type_filter)"
+    
     sudo command find "$base_dir" \
         -maxdepth 3 \
         -name "$pattern" \
@@ -332,7 +340,7 @@ log_error() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1" >> "$LOG_FILE" 2> /dev/null || true
 }
 
-# Debug logging - only shown when MO_DEBUG=1
+# Debug logging - shown when MO_DEBUG=1
 debug_log() {
     if [[ "${MO_DEBUG:-}" == "1" ]]; then
         echo -e "${GRAY}[DEBUG]${NC} $*" >&2
@@ -548,11 +556,7 @@ run_with_timeout() {
     local duration="${1:-0}"
     shift || true
 
-    if [[ ! "$duration" =~ ^[0-9]+$ ]]; then
-        duration=0
-    fi
-
-    if [[ "$duration" -le 0 ]]; then
+    if [[ ! "$duration" =~ ^[0-9]+$ ]] || [[ "$duration" -le 0 ]]; then
         "$@"
         return $?
     fi
@@ -565,40 +569,18 @@ run_with_timeout() {
     "$@" &
     local cmd_pid=$!
 
-    # Create temp marker to track timeout
-    local timeout_marker
-    timeout_marker=$(mktemp 2> /dev/null || echo "/tmp/mole-timeout-$$")
-
-    # Killer: sleep then kill command if still running
-    (
-        sleep "$duration"
-        if kill -0 "$cmd_pid" 2> /dev/null; then
-            echo "1" > "$timeout_marker" 2> /dev/null || true
-            kill -TERM "$cmd_pid" 2> /dev/null || true
-            sleep 0.5
-            kill -KILL "$cmd_pid" 2> /dev/null || true
-        fi
-    ) &
+    (sleep "$duration"; kill -TERM "$cmd_pid" 2> /dev/null || true) &
     local killer_pid=$!
 
-    # Wait for command to finish (disable errexit temporarily to prevent exit on wait failure)
     local exit_code
     set +e
     wait "$cmd_pid" 2> /dev/null
     exit_code=$?
     set -e
 
-    # Kill the killer if command finished early
     kill "$killer_pid" 2> /dev/null || true
     wait "$killer_pid" 2> /dev/null || true
 
-    # Check if timeout occurred
-    if [[ -f "$timeout_marker" ]] && [[ "$(cat "$timeout_marker" 2> /dev/null)" == "1" ]]; then
-        rm -f "$timeout_marker" 2> /dev/null || true
-        return 124
-    fi
-
-    rm -f "$timeout_marker" 2> /dev/null || true
     return "$exit_code"
 }
 

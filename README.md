@@ -65,7 +65,7 @@ mo --version            # Show installed version
 - Use `mo clean --whitelist` to manage protected caches.
 - Use `mo touchid` to approve sudo with Touch ID instead of typing your password.
 - Prefer Vim-style navigation? All menus understand `h/j/k/l` in addition to the arrow keys.
-- Run into issues? Enable debug mode with `--debug` flag for detailed logs: `mo clean --debug` or `mo clean --dry-run --debug`.
+- Run into issues? Use `--debug` flag to see detailed operation logs: `mo clean --debug`
 
 ## Features in Detail
 
@@ -194,7 +194,7 @@ For Raycast, reload by running `Reload Script Directories` or restarting Raycast
 
 - If Mole freed storage for you, consider starring the repo or sharing it with friends needing a cleaner Mac.
 - Have ideas or fixes? Open an issue or PR and help shape Mole's future together with the community.
-- Report bugs with debug logs by running `mo clean --debug` or `mo <command> --debug` and sharing the output in your issue.
+- Report bugs by running commands with `--debug` flag and sharing the output: `mo clean --debug`
 - Love cats? Treat Tangyuan and Cola to canned food via <a href="https://miaoyan.app/cats.html?name=Mole" target="_blank">this link</a> and keep the mascots purring.
 
 ## License

@@ -59,14 +59,12 @@ is_homebrew_install() {
 # Check for updates (non-blocking, always check in background)
 check_for_updates() {
     local msg_cache="$HOME/.cache/mole/update_message"
-    local debug_log="$HOME/.cache/mole/update_check_debug"
     mkdir -p "$(dirname "$msg_cache")" 2> /dev/null
 
     # Background version check (save to file, don't output)
     # Always check in background, display result from previous check
     (
         local latest
-        local check_method="github"
 
         # Use GitHub API for version check (works for both Homebrew and manual installs)
         # Try API first (faster and more reliable)
@@ -74,16 +72,12 @@ check_for_updates() {
         if [[ -z "$latest" ]]; then
             # Fallback to parsing mole script from raw GitHub
             latest=$(get_latest_version)
-            check_method="github-raw"
         fi
-        [[ -n "${MO_UPDATE_DEBUG:-}" ]] && echo "$(date): Checking via $check_method, got: $latest" >> "$debug_log"
 
         if [[ -n "$latest" && "$VERSION" != "$latest" && "$(printf '%s\n' "$VERSION" "$latest" | sort -V | head -1)" == "$VERSION" ]]; then
             printf "\nUpdate available: %s → %s, run %smo update%s\n\n" "$VERSION" "$latest" "$GREEN" "$NC" > "$msg_cache"
-            [[ -n "${MO_UPDATE_DEBUG:-}" ]] && echo "$(date): Update available ($check_method): $VERSION → $latest" >> "$debug_log"
         else
             echo -n > "$msg_cache"
-            [[ -n "${MO_UPDATE_DEBUG:-}" ]] && echo "$(date): No update needed ($check_method): $VERSION == $latest" >> "$debug_log"
         fi
     ) &
     disown 2> /dev/null || true
@@ -175,7 +169,7 @@ show_help() {
     printf "  %s%-28s%s %s\n" "$GREEN" "mo --help" "$NC" "Show help"
     echo
     printf "%s%s%s\n" "$BLUE" "OPTIONS" "$NC"
-    printf "  %s%-28s%s %s\n" "$GREEN" "--debug" "$NC" "Show detailed debug logs"
+    printf "  %s%-28s%s %s\n" "$GREEN" "--debug" "$NC" "Show detailed operation logs"
     echo
 }
 
@@ -675,7 +669,7 @@ interactive_main_menu() {
 }
 
 main() {
-    # Parse global flags from any position in arguments
+    # Parse global flags
     local -a args=()
     for arg in "$@"; do
         case "$arg" in
@@ -687,11 +681,6 @@ main() {
                 ;;
         esac
     done
-
-    # Show debug indicator if enabled
-    if [[ "${MO_DEBUG:-}" == "1" && -t 2 ]]; then
-        echo -e "${GRAY}[DEBUG MODE ENABLED]${NC}" >&2
-    fi
 
     case "${args[0]:-""}" in
         "optimize")
