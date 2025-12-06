@@ -1141,12 +1141,62 @@ with_spinner() {
 clean_tool_cache() {
     local label="$1"
     shift || true
+
+    # Calculate size before cleanup for statistics
+    # This improves "Space freed" reporting by including command-based cleanups
+    local size_before=0
+    local cache_dirs=()
+
+    # Detect cache directories based on tool name
+    case "$label" in
+        "npm cache")
+            cache_dirs=("$HOME/.npm/_cacache" "$HOME/.npm/_logs")
+            ;;
+        "pip cache")
+            cache_dirs=("$HOME/.cache/pip" "$HOME/Library/Caches/pip")
+            ;;
+        "Go cache")
+            cache_dirs=("$HOME/Library/Caches/go-build" "$HOME/go/pkg/mod/cache")
+            ;;
+        "Docker build cache")
+            # Docker cache size is calculated by docker itself, skip
+            ;;
+        "Homebrew")
+            cache_dirs=("$HOME/Library/Caches/Homebrew")
+            ;;
+    esac
+
+    # Calculate total size of cache directories
+    if [[ ${#cache_dirs[@]} -gt 0 ]]; then
+        for dir in "${cache_dirs[@]}"; do
+            if [[ -d "$dir" ]]; then
+                local dir_size=$(get_path_size_kb "$dir" 2>/dev/null || echo "0")
+                ((size_before += dir_size))
+            fi
+        done
+    fi
+
     if [[ "$DRY_RUN" == "true" ]]; then
-        echo -e "  ${YELLOW}→${NC} $label (would clean)"
+        if [[ $size_before -gt 0 ]]; then
+            local size_human=$(bytes_to_human "$((size_before * 1024))")
+            echo -e "  ${YELLOW}→${NC} $label ${YELLOW}($size_human dry)${NC}"
+            ((total_size_cleaned += size_before)) || true
+            ((total_items++)) || true
+        else
+            echo -e "  ${YELLOW}→${NC} $label (would clean)"
+        fi
         return 0
     fi
+
     if MOLE_SPINNER_PREFIX="  " with_spinner "$label" "$@"; then
-        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $label"
+        if [[ $size_before -gt 0 ]]; then
+            local size_human=$(bytes_to_human "$((size_before * 1024))")
+            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $label ${GREEN}($size_human)${NC}"
+            ((total_size_cleaned += size_before)) || true
+            ((total_items++)) || true
+        else
+            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $label"
+        fi
     else
         local exit_code=$?
         # Timeout returns 124, don't show error message (already shown by with_spinner)

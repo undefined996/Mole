@@ -4,19 +4,16 @@
 set -euo pipefail
 
 # Clean npm cache (command + directories)
+# npm cache clean clears official npm cache, safe_clean handles alternative package managers
 # Env: DRY_RUN
 clean_dev_npm() {
     if command -v npm > /dev/null 2>&1; then
-        if [[ "$DRY_RUN" != "true" ]]; then
-            clean_tool_cache "npm cache" npm cache clean --force
-        else
-            echo -e "  ${YELLOW}→${NC} npm cache (would clean)"
-        fi
+        # clean_tool_cache now calculates size before cleanup for better statistics
+        clean_tool_cache "npm cache" npm cache clean --force
         note_activity
     fi
 
-    safe_clean ~/.npm/_cacache/* "npm cache directory"
-    safe_clean ~/.npm/_logs/* "npm logs"
+    # Clean alternative package manager caches
     safe_clean ~/.tnpm/_cacache/* "tnpm cache directory"
     safe_clean ~/.tnpm/_logs/* "tnpm logs"
     safe_clean ~/.yarn/cache/* "Yarn cache"
@@ -24,19 +21,16 @@ clean_dev_npm() {
 }
 
 # Clean Python/pip cache (command + directories)
+# pip cache purge clears official pip cache, safe_clean handles other Python tools
 # Env: DRY_RUN
 clean_dev_python() {
     if command -v pip3 > /dev/null 2>&1; then
-        if [[ "$DRY_RUN" != "true" ]]; then
-            clean_tool_cache "pip cache" bash -c 'pip3 cache purge >/dev/null 2>&1 || true'
-        else
-            echo -e "  ${YELLOW}→${NC} pip cache (would clean)"
-        fi
+        # clean_tool_cache now calculates size before cleanup for better statistics
+        clean_tool_cache "pip cache" bash -c 'pip3 cache purge >/dev/null 2>&1 || true'
         note_activity
     fi
 
-    safe_clean ~/.cache/pip/* "pip cache directory"
-    safe_clean ~/Library/Caches/pip/* "pip cache (macOS)"
+    # Clean Python ecosystem caches
     safe_clean ~/.pyenv/cache/* "pyenv cache"
     safe_clean ~/.cache/poetry/* "Poetry cache"
     safe_clean ~/.cache/uv/* "uv cache"
@@ -53,19 +47,14 @@ clean_dev_python() {
 }
 
 # Clean Go cache (command + directories)
+# go clean handles build and module caches comprehensively
 # Env: DRY_RUN
 clean_dev_go() {
     if command -v go > /dev/null 2>&1; then
-        if [[ "$DRY_RUN" != "true" ]]; then
-            clean_tool_cache "Go cache" bash -c 'go clean -modcache >/dev/null 2>&1 || true; go clean -cache >/dev/null 2>&1 || true'
-        else
-            echo -e "  ${YELLOW}→${NC} Go cache (would clean)"
-        fi
+        # clean_tool_cache now calculates size before cleanup for better statistics
+        clean_tool_cache "Go cache" bash -c 'go clean -modcache >/dev/null 2>&1 || true; go clean -cache >/dev/null 2>&1 || true'
         note_activity
     fi
-
-    safe_clean ~/Library/Caches/go-build/* "Go build cache"
-    safe_clean ~/go/pkg/mod/cache/* "Go module cache"
 }
 
 # Clean Rust/cargo cache directories
@@ -137,6 +126,9 @@ clean_dev_frontend() {
 }
 
 # Clean mobile development tools
+# iOS simulator cleanup can free significant space (70GB+ in some cases)
+# DeviceSupport files accumulate for each iOS version connected
+# Simulator runtime caches can grow large over time
 clean_dev_mobile() {
     # Clean Xcode unavailable simulators
     # Removes old and unused local iOS simulator data from old unused runtimes
@@ -147,12 +139,23 @@ clean_dev_mobile() {
         note_activity
     fi
 
+    # Clean iOS DeviceSupport - more comprehensive cleanup
+    # DeviceSupport directories store debug symbols for each iOS version
+    # Safe to clean caches and logs, but preserve device support files themselves
+    safe_clean ~/Library/Developer/Xcode/iOS\ DeviceSupport/*/Symbols/System/Library/Caches/* "iOS device symbol cache"
+    safe_clean ~/Library/Developer/Xcode/iOS\ DeviceSupport/*.log "iOS device support logs"
+    safe_clean ~/Library/Developer/Xcode/watchOS\ DeviceSupport/*/Symbols/System/Library/Caches/* "watchOS device symbol cache"
+    safe_clean ~/Library/Developer/Xcode/tvOS\ DeviceSupport/*/Symbols/System/Library/Caches/* "tvOS device symbol cache"
+
+    # Clean simulator runtime caches
+    # RuntimeRoot caches can accumulate system library caches
+    safe_clean ~/Library/Developer/CoreSimulator/Profiles/Runtimes/*/Contents/Resources/RuntimeRoot/System/Library/Caches/* "Simulator runtime cache"
+
     safe_clean ~/Library/Caches/Google/AndroidStudio*/* "Android Studio cache"
     safe_clean ~/Library/Caches/CocoaPods/* "CocoaPods cache"
     safe_clean ~/.cache/flutter/* "Flutter cache"
     safe_clean ~/.android/build-cache/* "Android build cache"
     safe_clean ~/.android/cache/* "Android SDK cache"
-    safe_clean ~/Library/Developer/Xcode/iOS\ DeviceSupport/*/Symbols/System/Library/Caches/* "iOS device cache"
     safe_clean ~/Library/Developer/Xcode/UserData/IB\ Support/* "Xcode Interface Builder cache"
     safe_clean ~/.cache/swift-package-manager/* "Swift package manager cache"
 }

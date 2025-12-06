@@ -5,14 +5,31 @@
 set -euo pipefail
 
 # Clean Xcode and iOS development tools
+# Archives can be significant in size (app packaging files)
+# DeviceSupport files for old iOS versions can accumulate
+# Note: Skips critical files if Xcode is running
 clean_xcode_tools() {
-    safe_clean ~/Library/Developer/Xcode/DerivedData/* "Xcode derived data"
+    # Check if Xcode is running for safer cleanup of critical resources
+    local xcode_running=false
+    if pgrep -x "Xcode" > /dev/null 2>&1; then
+        xcode_running=true
+    fi
+
+    # Safe to clean regardless of Xcode state
     safe_clean ~/Library/Developer/CoreSimulator/Caches/* "Simulator cache"
     safe_clean ~/Library/Developer/CoreSimulator/Devices/*/data/tmp/* "Simulator temp files"
     safe_clean ~/Library/Caches/com.apple.dt.Xcode/* "Xcode cache"
     safe_clean ~/Library/Developer/Xcode/iOS\ Device\ Logs/* "iOS device logs"
     safe_clean ~/Library/Developer/Xcode/watchOS\ Device\ Logs/* "watchOS device logs"
     safe_clean ~/Library/Developer/Xcode/Products/* "Xcode build products"
+
+    # Clean build artifacts only if Xcode is not running
+    if [[ "$xcode_running" == "false" ]]; then
+        safe_clean ~/Library/Developer/Xcode/DerivedData/* "Xcode derived data"
+        safe_clean ~/Library/Developer/Xcode/Archives/* "Xcode archives"
+    else
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Xcode is running, skipping DerivedData and Archives cleanup"
+    fi
 }
 
 # Clean code editors (VS Code, Sublime, etc.)
