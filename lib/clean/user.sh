@@ -201,8 +201,26 @@ clean_application_support_logs() {
         # These are covered by browser-specific cleaning in clean_browsers()
     done
 
-    # DISABLED: Group Containers log scanning (find operation can hang)
-    # Group container logs are usually minimal, skipping for performance
+    # Clean Group Containers logs - only scan known containers to avoid hanging
+    # Direct path access is fast and won't cause performance issues
+    # Add new containers here as users report them
+    local known_group_containers=(
+        "group.com.apple.contentdelivery"  # Issue #104: Can accumulate 4GB+ in Library/Logs/Transporter
+    )
+    
+    for container in "${known_group_containers[@]}"; do
+        local container_path="$HOME/Library/Group Containers/$container"
+        
+        # Check both direct Logs and Library/Logs patterns
+        if [[ -d "$container_path/Logs" ]]; then
+            debug_log "Scanning Group Container: $container/Logs"
+            safe_clean "$container_path/Logs"/* "Group container logs: $container"
+        fi
+        if [[ -d "$container_path/Library/Logs" ]]; then
+            debug_log "Scanning Group Container: $container/Library/Logs"
+            safe_clean "$container_path/Library/Logs"/* "Group container logs: $container"
+        fi
+    done
 }
 
 # Check and show iOS device backup info

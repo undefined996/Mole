@@ -142,6 +142,7 @@ clean_dev_mobile() {
     # Removes old and unused local iOS simulator data from old unused runtimes
     # Can free up significant space (70GB+ in some cases)
     if command -v xcrun > /dev/null 2>&1; then
+        debug_log "Checking for unavailable Xcode simulators"
         clean_tool_cache "Xcode unavailable simulators" xcrun simctl delete unavailable
         note_activity
     fi
