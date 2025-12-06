@@ -100,7 +100,7 @@ clean_orphaned_app_data() {
 
     for app_dir in "${app_dirs[@]}"; do
         [[ -d "$app_dir" ]] || continue
-        find "$app_dir" -name "*.app" -maxdepth 3 -type d 2> /dev/null | while IFS= read -r app_path; do
+        run_with_timeout 10 sh -c "find '$app_dir' -name '*.app' -maxdepth 3 -type d 2> /dev/null" | while IFS= read -r app_path; do
             local bundle_id
             bundle_id=$(defaults read "$app_path/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "")
             [[ -n "$bundle_id" ]] && echo "$bundle_id"

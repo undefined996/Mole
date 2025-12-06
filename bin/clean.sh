@@ -277,17 +277,9 @@ safe_clean() {
         for path in "${existing_paths[@]}"; do
             (
                 local size
-                # Get size quickly with depth limit
                 size=$(get_path_size_kb "$path")
-                [[ -z "$size" || ! "$size" =~ ^[0-9]+$ ]] && size=0
                 local count
-                # Quick file count - limit for performance
-                if [[ "$size" -gt 0 ]]; then
-                    count=$(find "$path" -type f 2> /dev/null | head -1000 | wc -l | tr -d ' ')
-                    [[ -z "$count" || ! "$count" =~ ^[0-9]+$ ]] && count=0
-                else
-                    count=0
-                fi
+                count=$(find "$path" -type f 2> /dev/null | wc -l | tr -d ' ')
                 # Use index + PID for unique filename
                 local tmp_file="$temp_dir/result_${idx}.$$"
                 echo "$size $count" > "$tmp_file"
@@ -343,17 +335,10 @@ safe_clean() {
         if [[ -t 1 ]]; then MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning $total_paths items..."; fi
 
         for path in "${existing_paths[@]}"; do
-            local size_bytes count
-            # Get size quickly with depth limit
+            local size_bytes
             size_bytes=$(get_path_size_kb "$path")
-            [[ -z "$size_bytes" || ! "$size_bytes" =~ ^[0-9]+$ ]] && size_bytes=0
-            # Quick file count for display - limit for performance
-            if [[ "$size_bytes" -gt 0 ]]; then
-                count=$(find "$path" -type f 2> /dev/null | head -1000 | wc -l | tr -d ' ')
-                [[ -z "$count" || ! "$count" =~ ^[0-9]+$ ]] && count=0
-            else
-                count=0
-            fi
+            local count
+            count=$(find "$path" -type f 2> /dev/null | wc -l | tr -d ' ')
 
             if [[ "$count" -gt 0 && "$size_bytes" -gt 0 ]]; then
                 if [[ "$DRY_RUN" != "true" ]]; then
@@ -704,21 +689,24 @@ perform_cleanup() {
             "$HOME/Applications"
         )
 
-        # Scan for .app bundles - optimized with PlistBuddy and xargs
+        # Scan for .app bundles with timeout protection
         for search_path in "${search_paths[@]}"; do
             [[ -d "$search_path" ]] || continue
-            find "$search_path" -maxdepth 3 -name "Info.plist" -path "*/Contents/Info.plist" 2> /dev/null |
-                xargs -I {} /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" {} 2> /dev/null |
-                grep -v "^$" >> "$installed_bundles" || true
+            while IFS= read -r app; do
+                [[ -f "$app/Contents/Info.plist" ]] || continue
+                bundle_id=$(defaults read "$app/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "")
+                [[ -n "$bundle_id" ]] && echo "$bundle_id" >> "$installed_bundles"
+            done < <(run_with_timeout 10 find "$search_path" -maxdepth 2 -type d -name "*.app" 2> /dev/null || true)
         done
 
-        # Get running applications - timeout protection for osascript
-        run_with_timeout 5 osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null |
-            tr ',' '\n' | sed -e 's/^ *//;s/ *$//' -e '/^$/d' >> "$installed_bundles" || true
+        # Get running applications and LaunchAgents with timeout protection
+        local running_apps=$(run_with_timeout 5 osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null || echo "")
+        echo "$running_apps" | tr ',' '\n' | sed -e 's/^ *//;s/ *$//' -e '/^$/d' >> "$installed_bundles"
 
-        # Get LaunchAgents
-        find ~/Library/LaunchAgents /Library/LaunchAgents -name "*.plist" -type f 2> /dev/null |
-            xargs -I {} basename {} .plist >> "$installed_bundles" 2> /dev/null || true
+        run_with_timeout 5 find ~/Library/LaunchAgents /Library/LaunchAgents \
+            -name "*.plist" -type f 2> /dev/null | while IFS= read -r plist; do
+            basename "$plist" .plist
+        done >> "$installed_bundles" 2> /dev/null || true
 
         # Deduplicate
         sort -u "$installed_bundles" -o "$installed_bundles"

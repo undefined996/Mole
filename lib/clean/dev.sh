@@ -81,11 +81,17 @@ clean_dev_rust() {
 clean_dev_docker() {
     if command -v docker > /dev/null 2>&1; then
         if [[ "$DRY_RUN" != "true" ]]; then
-            clean_tool_cache "Docker build cache" docker builder prune -af
+            # Check if Docker daemon is running (with timeout to prevent hanging)
+            if run_with_timeout 3 docker info > /dev/null 2>&1; then
+                clean_tool_cache "Docker build cache" docker builder prune -af
+            else
+                note_activity
+                echo -e "  ${GRAY}${ICON_SUCCESS}${NC} Docker build cache (daemon not running)"
+            fi
         else
+            note_activity
             echo -e "  ${YELLOW}→${NC} Docker build cache (would clean)"
         fi
-        note_activity
     fi
 
     safe_clean ~/.docker/buildx/cache/* "Docker BuildX cache"

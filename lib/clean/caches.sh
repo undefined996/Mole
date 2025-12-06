@@ -67,7 +67,7 @@ clean_service_worker_cache() {
     local cleaned_size=0
     local protected_count=0
 
-    # Find all cache directories and calculate sizes
+    # Find all cache directories and calculate sizes with timeout protection
     while IFS= read -r cache_dir; do
         [[ ! -d "$cache_dir" ]] && continue
 
@@ -75,7 +75,7 @@ clean_service_worker_cache() {
         # Pattern matches: letters/numbers, hyphens, then dot, then TLD
         # Example: "abc123_https_example.com_0" → "example.com"
         local domain=$(basename "$cache_dir" | grep -oE '[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}' | head -1 || echo "")
-        local size=$(get_path_size_kb "$cache_dir")
+        local size=$(run_with_timeout 5 get_path_size_kb "$cache_dir")
 
         # Check if domain is protected
         local is_protected=false
@@ -94,7 +94,7 @@ clean_service_worker_cache() {
             fi
             cleaned_size=$((cleaned_size + size))
         fi
-    done < <(command find "$cache_path" -type d -depth 2 2> /dev/null || true)
+    done < <(run_with_timeout 10 sh -c "find '$cache_path' -type d -depth 2 2> /dev/null || true")
 
     if [[ $cleaned_size -gt 0 ]]; then
         # Temporarily stop spinner for clean output

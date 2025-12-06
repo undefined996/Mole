@@ -47,7 +47,7 @@ clean_broken_preferences() {
 
         ((broken_count++))
         ((total_size_kb += size_kb))
-    done < <(command find "$prefs_dir" -maxdepth 1 -name "*.plist" -type f 2> /dev/null || true)
+    done < <(run_with_timeout 10 sh -c "find '$prefs_dir' -maxdepth 1 -name '*.plist' -type f 2> /dev/null || true")
 
     # Check ByHost preferences with timeout protection
     local byhost_dir="$prefs_dir/ByHost"
@@ -66,13 +66,13 @@ clean_broken_preferences() {
             plutil -lint "$plist_file" > /dev/null 2>&1 && continue
 
             local size_kb
-            size_kb=$(get_path_size_kb "$plist_file")
+            size_kb=$(run_with_timeout 5 get_path_size_kb "$plist_file")
 
             [[ "$DRY_RUN" != "true" ]] && rm -f "$plist_file" 2> /dev/null || true
 
             ((broken_count++))
             ((total_size_kb += size_kb))
-        done < <(command find "$byhost_dir" -name "*.plist" -type f 2> /dev/null || true)
+        done < <(run_with_timeout 10 sh -c "find '$byhost_dir' -name '*.plist' -type f 2> /dev/null || true")
     fi
 
     if [[ -t 1 ]]; then
@@ -148,7 +148,7 @@ clean_broken_login_items() {
 
         ((broken_count++))
         ((total_size_kb += size_kb))
-    done < <(command find "$launch_agents_dir" -name "*.plist" -type f 2> /dev/null || true)
+    done < <(run_with_timeout 10 sh -c "find '$launch_agents_dir' -name '*.plist' -type f 2> /dev/null || true")
 
     if [[ -t 1 ]]; then
         stop_inline_spinner

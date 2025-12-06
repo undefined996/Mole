@@ -11,27 +11,19 @@ clean_deep_system() {
     safe_sudo_find_delete "/Library/Caches" "*.tmp" "$MOLE_TEMP_FILE_AGE_DAYS" "f" || true
     safe_sudo_find_delete "/Library/Caches" "*.log" "$MOLE_LOG_AGE_DAYS" "f" || true
 
-    # Clean old temp files
+    # Clean old temp files - use real paths (macOS /tmp is symlink to /private/tmp)
     local tmp_cleaned=0
-    local tmp_count=$(sudo find /tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
-    if [[ "$tmp_count" -gt 0 ]]; then
-        safe_sudo_find_delete "/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f" || true
-        tmp_cleaned=1
-    fi
-    local var_tmp_count=$(sudo find /var/tmp -type f -mtime +"${MOLE_TEMP_FILE_AGE_DAYS}" 2> /dev/null | wc -l | tr -d ' ')
-    if [[ "$var_tmp_count" -gt 0 ]]; then
-        safe_sudo_find_delete "/var/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f" || true
-        tmp_cleaned=1
-    fi
+    safe_sudo_find_delete "/private/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f" && tmp_cleaned=1 || true
+    safe_sudo_find_delete "/private/var/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f" && tmp_cleaned=1 || true
     [[ $tmp_cleaned -eq 1 ]] && log_success "Old system temp files (${MOLE_TEMP_FILE_AGE_DAYS}+ days)"
 
     # Clean crash reports
     safe_sudo_find_delete "/Library/Logs/DiagnosticReports" "*" "$MOLE_CRASH_REPORT_AGE_DAYS" "f" || true
     log_success "Old system crash reports (${MOLE_CRASH_REPORT_AGE_DAYS}+ days)"
 
-    # Clean system logs
-    safe_sudo_find_delete "/var/log" "*.log" "$MOLE_LOG_AGE_DAYS" "f" || true
-    safe_sudo_find_delete "/var/log" "*.gz" "$MOLE_LOG_AGE_DAYS" "f" || true
+    # Clean system logs - use real path (macOS /var is symlink to /private/var)
+    safe_sudo_find_delete "/private/var/log" "*.log" "$MOLE_LOG_AGE_DAYS" "f" || true
+    safe_sudo_find_delete "/private/var/log" "*.gz" "$MOLE_LOG_AGE_DAYS" "f" || true
     log_success "Old system logs (${MOLE_LOG_AGE_DAYS}+ days)"
 
     # Clean Library Updates safely - skip if SIP is enabled to avoid error messages
@@ -42,7 +34,7 @@ clean_deep_system() {
             # These files are system-protected and cannot be removed
             : # No-op, silently skip
         else
-            # SIP is disabled, attempt cleanup with restricted flag check and timeout protection
+            # SIP is disabled, attempt cleanup with restricted flag check
             local updates_cleaned=0
             while IFS= read -r -d '' item; do
                 # Skip system-protected files (restricted flag)
@@ -55,7 +47,7 @@ clean_deep_system() {
                 if safe_sudo_remove "$item"; then
                     ((updates_cleaned++))
                 fi
-            done < <(command find /Library/Updates -mindepth 1 -maxdepth 1 -print0 2> /dev/null || true)
+            done < <(find /Library/Updates -mindepth 1 -maxdepth 1 -print0 2> /dev/null || true)
             [[ $updates_cleaned -gt 0 ]] && log_success "System library updates"
         fi
     fi
