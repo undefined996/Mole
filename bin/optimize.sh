@@ -8,6 +8,7 @@ source "$SCRIPT_DIR/lib/core/common.sh"
 source "$SCRIPT_DIR/lib/core/sudo.sh"
 source "$SCRIPT_DIR/lib/manage/update.sh"
 source "$SCRIPT_DIR/lib/manage/autofix.sh"
+source "$SCRIPT_DIR/lib/optimize/maintenance.sh"
 source "$SCRIPT_DIR/lib/optimize/tasks.sh"
 
 # Load check modules

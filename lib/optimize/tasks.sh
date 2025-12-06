@@ -385,6 +385,36 @@ opt_developer_cleanup() {
     echo -e "${GREEN}${ICON_SUCCESS}${NC} Developer caches cleaned"
 }
 
+# Fix broken system configurations
+# Repairs corrupted preference files and broken login items
+opt_fix_broken_configs() {
+    local broken_prefs=0
+    local broken_items=0
+
+    # Fix broken preferences
+    echo -e "${BLUE}${ICON_ARROW}${NC} Checking preference files..."
+    broken_prefs=$(fix_broken_preferences)
+    if [[ $broken_prefs -gt 0 ]]; then
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} Fixed $broken_prefs broken preference files"
+    else
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} All preference files valid"
+    fi
+
+    # Fix broken login items
+    echo -e "${BLUE}${ICON_ARROW}${NC} Checking login items..."
+    broken_items=$(fix_broken_login_items)
+    if [[ $broken_items -gt 0 ]]; then
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} Removed $broken_items broken login items"
+    else
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} All login items valid"
+    fi
+
+    local total=$((broken_prefs + broken_items))
+    if [[ $total -gt 0 ]]; then
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} System configuration repaired"
+    fi
+}
+
 # Execute optimization by action name
 execute_optimization() {
     local action="$1"
@@ -404,6 +434,7 @@ execute_optimization() {
         startup_cache) opt_startup_cache ;;
         local_snapshots) opt_local_snapshots ;;
         developer_cleanup) opt_developer_cleanup ;;
+        fix_broken_configs) opt_fix_broken_configs ;;
         *)
             echo -e "${RED}${ICON_ERROR}${NC} Unknown action: $action"
             return 1
@@ -652,6 +683,8 @@ EOF
     item=$(check_local_snapshots || true)
     [[ -n "$item" ]] && items+=("$item")
     item=$(check_developer_cleanup || true)
+    [[ -n "$item" ]] && items+=("$item")
+    item=$(check_broken_configs || true)
     [[ -n "$item" ]] && items+=("$item")
 
     # Output items as JSON

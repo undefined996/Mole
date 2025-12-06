@@ -19,7 +19,6 @@ source "$SCRIPT_DIR/../lib/clean/dev.sh"
 source "$SCRIPT_DIR/../lib/clean/app_caches.sh"
 source "$SCRIPT_DIR/../lib/clean/system.sh"
 source "$SCRIPT_DIR/../lib/clean/user.sh"
-source "$SCRIPT_DIR/../lib/clean/maintenance.sh"
 
 # Configuration
 SYSTEM_CLEAN=false
@@ -869,11 +868,6 @@ perform_cleanup() {
     clean_time_machine_failed_backups
     end_section
 
-    # ===== 16. System maintenance =====
-    start_section "System maintenance"
-    # Broken preferences and login items cleanup (delegated to clean_maintenance module)
-    clean_maintenance
-    end_section
 
     # ===== Final summary =====
     echo ""
