@@ -1800,10 +1800,11 @@ bundle_matches_pattern() {
 
     [[ -z "$pattern" ]] && return 1
 
-    # shellcheck disable=SC2254  # allow glob pattern matching for bundle rules
-    case "$bundle_id" in
-        $pattern) return 0 ;;
-    esac
+    # Use bash [[  ]] for glob pattern matching (works with variables in bash 3.2+)
+    # shellcheck disable=SC2053  # allow glob pattern matching
+    if [[ "$bundle_id" == $pattern ]]; then
+        return 0
+    fi
     return 1
 }
 

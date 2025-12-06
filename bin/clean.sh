@@ -230,6 +230,17 @@ safe_clean() {
                 ;;
         esac
 
+        # Protect system app containers from accidental cleanup
+        # Extract bundle ID from ~/Library/Containers/<bundle_id>/... paths
+        if [[ "$path" == */Library/Containers/* ]] && [[ "$path" =~ /Library/Containers/([^/]+)/ ]]; then
+            local container_bundle_id="${BASH_REMATCH[1]}"
+            if should_protect_data "$container_bundle_id"; then
+                debug_log "Protecting system container: $container_bundle_id"
+                skip=true
+                ((skipped_count++))
+            fi
+        fi
+
         [[ "$skip" == "true" ]] && continue
 
         # Check user-defined whitelist
