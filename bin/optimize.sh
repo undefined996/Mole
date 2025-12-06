@@ -121,8 +121,8 @@ show_system_health() {
     uptime=${uptime:-0}
 
     # Compact one-line format with icon
-    printf "${ICON_ADMIN} System  %.0f/%.0f GB RAM | %.0f/%.0f GB Disk (%.0f%%) | Uptime %.0fd\n" \
-        "$mem_used" "$mem_total" "$disk_used" "$disk_total" "$disk_percent" "$uptime"
+    printf "${ICON_ADMIN} System  %.0f/%.0f GB RAM | %.0f/%.0f GB Disk | Uptime %.0fd\n" \
+        "$mem_used" "$mem_total" "$disk_used" "$disk_total" "$uptime"
     echo ""
 }
 

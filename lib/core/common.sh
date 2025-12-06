@@ -1248,7 +1248,8 @@ get_path_size_kb() {
         return
     }
     local result
-    result=$(command du -sk "$path" 2> /dev/null | awk '{print $1}')
+    # Timeout protection: prevent du from hanging on large directories
+    result=$(run_with_timeout 5 sh -c "command du -sk \"$path\" 2> /dev/null | awk '{print \$1}'")
     echo "${result:-0}"
 }
 

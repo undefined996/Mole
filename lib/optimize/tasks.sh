@@ -662,7 +662,7 @@ EOF
     # Collect all optimization items
     local -a items=()
 
-    # Always-on items
+    # Always-on items (no size checks - instant)
     items+=('system_maintenance|System Maintenance|Rebuild system databases & flush caches|true')
     items+=('maintenance_scripts|Maintenance Scripts|Run daily/weekly/monthly scripts & rotate logs|true')
     items+=('radio_refresh|Bluetooth & Wi-Fi Refresh|Reset wireless preference caches|true')
@@ -670,22 +670,22 @@ EOF
     items+=('log_cleanup|Diagnostics Cleanup|Purge old diagnostic & crash logs|true')
     items+=('startup_cache|Startup Cache Rebuild|Rebuild kext caches & prelinked kernel|true')
 
-    # Conditional items
-    local item
-    item=$(check_cache_refresh || true)
-    [[ -n "$item" ]] && items+=("$item")
-    item=$(check_mail_downloads || true)
-    [[ -n "$item" ]] && items+=("$item")
-    item=$(check_saved_state || true)
-    [[ -n "$item" ]] && items+=("$item")
-    item=$(check_swap_cleanup || true)
-    [[ -n "$item" ]] && items+=("$item")
-    item=$(check_local_snapshots || true)
-    [[ -n "$item" ]] && items+=("$item")
-    item=$(check_developer_cleanup || true)
-    [[ -n "$item" ]] && items+=("$item")
-    item=$(check_broken_configs || true)
-    [[ -n "$item" ]] && items+=("$item")
+    # Skip conditional checks - they require du which is slow
+    # Users will see actual results when optimization runs
+    # item=$(check_cache_refresh || true)
+    # [[ -n "$item" ]] && items+=("$item")
+    # item=$(check_mail_downloads || true)
+    # [[ -n "$item" ]] && items+=("$item")
+    # item=$(check_saved_state || true)
+    # [[ -n "$item" ]] && items+=("$item")
+    # item=$(check_swap_cleanup || true)
+    # [[ -n "$item" ]] && items+=("$item")
+    # item=$(check_local_snapshots || true)
+    # [[ -n "$item" ]] && items+=("$item")
+    # item=$(check_developer_cleanup || true)
+    # [[ -n "$item" ]] && items+=("$item")
+    # item=$(check_broken_configs || true)
+    # [[ -n "$item" ]] && items+=("$item")
 
     # Output items as JSON
     local first=true
