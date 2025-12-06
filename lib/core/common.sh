@@ -38,12 +38,12 @@ readonly ICON_NAV_LEFT="←"
 readonly ICON_NAV_RIGHT="→"
 
 # Global configuration constants
-readonly MOLE_TEMP_FILE_AGE_DAYS=7       # Temp file cleanup threshold
+readonly MOLE_TEMP_FILE_AGE_DAYS=0       # Temp file cleanup threshold (0 = all)
 readonly MOLE_ORPHAN_AGE_DAYS=60         # Orphaned data threshold
 readonly MOLE_MAX_PARALLEL_JOBS=15       # Parallel job limit
 readonly MOLE_MAIL_DOWNLOADS_MIN_KB=5120 # Mail attachments size threshold (~5MB)
-readonly MOLE_LOG_AGE_DAYS=30            # System log retention
-readonly MOLE_CRASH_REPORT_AGE_DAYS=30   # Crash report retention
+readonly MOLE_LOG_AGE_DAYS=0             # System log retention (0 = all)
+readonly MOLE_CRASH_REPORT_AGE_DAYS=0    # Crash report retention (0 = all)
 readonly MOLE_SAVED_STATE_AGE_DAYS=7     # App saved state retention
 readonly MOLE_TM_BACKUP_SAFE_HOURS=48    # Time Machine failed backup safety window
 
@@ -250,13 +250,22 @@ safe_find_delete() {
 
     # Execute find with safety limits
     debug_log "Finding in $base_dir: $pattern (age: ${age_days}d, type: $type_filter)"
-    
-    command find "$base_dir" \
-        -maxdepth 3 \
-        -name "$pattern" \
-        -type "$type_filter" \
-        -mtime "+$age_days" \
-        -delete 2> /dev/null || true
+
+    # When age_days is 0, delete all matching files without time restriction
+    if [[ "$age_days" -eq 0 ]]; then
+        command find "$base_dir" \
+            -maxdepth 3 \
+            -name "$pattern" \
+            -type "$type_filter" \
+            -delete 2> /dev/null || true
+    else
+        command find "$base_dir" \
+            -maxdepth 3 \
+            -name "$pattern" \
+            -type "$type_filter" \
+            -mtime "+$age_days" \
+            -delete 2> /dev/null || true
+    fi
 
     return 0
 }
@@ -288,13 +297,22 @@ safe_sudo_find_delete() {
 
     # Execute find with safety limits
     debug_log "Finding (sudo) in $base_dir: $pattern (age: ${age_days}d, type: $type_filter)"
-    
-    sudo command find "$base_dir" \
-        -maxdepth 3 \
-        -name "$pattern" \
-        -type "$type_filter" \
-        -mtime "+$age_days" \
-        -delete 2> /dev/null || true
+
+    # When age_days is 0, delete all matching files without time restriction
+    if [[ "$age_days" -eq 0 ]]; then
+        sudo command find "$base_dir" \
+            -maxdepth 3 \
+            -name "$pattern" \
+            -type "$type_filter" \
+            -delete 2> /dev/null || true
+    else
+        sudo command find "$base_dir" \
+            -maxdepth 3 \
+            -name "$pattern" \
+            -type "$type_filter" \
+            -mtime "+$age_days" \
+            -delete 2> /dev/null || true
+    fi
 
     return 0
 }

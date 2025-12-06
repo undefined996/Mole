@@ -11,20 +11,20 @@ clean_deep_system() {
     safe_sudo_find_delete "/Library/Caches" "*.tmp" "$MOLE_TEMP_FILE_AGE_DAYS" "f" || true
     safe_sudo_find_delete "/Library/Caches" "*.log" "$MOLE_LOG_AGE_DAYS" "f" || true
 
-    # Clean old temp files - use real paths (macOS /tmp is symlink to /private/tmp)
+    # Clean temp files - use real paths (macOS /tmp is symlink to /private/tmp)
     local tmp_cleaned=0
     safe_sudo_find_delete "/private/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f" && tmp_cleaned=1 || true
     safe_sudo_find_delete "/private/var/tmp" "*" "${MOLE_TEMP_FILE_AGE_DAYS}" "f" && tmp_cleaned=1 || true
-    [[ $tmp_cleaned -eq 1 ]] && log_success "Old system temp files (${MOLE_TEMP_FILE_AGE_DAYS}+ days)"
+    [[ $tmp_cleaned -eq 1 ]] && log_success "System temp files"
 
     # Clean crash reports
     safe_sudo_find_delete "/Library/Logs/DiagnosticReports" "*" "$MOLE_CRASH_REPORT_AGE_DAYS" "f" || true
-    log_success "Old system crash reports (${MOLE_CRASH_REPORT_AGE_DAYS}+ days)"
+    log_success "System crash reports"
 
     # Clean system logs - use real path (macOS /var is symlink to /private/var)
     safe_sudo_find_delete "/private/var/log" "*.log" "$MOLE_LOG_AGE_DAYS" "f" || true
     safe_sudo_find_delete "/private/var/log" "*.gz" "$MOLE_LOG_AGE_DAYS" "f" || true
-    log_success "Old system logs (${MOLE_LOG_AGE_DAYS}+ days)"
+    log_success "System logs"
 
     # Clean Library Updates safely - skip if SIP is enabled to avoid error messages
     # SIP-protected files in /Library/Updates cannot be deleted even with sudo
@@ -90,15 +90,15 @@ clean_deep_system() {
     
     [[ $code_sign_cleaned -gt 0 ]] && log_success "Browser code signature caches ($code_sign_cleaned items)"
 
-    # Clean system diagnostics logs (older than 30 days)
+    # Clean system diagnostics logs
     safe_sudo_find_delete "/private/var/db/diagnostics/Special" "*" "$MOLE_LOG_AGE_DAYS" "f" || true
     safe_sudo_find_delete "/private/var/db/diagnostics/Persist" "*" "$MOLE_LOG_AGE_DAYS" "f" || true
     safe_sudo_find_delete "/private/var/db/DiagnosticPipeline" "*" "$MOLE_LOG_AGE_DAYS" "f" || true
-    log_success "Old system diagnostic logs (${MOLE_LOG_AGE_DAYS}+ days)"
+    log_success "System diagnostic logs"
 
-    # Clean power logs (older than 30 days)
+    # Clean power logs
     safe_sudo_find_delete "/private/var/db/powerlog" "*" "$MOLE_LOG_AGE_DAYS" "f" || true
-    log_success "Old power logs (${MOLE_LOG_AGE_DAYS}+ days)"
+    log_success "Power logs"
 }
 
 # Clean Time Machine failed backups
