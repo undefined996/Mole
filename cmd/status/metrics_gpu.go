@@ -17,6 +17,12 @@ const (
 	powermetricsTimeout   = 2 * time.Second
 )
 
+// Pre-compiled regex patterns for GPU usage parsing
+var (
+	gpuActiveResidencyRe = regexp.MustCompile(`GPU HW active residency:\s+([\d.]+)%`)
+	gpuIdleResidencyRe   = regexp.MustCompile(`GPU idle residency:\s+([\d.]+)%`)
+)
+
 func (c *Collector) collectGPU(now time.Time) ([]GPUStatus, error) {
 	if runtime.GOOS == "darwin" {
 		// Get static GPU info (cached for 10 min)
@@ -159,8 +165,7 @@ func getMacGPUUsage() float64 {
 	}
 
 	// Parse "GPU HW active residency:   X.XX%"
-	re := regexp.MustCompile(`GPU HW active residency:\s+([\d.]+)%`)
-	matches := re.FindStringSubmatch(out)
+	matches := gpuActiveResidencyRe.FindStringSubmatch(out)
 	if len(matches) >= 2 {
 		usage, err := strconv.ParseFloat(matches[1], 64)
 		if err == nil {
@@ -169,8 +174,7 @@ func getMacGPUUsage() float64 {
 	}
 
 	// Fallback: parse "GPU idle residency: X.XX%" and calculate active
-	reIdle := regexp.MustCompile(`GPU idle residency:\s+([\d.]+)%`)
-	matchesIdle := reIdle.FindStringSubmatch(out)
+	matchesIdle := gpuIdleResidencyRe.FindStringSubmatch(out)
 	if len(matchesIdle) >= 2 {
 		idle, err := strconv.ParseFloat(matchesIdle[1], 64)
 		if err == nil {
