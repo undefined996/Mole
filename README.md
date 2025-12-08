@@ -47,6 +47,7 @@ mo clean --dry-run      # Preview cleanup plan
 mo clean --whitelist    # Adjust protected caches
 mo uninstall            # Remove apps + leftovers
 mo optimize             # Refresh caches & services
+mo optimize --whitelist # Adjust protected optimization items
 mo analyze              # Visual disk explorer
 mo status               # Live system health dashboard
 
@@ -129,6 +130,8 @@ System: 5/32 GB RAM | 333/460 GB Disk (72%) | Uptime 6d
 ====================================================================
 System optimization completed
 ====================================================================
+
+You can use `mo optimize --whitelist` to manage which optimization items (like rebuilding specific caches or refreshing services) are protected from being run. This is useful for preventing Mole from interfering with specific system configurations or third-party applications you rely on.
 ```
 
 ### Disk Space Analyzer
