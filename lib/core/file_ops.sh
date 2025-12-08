@@ -100,7 +100,7 @@ safe_remove() {
     debug_log "Removing: $path"
 
     # Perform the deletion
-    if rm -rf "$path" 2> /dev/null; then
+    if rm -rf "$path" 2> /dev/null; then  # SAFE: safe_remove implementation
         return 0
     else
         [[ "$silent" != "true" ]] && log_error "Failed to remove: $path"
@@ -135,7 +135,7 @@ safe_sudo_remove() {
     debug_log "Removing (sudo): $path"
 
     # Perform the deletion
-    if sudo rm -rf "$path" 2> /dev/null; then
+    if sudo rm -rf "$path" 2> /dev/null; then  # SAFE: safe_sudo_remove implementation
         return 0
     else
         log_error "Failed to remove (sudo): $path"

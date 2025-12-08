@@ -138,7 +138,7 @@ clean_orphaned_app_data() {
 
     # Merge all results
     cat "$scan_tmp_dir"/*.txt >> "$installed_bundles" 2> /dev/null || true
-    rm -rf "$scan_tmp_dir"
+    safe_remove "$scan_tmp_dir" true
 
     # Deduplicate
     sort -u "$installed_bundles" -o "$installed_bundles"

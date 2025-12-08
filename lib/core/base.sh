@@ -304,7 +304,7 @@ cleanup_temp_files() {
 
     if [[ ${#MOLE_TEMP_DIRS[@]} -gt 0 ]]; then
         for file in "${MOLE_TEMP_DIRS[@]}"; do
-            [[ -d "$file" ]] && rm -rf "$file" 2> /dev/null || true
+            [[ -d "$file" ]] && rm -rf "$file" 2> /dev/null || true  # SAFE: cleanup_temp_files
         done
     fi
 
