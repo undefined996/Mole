@@ -49,6 +49,9 @@ read_key() {
     case "$key" in
         $'\n' | $'\r') echo "ENTER" ;;
         ' ') echo "SPACE" ;;
+        '/') echo "FILTER" ;;
+        'q' | 'Q') echo "QUIT" ;;
+        'R') echo "RETRY" ;;
         $'\x03') echo "QUIT" ;;
         $'\x7f' | $'\x08') echo "DELETE" ;;
         $'\x1b')

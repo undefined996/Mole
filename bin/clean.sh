@@ -456,7 +456,10 @@ safe_clean() {
 }
 
 start_cleanup() {
-    clear
+    if [[ -t 1 ]]; then
+        # Avoid relying on TERM since CI often runs without it
+        printf '\033[2J\033[H'
+    fi
     printf '\n'
     echo -e "${PURPLE_BOLD}Clean Your Mac${NC}"
     echo ""

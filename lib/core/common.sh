@@ -73,3 +73,93 @@ update_via_homebrew() {
     # Clear update cache
     rm -f "$HOME/.cache/mole/version_check" "$HOME/.cache/mole/update_message" 2> /dev/null || true
 }
+
+# Remove apps from Dock
+# Args: app paths to remove
+remove_apps_from_dock() {
+    if [[ $# -eq 0 ]]; then
+        return 0
+    fi
+
+    local plist="$HOME/Library/Preferences/com.apple.dock.plist"
+    [[ -f "$plist" ]] || return 0
+
+    if ! command -v python3 > /dev/null 2>&1; then
+        return 0
+    fi
+
+    # Execute Python helper to prune dock entries for the given app paths
+    python3 - "$@" << 'PY' 2>/dev/null || return 0
+import os
+import plistlib
+import subprocess
+import sys
+import urllib.parse
+
+plist_path = os.path.expanduser('~/Library/Preferences/com.apple.dock.plist')
+if not os.path.exists(plist_path):
+    sys.exit(0)
+
+def normalise(path):
+    if not path:
+        return ''
+    return os.path.normpath(os.path.realpath(path.rstrip('/')))
+
+targets = {normalise(arg) for arg in sys.argv[1:] if arg}
+targets = {t for t in targets if t}
+if not targets:
+    sys.exit(0)
+
+with open(plist_path, 'rb') as fh:
+    try:
+        data = plistlib.load(fh)
+    except Exception:
+        sys.exit(0)
+
+apps = data.get('persistent-apps')
+if not isinstance(apps, list):
+    sys.exit(0)
+
+changed = False
+filtered = []
+for item in apps:
+    try:
+        url = item['tile-data']['file-data']['_CFURLString']
+    except (KeyError, TypeError):
+        filtered.append(item)
+        continue
+
+    if not isinstance(url, str):
+        filtered.append(item)
+        continue
+
+    parsed = urllib.parse.urlparse(url)
+    path = urllib.parse.unquote(parsed.path or '')
+    if not path:
+        filtered.append(item)
+        continue
+
+    candidate = normalise(path)
+    if any(candidate == t or candidate.startswith(t + os.sep) for t in targets):
+        changed = True
+        continue
+
+    filtered.append(item)
+
+if not changed:
+    sys.exit(0)
+
+data['persistent-apps'] = filtered
+with open(plist_path, 'wb') as fh:
+    try:
+        plistlib.dump(data, fh, fmt=plistlib.FMT_BINARY)
+    except Exception:
+        plistlib.dump(data, fh)
+
+# Restart Dock to apply changes
+try:
+    subprocess.run(['killall', 'Dock'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+except Exception:
+    pass
+PY
+}

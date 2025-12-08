@@ -399,7 +399,7 @@ paginated_multi_select() {
                 for ((i = 0; i < items_per_page; i++)); do
                     printf "${clear_line}\n" >&2
                 done
-                printf "${clear_line}${GRAY}Type to filter  |  Delete  |  Enter  |  / Exit  |  ESC${NC}\n" >&2
+                printf "${clear_line}${GRAY}Type to filter  |  Delete  |  Enter Confirm  |  ESC Cancel${NC}\n" >&2
                 printf "${clear_line}" >&2
                 return
             else
@@ -480,9 +480,8 @@ paginated_multi_select() {
             local -a _segs_filter=(
                 "${GRAY}Filter: ${filter_status}${NC}"
                 "${GRAY}Delete${NC}"
-                "${GRAY}Enter${NC}"
-                "${GRAY}/ Exit${NC}"
-                "${GRAY}ESC${NC}"
+                "${GRAY}Enter Confirm${NC}"
+                "${GRAY}ESC Cancel${NC}"
             )
             _print_wrapped_controls "$sep" "${_segs_filter[@]}"
         else
@@ -668,15 +667,8 @@ paginated_multi_select() {
             CHAR:*)
                 if [[ "$filter_mode" == "true" ]]; then
                     local ch="${key#CHAR:}"
-                    # Special handling for /: exit filter mode
-                    if [[ "$ch" == "/" ]]; then
-                        filter_mode="false"
-                        unset MOLE_READ_KEY_FORCE_CHAR
-                        filter_query=""
-                        applied_query=""
-                        rebuild_view
                     # avoid accidental leading spaces
-                    elif [[ -n "$filter_query" || "$ch" != " " ]]; then
+                    if [[ -n "$filter_query" || "$ch" != " " ]]; then
                         filter_query+="$ch"
                     fi
                 fi

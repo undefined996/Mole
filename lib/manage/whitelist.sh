@@ -11,16 +11,25 @@ source "$_MOLE_MANAGE_DIR/../ui/menu_simple.sh"
 
 # Config file paths
 readonly WHITELIST_CONFIG_CLEAN="$HOME/.config/mole/whitelist"
-readonly WHITELIST_CONFIG_OPTIMIZE="$HOME/.config/mole/whitelist_checks"
+readonly WHITELIST_CONFIG_OPTIMIZE="$HOME/.config/mole/whitelist_optimize"
+readonly WHITELIST_CONFIG_OPTIMIZE_LEGACY="$HOME/.config/mole/whitelist_checks"
 
 # Default whitelist patterns defined in lib/core/common.sh:
 # - DEFAULT_WHITELIST_PATTERNS
 # - FINDER_METADATA_SENTINEL
 
-# Save whitelist patterns to config
+# Save whitelist patterns to config (defaults to "clean" for legacy callers)
 save_whitelist_patterns() {
-    local mode="$1"
-    shift
+    local mode="clean"
+    if [[ $# -gt 0 ]]; then
+        case "$1" in
+            clean | optimize)
+                mode="$1"
+                shift
+                ;;
+        esac
+    fi
+
     local -a patterns
     patterns=("$@")
     
@@ -170,11 +179,19 @@ load_whitelist() {
     local mode="${1:-clean}"
     local -a patterns=()
     local config_file
+    local legacy_file=""
 
     if [[ "$mode" == "optimize" ]]; then
         config_file="$WHITELIST_CONFIG_OPTIMIZE"
+        legacy_file="$WHITELIST_CONFIG_OPTIMIZE_LEGACY"
     else
         config_file="$WHITELIST_CONFIG_CLEAN"
+    fi
+
+    local using_legacy="false"
+    if [[ ! -f "$config_file" && -n "$legacy_file" && -f "$legacy_file" ]]; then
+        config_file="$legacy_file"
+        using_legacy="true"
     fi
 
     if [[ -f "$config_file" ]]; then
@@ -210,6 +227,11 @@ load_whitelist() {
             unique_patterns+=("$pattern")
         done
         CURRENT_WHITELIST_PATTERNS=("${unique_patterns[@]}")
+
+        # Migrate legacy optimize config to the new path automatically
+        if [[ "$mode" == "optimize" && "$using_legacy" == "true" && "$config_file" != "$WHITELIST_CONFIG_OPTIMIZE" ]]; then
+            save_whitelist_patterns "$mode" "${CURRENT_WHITELIST_PATTERNS[@]}"
+        fi
     else
         CURRENT_WHITELIST_PATTERNS=()
     fi

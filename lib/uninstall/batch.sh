@@ -113,7 +113,6 @@ batch_uninstall_applications() {
     local -a sudo_apps=()
     local total_estimated_size=0
     local -a app_details=()
-    local -a dock_cleanup_paths=()
 
     # Analyze selected apps with progress indicator
     if [[ -t 1 ]]; then start_inline_spinner "Scanning files..."; fi
@@ -315,7 +314,6 @@ batch_uninstall_applications() {
             ((files_cleaned++))
             ((total_items++))
             success_items+=("$app_name")
-            dock_cleanup_paths+=("$app_path")
         else
             ((failed_count++))
             failed_items+=("$app_name:$reason")
@@ -406,8 +404,22 @@ batch_uninstall_applications() {
     print_summary_block "$summary_status" "Uninstall complete" "${summary_details[@]}"
     printf '\n'
 
-    if [[ ${#dock_cleanup_paths[@]} -gt 0 ]]; then
-        remove_apps_from_dock "${dock_cleanup_paths[@]}"
+    # Clean up Dock entries for uninstalled apps
+    if [[ $success_count -gt 0 ]]; then
+        local -a removed_paths=()
+        for detail in "${app_details[@]}"; do
+            IFS='|' read -r app_name app_path _ _ _ _ <<< "$detail"
+            # Check if this app was successfully removed
+            for success_name in "${success_items[@]}"; do
+                if [[ "$success_name" == "$app_name" ]]; then
+                    removed_paths+=("$app_path")
+                    break
+                fi
+            done
+        done
+        if [[ ${#removed_paths[@]} -gt 0 ]]; then
+            remove_apps_from_dock "${removed_paths[@]}" 2>/dev/null || true
+        fi
     fi
 
     # Clean up sudo keepalive if it was started

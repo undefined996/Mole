@@ -73,11 +73,12 @@ scan_applications() {
     local cache_dir="$HOME/.cache/mole"
     local cache_file="$cache_dir/app_scan_cache"
     local cache_ttl=86400 # 24 hours
+    local force_rescan="${1:-false}"
 
     mkdir -p "$cache_dir" 2> /dev/null
 
     # Check if cache exists and is fresh
-    if [[ -f "$cache_file" ]]; then
+    if [[ $force_rescan == false && -f "$cache_file" ]]; then
         local cache_age=$(($(date +%s) - $(get_file_mtime "$cache_file")))
         [[ $cache_age -eq $(date +%s) ]] && cache_age=86401 # Handle missing file
         if [[ $cache_age -lt $cache_ttl ]]; then
@@ -405,10 +406,14 @@ trap cleanup EXIT INT TERM
 # Main function
 main() {
     # Parse args
+    local force_rescan=false
     for arg in "$@"; do
         case "$arg" in
             "--debug")
                 export MO_DEBUG=1
+                ;;
+            "--force-rescan")
+                force_rescan=true
                 ;;
         esac
     done
@@ -425,7 +430,7 @@ main() {
     # (scan_applications handles cache internally)
     local needs_scanning=true
     local cache_file="$HOME/.cache/mole/app_scan_cache"
-    if [[ -f "$cache_file" ]]; then
+    if [[ $force_rescan == false && -f "$cache_file" ]]; then
         local cache_age=$(($(date +%s) - $(get_file_mtime "$cache_file")))
         [[ $cache_age -eq $(date +%s) ]] && cache_age=86401 # Handle missing file
         [[ $cache_age -lt 86400 ]] && needs_scanning=false
@@ -444,7 +449,7 @@ main() {
 
     # Scan applications
     local apps_file=""
-    if ! apps_file=$(scan_applications); then
+    if ! apps_file=$(scan_applications "$force_rescan"); then
         if [[ "${MOLE_ALT_SCREEN_ACTIVE:-}" == "1" ]]; then
             printf "\033[2J\033[H" >&2
             leave_alt_screen
