@@ -4,6 +4,169 @@
 
 set -euo pipefail
 
+# ============================================================================
+# Touch ID and Clamshell Detection
+# ============================================================================
+
+check_touchid_support() {
+    if [[ -f /etc/pam.d/sudo ]]; then
+        grep -q "pam_tid.so" /etc/pam.d/sudo 2> /dev/null
+        return $?
+    fi
+    return 1
+}
+
+is_clamshell_mode() {
+    # ioreg is missing (not macOS) -> treat as lid open
+    if ! command -v ioreg > /dev/null 2>&1; then
+        return 1
+    fi
+
+    # Check if lid is closed; ignore pipeline failures so set -e doesn't exit
+    local clamshell_state=""
+    clamshell_state=$( (ioreg -r -k AppleClamshellState -d 4 2> /dev/null |
+        grep "AppleClamshellState" |
+        head -1) || true)
+
+    if [[ "$clamshell_state" =~ \"AppleClamshellState\"\ =\ Yes ]]; then
+        return 0 # Lid is closed
+    fi
+    return 1 # Lid is open
+}
+
+_request_password() {
+    local tty_path="$1"
+    local attempts=0
+    local show_hint=true
+
+    # Extra safety: ensure sudo cache is cleared before password input
+    sudo -k 2> /dev/null
+
+    while ((attempts < 3)); do
+        local password=""
+
+        # Show hint on first attempt about Touch ID appearing again
+        if [[ $show_hint == true ]] && check_touchid_support; then
+            echo -e "${GRAY}Note: Touch ID dialog may appear once more - just cancel it${NC}" > "$tty_path"
+            show_hint=false
+        fi
+
+        printf "${PURPLE}${ICON_ARROW}${NC} Password: " > "$tty_path"
+        IFS= read -r -s password < "$tty_path" || password=""
+        printf "\n" > "$tty_path"
+
+        if [[ -z "$password" ]]; then
+            unset password
+            ((attempts++))
+            if [[ $attempts -lt 3 ]]; then
+                echo -e "${YELLOW}${ICON_WARNING}${NC} Password cannot be empty" > "$tty_path"
+            fi
+            continue
+        fi
+
+        # Verify password with sudo
+        # NOTE: macOS PAM will trigger Touch ID before password auth - this is system behavior
+        if printf '%s\n' "$password" | sudo -S -p "" -v > /dev/null 2>&1; then
+            unset password
+            return 0
+        fi
+
+        unset password
+        ((attempts++))
+        if [[ $attempts -lt 3 ]]; then
+            echo -e "${YELLOW}${ICON_WARNING}${NC} Incorrect password, try again" > "$tty_path"
+        fi
+    done
+
+    return 1
+}
+
+request_sudo_access() {
+    local prompt_msg="${1:-Admin access required}"
+
+    # Check if already have sudo access
+    if sudo -n true 2> /dev/null; then
+        return 0
+    fi
+
+    # Get TTY path
+    local tty_path="/dev/tty"
+    if [[ ! -r "$tty_path" || ! -w "$tty_path" ]]; then
+        tty_path=$(tty 2> /dev/null || echo "")
+        if [[ -z "$tty_path" || ! -r "$tty_path" || ! -w "$tty_path" ]]; then
+            log_error "No interactive terminal available"
+            return 1
+        fi
+    fi
+
+    sudo -k
+
+    # Check if in clamshell mode - if yes, skip Touch ID entirely
+    if is_clamshell_mode; then
+        echo -e "${PURPLE}${ICON_ARROW}${NC} ${prompt_msg}"
+        _request_password "$tty_path"
+        return $?
+    fi
+
+    # Not in clamshell mode - try Touch ID if configured
+    if ! check_touchid_support; then
+        echo -e "${PURPLE}${ICON_ARROW}${NC} ${prompt_msg}"
+        _request_password "$tty_path"
+        return $?
+    fi
+
+    # Touch ID is available and not in clamshell mode
+    echo -e "${PURPLE}${ICON_ARROW}${NC} ${prompt_msg} ${GRAY}(Touch ID or password)${NC}"
+
+    # Start sudo in background so we can monitor and control it
+    sudo -v < /dev/null > /dev/null 2>&1 &
+    local sudo_pid=$!
+
+    # Wait for sudo to complete or timeout (5 seconds)
+    local elapsed=0
+    local timeout=50 # 50 * 0.1s = 5 seconds
+    while ((elapsed < timeout)); do
+        if ! kill -0 "$sudo_pid" 2> /dev/null; then
+            # Process exited
+            wait "$sudo_pid" 2> /dev/null
+            local exit_code=$?
+            if [[ $exit_code -eq 0 ]] && sudo -n true 2> /dev/null; then
+                # Touch ID succeeded
+                return 0
+            fi
+            # Touch ID failed or cancelled
+            break
+        fi
+        sleep 0.1
+        ((elapsed++))
+    done
+
+    # Touch ID failed/cancelled - clean up thoroughly before password input
+
+    # Kill the sudo process if still running
+    if kill -0 "$sudo_pid" 2> /dev/null; then
+        kill -9 "$sudo_pid" 2> /dev/null
+        wait "$sudo_pid" 2> /dev/null || true
+    fi
+
+    # Clear sudo state immediately
+    sudo -k 2> /dev/null
+
+    # IMPORTANT: Wait longer for macOS to fully close Touch ID UI and SecurityAgent
+    # Without this delay, subsequent sudo calls may re-trigger Touch ID
+    sleep 1
+
+    # Clear any leftover prompts on the screen
+    printf "\r\033[2K" > "$tty_path"
+
+    # Now use our password input (this should not trigger Touch ID again)
+    _request_password "$tty_path"
+}
+
+# ============================================================================
+# Sudo Session Management
+# ============================================================================
+
 # Global state
 MOLE_SUDO_KEEPALIVE_PID=""
 MOLE_SUDO_ESTABLISHED="false"

@@ -33,13 +33,104 @@ Individual commands:
 
 ## Code Style
 
-- Bash 3.2+ compatible
+### Basic Rules
+
+- Bash 3.2+ compatible (macOS default)
 - 4 spaces indent
-- Use `set -euo pipefail`
-- Quote all variables
-- BSD commands not GNU
+- Use `set -euo pipefail` in all scripts
+- Quote all variables: `"$variable"`
+- Use `[[ ]]` not `[ ]` for tests
+- Use `local` for function variables, `readonly` for constants
+- Function names: `snake_case`
+- BSD commands not GNU (e.g., `stat -f%z` not `stat --format`)
 
 Config: `.editorconfig` and `.shellcheckrc`
+
+### File Operations
+
+**Always use safe wrappers, never `rm -rf` directly:**
+
+```bash
+# Single file/directory
+safe_remove "/path/to/file"
+
+# Batch delete with find
+safe_find_delete "$dir" "*.log" 7 "f"  # files older than 7 days
+
+# With sudo
+safe_sudo_remove "/Library/Caches/com.example"
+```
+
+See `lib/core/file_ops.sh` for all safe functions.
+
+### Pipefail Safety
+
+All commands that might fail must be handled:
+
+```bash
+# Correct: handle failure
+find /nonexistent -name "*.cache" 2>/dev/null || true
+
+# Correct: check array before use
+if [[ ${#array[@]} -gt 0 ]]; then
+    for item in "${array[@]}"; do
+        process "$item"
+    done
+fi
+
+# Correct: arithmetic operations
+((count++)) || true
+```
+
+### Error Handling
+
+```bash
+# Network requests with timeout
+result=$(curl -fsSL --connect-timeout 2 --max-time 3 "$url" 2>/dev/null || echo "")
+
+# Command existence check
+if ! command -v brew >/dev/null 2>&1; then
+    log_warning "Homebrew not installed"
+    return 0
+fi
+```
+
+### UI and Logging
+
+```bash
+# Logging
+log_info "Starting cleanup"
+log_success "Cache cleaned"
+log_warning "Some files skipped"
+log_error "Operation failed"
+
+# Spinners
+with_spinner "Cleaning cache" rm -rf "$cache_dir"
+
+# Or inline
+start_inline_spinner "Processing..."
+# ... work ...
+stop_inline_spinner "Complete"
+```
+
+### Debug Mode
+
+Enable debug output with `--debug`:
+
+```bash
+mo --debug clean
+./bin/clean.sh --debug
+```
+
+Modules check the internal `MO_DEBUG` variable:
+
+```bash
+if [[ "${MO_DEBUG:-0}" == "1" ]]; then
+    echo "[MODULE] Debug message" >&2
+fi
+```
+
+Format: `[MODULE_NAME] message` output to stderr.
 
 ## Requirements
 
