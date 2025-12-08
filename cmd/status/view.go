@@ -109,7 +109,11 @@ func renderHeader(m MetricsSnapshot, errMsg string, animFrame int, termWidth int
 		infoParts = append(infoParts, m.Hardware.Model)
 	}
 	if m.Hardware.CPUModel != "" {
-		infoParts = append(infoParts, m.Hardware.CPUModel)
+		cpuInfo := m.Hardware.CPUModel
+		if len(m.GPU) > 0 && m.GPU[0].CoreCount > 0 {
+			cpuInfo += fmt.Sprintf(" (%d GPU cores)", m.GPU[0].CoreCount)
+		}
+		infoParts = append(infoParts, cpuInfo)
 	}
 	if m.Hardware.TotalRAM != "" {
 		infoParts = append(infoParts, m.Hardware.TotalRAM)
@@ -152,9 +156,6 @@ func getScoreStyle(score int) lipgloss.Style {
 }
 
 func buildCards(m MetricsSnapshot, _ int) []cardData {
-	// Row 1: CPU + Memory
-	// Row 2: Disk + Power
-	// Row 3: Top Processes + Network
 	cards := []cardData{
 		renderCPUCard(m.CPU),
 		renderMemoryCard(m.Memory),
@@ -162,10 +163,6 @@ func buildCards(m MetricsSnapshot, _ int) []cardData {
 		renderBatteryCard(m.Batteries, m.Thermal),
 		renderProcessCard(m.TopProcesses),
 		renderNetworkCard(m.Network, m.Proxy),
-	}
-	// Only show GPU card if there are GPUs with usage data or core count
-	if len(m.GPU) > 0 && (m.GPU[0].Usage >= 0 || m.GPU[0].CoreCount > 0) {
-		cards = append(cards, renderGPUCard(m.GPU))
 	}
 	// Only show sensors if we have valid temperature readings
 	if hasSensorData(m.Sensors) {
