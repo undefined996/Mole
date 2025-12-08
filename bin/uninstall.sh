@@ -190,13 +190,13 @@ scan_applications() {
     # Second pass: process each app with parallel size calculation
     local app_count=0
     local total_apps=${#app_data_tuples[@]}
-    # Bound parallelism so small machines stay responsive
+    # Bound parallelism - for metadata queries, can go higher since it's mostly waiting
     local max_parallel
     max_parallel=$(get_optimal_parallel_jobs "io")
-    if [[ $max_parallel -lt 4 ]]; then
-        max_parallel=4
-    elif [[ $max_parallel -gt 16 ]]; then
-        max_parallel=16
+    if [[ $max_parallel -lt 8 ]]; then
+        max_parallel=8
+    elif [[ $max_parallel -gt 32 ]]; then
+        max_parallel=32
     fi
     local pids=()
     local inline_loading=false
@@ -222,49 +222,32 @@ scan_applications() {
             app_size=$(bytes_to_human "$((app_size_kb * 1024))")
         fi
 
-        # Get real last used date from macOS metadata
+        # Get last used date - simplified for speed
+        # Note: mdls can be slow (40ms+ per app), so we use file mtime instead
         local last_used="Never"
         local last_used_epoch=0
 
         if [[ -d "$app_path" ]]; then
-            local metadata_date
-            metadata_date=$(mdls -name kMDItemLastUsedDate -raw "$app_path" 2> /dev/null)
+            # Use file modification time (much faster than mdls)
+            last_used_epoch=$(get_file_mtime "$app_path")
+            if [[ $last_used_epoch -gt 0 ]]; then
+                local days_ago=$(((current_epoch - last_used_epoch) / 86400))
 
-            if [[ "$metadata_date" != "(null)" && -n "$metadata_date" ]]; then
-                last_used_epoch=$(date -j -f "%Y-%m-%d %H:%M:%S %z" "$metadata_date" "+%s" 2> /dev/null || echo "0")
-
-                if [[ $last_used_epoch -gt 0 ]]; then
-                    local days_ago=$(((current_epoch - last_used_epoch) / 86400))
-
-                    if [[ $days_ago -eq 0 ]]; then
-                        last_used="Today"
-                    elif [[ $days_ago -eq 1 ]]; then
-                        last_used="Yesterday"
-                    elif [[ $days_ago -lt 7 ]]; then
-                        last_used="${days_ago} days ago"
-                    elif [[ $days_ago -lt 30 ]]; then
-                        local weeks_ago=$((days_ago / 7))
-                        [[ $weeks_ago -eq 1 ]] && last_used="1 week ago" || last_used="${weeks_ago} weeks ago"
-                    elif [[ $days_ago -lt 365 ]]; then
-                        local months_ago=$((days_ago / 30))
-                        [[ $months_ago -eq 1 ]] && last_used="1 month ago" || last_used="${months_ago} months ago"
-                    else
-                        local years_ago=$((days_ago / 365))
-                        [[ $years_ago -eq 1 ]] && last_used="1 year ago" || last_used="${years_ago} years ago"
-                    fi
-                fi
-            else
-                # Fallback to file modification time
-                last_used_epoch=$(get_file_mtime "$app_path")
-                if [[ $last_used_epoch -gt 0 ]]; then
-                    local days_ago=$(((current_epoch - last_used_epoch) / 86400))
-                    if [[ $days_ago -lt 30 ]]; then
-                        last_used="Recent"
-                    elif [[ $days_ago -lt 365 ]]; then
-                        last_used="This year"
-                    else
-                        last_used="Old"
-                    fi
+                if [[ $days_ago -eq 0 ]]; then
+                    last_used="Today"
+                elif [[ $days_ago -eq 1 ]]; then
+                    last_used="Yesterday"
+                elif [[ $days_ago -lt 7 ]]; then
+                    last_used="${days_ago} days ago"
+                elif [[ $days_ago -lt 30 ]]; then
+                    local weeks_ago=$((days_ago / 7))
+                    [[ $weeks_ago -eq 1 ]] && last_used="1 week ago" || last_used="${weeks_ago} weeks ago"
+                elif [[ $days_ago -lt 365 ]]; then
+                    local months_ago=$((days_ago / 30))
+                    [[ $months_ago -eq 1 ]] && last_used="1 month ago" || last_used="${months_ago} months ago"
+                else
+                    local years_ago=$((days_ago / 365))
+                    [[ $years_ago -eq 1 ]] && last_used="1 year ago" || last_used="${years_ago} years ago"
                 fi
             fi
         fi
@@ -276,6 +259,31 @@ scan_applications() {
 
     export -f process_app_metadata
 
+    # Create a temporary file to track progress
+    local progress_file="${temp_file}.progress"
+    echo "0" > "$progress_file"
+
+    # Start a background spinner that reads progress from file
+    local spinner_pid=""
+    (
+        trap 'exit 0' TERM INT EXIT
+        local spinner_chars="|/-\\"
+        local i=0
+        while true; do
+            local completed=$(cat "$progress_file" 2> /dev/null || echo 0)
+            local c="${spinner_chars:$((i % 4)):1}"
+            if [[ $inline_loading == true ]]; then
+                printf "\033[H\033[2K%s Scanning applications... %d/%d" "$c" "$completed" "$total_apps" >&2
+            else
+                echo -ne "\r\033[K%s Scanning applications... %d/%d" "$c" "$completed" "$total_apps" >&2
+            fi
+            ((i++))
+            sleep 0.1 2> /dev/null || sleep 1
+        done
+    ) &
+    spinner_pid=$!
+    disown 2> /dev/null || true
+
     # Process apps in parallel batches
     for app_data_tuple in "${app_data_tuples[@]}"; do
         ((app_count++))
@@ -284,14 +292,8 @@ scan_applications() {
         process_app_metadata "$app_data_tuple" "$temp_file" "$current_epoch" &
         pids+=($!)
 
-        # Update progress with spinner
-        local spinner_char="${spinner_chars:$((spinner_idx % 4)):1}"
-        if [[ $inline_loading == true ]]; then
-            printf "\033[H\033[2K${spinner_char} Scanning applications... %d/%d" "$app_count" "$total_apps" >&2
-        else
-            echo -ne "\r\033[K${spinner_char} Scanning applications... $app_count/$total_apps" >&2
-        fi
-        ((spinner_idx++))
+        # Update progress to show scanning progress (use app_count as it increments smoothly)
+        echo "$app_count" > "$progress_file"
 
         # Wait if we've hit max parallel limit
         if ((${#pids[@]} >= max_parallel)); then
@@ -305,20 +307,23 @@ scan_applications() {
         wait "$pid" 2> /dev/null
     done
 
+    # Stop the spinner and clear the line
+    if [[ -n "$spinner_pid" ]]; then
+        kill -TERM "$spinner_pid" 2> /dev/null || true
+        wait "$spinner_pid" 2> /dev/null || true
+    fi
+    if [[ $inline_loading == true ]]; then
+        printf "\033[H\033[2K" >&2
+    else
+        echo -ne "\r\033[K" >&2
+    fi
+    rm -f "$progress_file"
+
     # Check if we found any applications
     if [[ ! -s "$temp_file" ]]; then
-        if [[ $inline_loading == true ]]; then
-            printf "\033[H\033[2K" >&2
-        else
-            echo -ne "\r\033[K" >&2
-        fi
         echo "No applications found to uninstall" >&2
         rm -f "$temp_file"
         return 1
-    fi
-
-    if [[ $inline_loading == true ]]; then
-        printf "\033[H\033[2K" >&2
     fi
 
     # Sort by last used (oldest first) and cache the result
@@ -390,6 +395,15 @@ trap cleanup EXIT INT TERM
 
 # Main function
 main() {
+    # Parse args
+    for arg in "$@"; do
+        case "$arg" in
+            "--debug")
+                export MO_DEBUG=1
+                ;;
+        esac
+    done
+
     local use_inline_loading=false
     if [[ -t 1 && -t 2 ]]; then
         use_inline_loading=true
