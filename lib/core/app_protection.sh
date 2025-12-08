@@ -420,7 +420,7 @@ find_app_files() {
     [[ -f ~/Library/Preferences/"$bundle_id".plist ]] && files_to_clean+=("$HOME/Library/Preferences/$bundle_id.plist")
     [[ -d ~/Library/Preferences/ByHost ]] && while IFS= read -r -d '' pref; do
         files_to_clean+=("$pref")
-    done < <(find ~/Library/Preferences/ByHost \( -name \"$bundle_id*.plist\" \) -print0 2> /dev/null)
+    done < <(find ~/Library/Preferences/ByHost \( -name "$bundle_id*.plist" \) -print0 2> /dev/null)
 
     # Logs
     [[ -d ~/Library/Logs/"$app_name" ]] && files_to_clean+=("$HOME/Library/Logs/$app_name")
@@ -435,7 +435,7 @@ find_app_files() {
     # Group Containers
     [[ -d ~/Library/Group\ Containers ]] && while IFS= read -r -d '' container; do
         files_to_clean+=("$container")
-    done < <(find ~/Library/Group\ Containers -type d \( -name \"*$bundle_id*\" \) -print0 2> /dev/null)
+    done < <(find ~/Library/Group\ Containers -type d \( -name "*$bundle_id*" \) -print0 2> /dev/null)
 
     # WebKit data
     [[ -d ~/Library/WebKit/"$bundle_id" ]] && files_to_clean+=("$HOME/Library/WebKit/$bundle_id")
@@ -514,7 +514,7 @@ find_app_system_files() {
     # Privileged Helper Tools
     [[ -d /Library/PrivilegedHelperTools ]] && while IFS= read -r -d '' helper; do
         system_files+=("$helper")
-    done < <(find /Library/PrivilegedHelperTools \( -name \"$bundle_id*\" \) -print0 2> /dev/null)
+    done < <(find /Library/PrivilegedHelperTools \( -name "$bundle_id*" \) -print0 2> /dev/null)
 
     # System Preferences
     [[ -f /Library/Preferences/"$bundle_id".plist ]] && system_files+=("/Library/Preferences/$bundle_id.plist")
@@ -522,7 +522,7 @@ find_app_system_files() {
     # Installation Receipts
     [[ -d /private/var/db/receipts ]] && while IFS= read -r -d '' receipt; do
         system_files+=("$receipt")
-    done < <(find /private/var/db/receipts \( -name \"*$bundle_id*\" \) -print0 2> /dev/null)
+    done < <(find /private/var/db/receipts \( -name "*$bundle_id*" \) -print0 2> /dev/null)
 
     # System Logs
     [[ -d /Library/Logs/"$app_name" ]] && system_files+=("/Library/Logs/$app_name")

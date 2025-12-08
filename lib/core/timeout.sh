@@ -81,7 +81,7 @@ run_with_timeout() {
     shift || true
 
     # No timeout if duration is invalid or zero
-    if [[ ! "$duration" =~ ^[0-9]+$ ]] || [[ "$duration" -le 0 ]]; then
+    if [[ ! "$duration" =~ ^[0-9]+(\.[0-9]+)?$ ]] || [[ $(echo "$duration <= 0" | bc -l 2> /dev/null) -eq 1 ]]; then
         "$@"
         return $?
     fi

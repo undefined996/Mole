@@ -84,6 +84,12 @@ get_uptime_days() {
     echo "$uptime_days"
 }
 
+# JSON escape helper
+json_escape() {
+    # Escape backslash, double quote, tab, and newline
+    echo -n "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' | tr '\n' ' '
+}
+
 # Generate JSON output
 generate_health_json() {
     # System info
@@ -126,6 +132,11 @@ EOF
     local first=true
     for item in "${items[@]}"; do
         IFS='|' read -r action name desc safe <<< "$item"
+
+        # Escape strings
+        action=$(json_escape "$action")
+        name=$(json_escape "$name")
+        desc=$(json_escape "$desc")
 
         [[ "$first" == "true" ]] && first=false || echo ","
 

@@ -222,14 +222,24 @@ scan_applications() {
             app_size=$(bytes_to_human "$((app_size_kb * 1024))")
         fi
 
-        # Get last used date - simplified for speed
-        # Note: mdls can be slow (40ms+ per app), so we use file mtime instead
+        # Get last used date
         local last_used="Never"
         local last_used_epoch=0
 
         if [[ -d "$app_path" ]]; then
-            # Use file modification time (much faster than mdls)
-            last_used_epoch=$(get_file_mtime "$app_path")
+            # Try mdls first with short timeout (0.05s) for accuracy, fallback to mtime for speed
+            local metadata_date
+            metadata_date=$(run_with_timeout 0.05 mdls -name kMDItemLastUsedDate -raw "$app_path" 2> /dev/null || echo "")
+
+            if [[ "$metadata_date" != "(null)" && -n "$metadata_date" ]]; then
+                last_used_epoch=$(date -j -f "%Y-%m-%d %H:%M:%S %z" "$metadata_date" "+%s" 2> /dev/null || echo "0")
+            fi
+
+            # Fallback if mdls failed or returned nothing
+            if [[ "$last_used_epoch" -eq 0 ]]; then
+                last_used_epoch=$(get_file_mtime "$app_path")
+            fi
+
             if [[ $last_used_epoch -gt 0 ]]; then
                 local days_ago=$(((current_epoch - last_used_epoch) / 86400))
 
@@ -282,7 +292,6 @@ scan_applications() {
         done
     ) &
     spinner_pid=$!
-    disown 2> /dev/null || true
 
     # Process apps in parallel batches
     for app_data_tuple in "${app_data_tuples[@]}"; do
