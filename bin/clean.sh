@@ -778,7 +778,7 @@ main() {
                 ;;
             "--whitelist")
                 source "$SCRIPT_DIR/../lib/manage/whitelist.sh"
-                manage_whitelist
+                manage_whitelist "clean"
                 exit 0
                 ;;
         esac
