@@ -98,22 +98,47 @@ clean_orphaned_app_data() {
         "$HOME/Applications"
     )
 
+    # Create a temp dir for parallel results to avoid write contention
+    local scan_tmp_dir=$(create_temp_dir)
+
+    # Parallel scan for applications
+    local pids=()
+    local dir_idx=0
     for app_dir in "${app_dirs[@]}"; do
         [[ -d "$app_dir" ]] || continue
-        run_with_timeout 10 sh -c "find '$app_dir' -name '*.app' -maxdepth 3 -type d 2> /dev/null" | while IFS= read -r app_path; do
-            local bundle_id
-            bundle_id=$(defaults read "$app_path/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "")
-            [[ -n "$bundle_id" ]] && echo "$bundle_id"
-        done >> "$installed_bundles"
+        (
+            run_with_timeout 10 sh -c "find '$app_dir' -name '*.app' -maxdepth 3 -type d 2> /dev/null" | while IFS= read -r app_path; do
+                local bundle_id
+                bundle_id=$(defaults read "$app_path/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "")
+                [[ -n "$bundle_id" ]] && echo "$bundle_id"
+            done > "$scan_tmp_dir/apps_${dir_idx}.txt"
+        ) &
+        pids+=($!)
+        ((dir_idx++))
     done
 
-    # Get running applications and LaunchAgents with timeout protection
-    local running_apps=$(run_with_timeout 5 osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null || echo "")
-    echo "$running_apps" | tr ',' '\n' | sed -e 's/^ *//;s/ *$//' -e '/^$/d' >> "$installed_bundles"
+    # Get running applications and LaunchAgents in parallel
+    (
+        local running_apps=$(run_with_timeout 5 osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null || echo "")
+        echo "$running_apps" | tr ',' '\n' | sed -e 's/^ *//;s/ *$//' -e '/^$/d' > "$scan_tmp_dir/running.txt"
+    ) &
+    pids+=($!)
 
-    run_with_timeout 5 find ~/Library/LaunchAgents /Library/LaunchAgents \
-        -name "*.plist" -type f 2> /dev/null |
-        xargs -I {} basename {} .plist >> "$installed_bundles" 2> /dev/null || true
+    (
+        run_with_timeout 5 find ~/Library/LaunchAgents /Library/LaunchAgents \
+            -name "*.plist" -type f 2> /dev/null |
+            xargs -I {} basename {} .plist > "$scan_tmp_dir/agents.txt" 2> /dev/null || true
+    ) &
+    pids+=($!)
+
+    # Wait for all background scans to complete
+    for pid in "${pids[@]}"; do
+        wait "$pid" 2> /dev/null || true
+    done
+
+    # Merge all results
+    cat "$scan_tmp_dir"/*.txt >> "$installed_bundles" 2> /dev/null || true
+    rm -rf "$scan_tmp_dir"
 
     # Deduplicate
     sort -u "$installed_bundles" -o "$installed_bundles"
