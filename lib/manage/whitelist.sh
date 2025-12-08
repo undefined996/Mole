@@ -32,7 +32,7 @@ save_whitelist_patterns() {
 
     local -a patterns
     patterns=("$@")
-    
+
     local config_file
     local header_text
 
@@ -262,7 +262,7 @@ manage_whitelist() {
 
 manage_whitelist_categories() {
     local mode="$1"
-    
+
     # Load currently enabled patterns from both sources
     load_whitelist "$mode"
 
@@ -276,7 +276,7 @@ manage_whitelist_categories() {
     local items_source
     local menu_title
     local active_config_file
-    
+
     if [[ "$mode" == "optimize" ]]; then
         items_source=$(get_optimize_whitelist_items)
         menu_title="Whitelist Manager – Select system checks to ignore"

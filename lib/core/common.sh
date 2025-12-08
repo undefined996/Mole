@@ -89,7 +89,7 @@ remove_apps_from_dock() {
     fi
 
     # Execute Python helper to prune dock entries for the given app paths
-    python3 - "$@" << 'PY' 2>/dev/null || return 0
+    python3 - "$@" << 'PY' 2> /dev/null || return 0
 import os
 import plistlib
 import subprocess

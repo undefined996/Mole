@@ -418,7 +418,7 @@ batch_uninstall_applications() {
             done
         done
         if [[ ${#removed_paths[@]} -gt 0 ]]; then
-            remove_apps_from_dock "${removed_paths[@]}" 2>/dev/null || true
+            remove_apps_from_dock "${removed_paths[@]}" 2> /dev/null || true
         fi
     fi
 

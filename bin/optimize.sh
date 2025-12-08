@@ -349,7 +349,7 @@ main() {
         clear
     fi
     print_header # Outputs "Optimize and Check"
-    
+
     # Check dependencies
     if ! command -v jq > /dev/null 2>&1; then
         echo -e "${RED}${ICON_ERROR}${NC} Missing dependency: jq"

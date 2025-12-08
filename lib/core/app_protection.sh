@@ -492,7 +492,7 @@ find_app_files() {
     # ============================================================================
     # IDE-specific SDK and Toolchain directories
     # ============================================================================
-    
+
     # DevEco-Studio (HarmonyOS/OpenHarmony IDE by Huawei)
     if [[ "$app_name" =~ DevEco|deveco ]] || [[ "$bundle_id" =~ huawei.*deveco ]]; then
         [[ -d ~/DevEcoStudioProjects ]] && files_to_clean+=("$HOME/DevEcoStudioProjects")
@@ -506,64 +506,64 @@ find_app_files() {
         [[ -d ~/.huawei ]] && files_to_clean+=("$HOME/.huawei")
         [[ -d ~/.ohos ]] && files_to_clean+=("$HOME/.ohos")
     fi
-    
+
     # Android Studio
     if [[ "$app_name" =~ Android.*Studio|android.*studio ]] || [[ "$bundle_id" =~ google.*android.*studio|jetbrains.*android ]]; then
         [[ -d ~/AndroidStudioProjects ]] && files_to_clean+=("$HOME/AndroidStudioProjects")
         [[ -d ~/Library/Android ]] && files_to_clean+=("$HOME/Library/Android")
         [[ -d ~/.android ]] && files_to_clean+=("$HOME/.android")
         [[ -d ~/.gradle ]] && files_to_clean+=("$HOME/.gradle")
-        [[ -d ~/Library/Application\ Support/Google ]] && \
-            while IFS= read -r -d '' dir; do files_to_clean+=("$dir"); done < <(find ~/Library/Application\ Support/Google -maxdepth 1 -name "AndroidStudio*" -print0 2>/dev/null)
+        [[ -d ~/Library/Application\ Support/Google ]] &&
+            while IFS= read -r -d '' dir; do files_to_clean+=("$dir"); done < <(find ~/Library/Application\ Support/Google -maxdepth 1 -name "AndroidStudio*" -print0 2> /dev/null)
     fi
-    
+
     # Xcode
     if [[ "$app_name" =~ Xcode|xcode ]] || [[ "$bundle_id" =~ apple.*xcode ]]; then
         [[ -d ~/Library/Developer ]] && files_to_clean+=("$HOME/Library/Developer")
         [[ -d ~/.Xcode ]] && files_to_clean+=("$HOME/.Xcode")
     fi
-    
+
     # IntelliJ IDEA, PyCharm, WebStorm, etc. (JetBrains IDEs)
     if [[ "$bundle_id" =~ jetbrains ]] || [[ "$app_name" =~ IntelliJ|PyCharm|WebStorm|GoLand|RubyMine|PhpStorm|CLion|DataGrip|Rider ]]; then
         local ide_name="$app_name"
-        [[ -d ~/Library/Application\ Support/JetBrains ]] && \
-            while IFS= read -r -d '' dir; do files_to_clean+=("$dir"); done < <(find ~/Library/Application\ Support/JetBrains -maxdepth 1 -name "${ide_name}*" -print0 2>/dev/null)
-        [[ -d ~/Library/Caches/JetBrains ]] && \
-            while IFS= read -r -d '' dir; do files_to_clean+=("$dir"); done < <(find ~/Library/Caches/JetBrains -maxdepth 1 -name "${ide_name}*" -print0 2>/dev/null)
-        [[ -d ~/Library/Logs/JetBrains ]] && \
-            while IFS= read -r -d '' dir; do files_to_clean+=("$dir"); done < <(find ~/Library/Logs/JetBrains -maxdepth 1 -name "${ide_name}*" -print0 2>/dev/null)
+        [[ -d ~/Library/Application\ Support/JetBrains ]] &&
+            while IFS= read -r -d '' dir; do files_to_clean+=("$dir"); done < <(find ~/Library/Application\ Support/JetBrains -maxdepth 1 -name "${ide_name}*" -print0 2> /dev/null)
+        [[ -d ~/Library/Caches/JetBrains ]] &&
+            while IFS= read -r -d '' dir; do files_to_clean+=("$dir"); done < <(find ~/Library/Caches/JetBrains -maxdepth 1 -name "${ide_name}*" -print0 2> /dev/null)
+        [[ -d ~/Library/Logs/JetBrains ]] &&
+            while IFS= read -r -d '' dir; do files_to_clean+=("$dir"); done < <(find ~/Library/Logs/JetBrains -maxdepth 1 -name "${ide_name}*" -print0 2> /dev/null)
     fi
-    
+
     # Unity
     if [[ "$app_name" =~ Unity|unity ]] || [[ "$bundle_id" =~ unity ]]; then
         [[ -d ~/.local/share/unity3d ]] && files_to_clean+=("$HOME/.local/share/unity3d")
         [[ -d ~/Library/Unity ]] && files_to_clean+=("$HOME/Library/Unity")
     fi
-    
+
     # Unreal Engine
     if [[ "$app_name" =~ Unreal|unreal ]] || [[ "$bundle_id" =~ unrealengine|epicgames ]]; then
         [[ -d ~/Library/Application\ Support/Epic ]] && files_to_clean+=("$HOME/Library/Application Support/Epic")
         [[ -d ~/Documents/Unreal\ Projects ]] && files_to_clean+=("$HOME/Documents/Unreal Projects")
     fi
-    
+
     # Visual Studio Code
     if [[ "$bundle_id" =~ microsoft.*vscode|visualstudio.*code ]]; then
         [[ -d ~/.vscode ]] && files_to_clean+=("$HOME/.vscode")
         [[ -d ~/.vscode-insiders ]] && files_to_clean+=("$HOME/.vscode-insiders")
     fi
-    
+
     # Flutter
     if [[ "$app_name" =~ Flutter|flutter ]] || [[ "$bundle_id" =~ flutter ]]; then
         [[ -d ~/.pub-cache ]] && files_to_clean+=("$HOME/.pub-cache")
         [[ -d ~/flutter ]] && files_to_clean+=("$HOME/flutter")
     fi
-    
+
     # Godot
     if [[ "$app_name" =~ Godot|godot ]] || [[ "$bundle_id" =~ godot ]]; then
         [[ -d ~/.local/share/godot ]] && files_to_clean+=("$HOME/.local/share/godot")
         [[ -d ~/Library/Application\ Support/Godot ]] && files_to_clean+=("$HOME/Library/Application Support/Godot")
     fi
-    
+
     # Docker Desktop
     if [[ "$app_name" =~ Docker ]] || [[ "$bundle_id" =~ docker ]]; then
         [[ -d ~/.docker ]] && files_to_clean+=("$HOME/.docker")
