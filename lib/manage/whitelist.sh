@@ -9,8 +9,9 @@ _MOLE_MANAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$_MOLE_MANAGE_DIR/../core/common.sh"
 source "$_MOLE_MANAGE_DIR/../ui/menu_simple.sh"
 
-# Config file path
-WHITELIST_CONFIG="$HOME/.config/mole/whitelist"
+# Config file paths
+readonly WHITELIST_CONFIG_CLEAN="$HOME/.config/mole/whitelist"
+readonly WHITELIST_CONFIG_OPTIMIZE="$HOME/.config/mole/whitelist_checks"
 
 # Default whitelist patterns defined in lib/core/common.sh:
 # - DEFAULT_WHITELIST_PATTERNS
@@ -18,15 +19,25 @@ WHITELIST_CONFIG="$HOME/.config/mole/whitelist"
 
 # Save whitelist patterns to config
 save_whitelist_patterns() {
+    local mode="$1"
+    shift
     local -a patterns
     patterns=("$@")
-    mkdir -p "$(dirname "$WHITELIST_CONFIG")"
+    
+    local config_file
+    local header_text
 
-    cat > "$WHITELIST_CONFIG" << 'EOF'
-# Mole Whitelist - Protected paths won't be deleted
-# Default protections: Playwright browsers, HuggingFace models, Maven repo, Ollama models, Surge Mac, R renv, Finder metadata
-# Add one pattern per line to keep items safe.
-EOF
+    if [[ "$mode" == "optimize" ]]; then
+        config_file="$WHITELIST_CONFIG_OPTIMIZE"
+        header_text="# Mole Optimization Whitelist - These checks will be skipped during optimization"
+    else
+        config_file="$WHITELIST_CONFIG_CLEAN"
+        header_text="# Mole Whitelist - Protected paths won't be deleted\n# Default protections: Playwright browsers, HuggingFace models, Maven repo, Ollama models, Surge Mac, R renv, Finder metadata\n# Add one pattern per line to keep items safe."
+    fi
+
+    mkdir -p "$(dirname "$config_file")"
+
+    echo -e "$header_text" > "$config_file"
 
     if [[ ${#patterns[@]} -gt 0 ]]; then
         local -a unique_patterns=()
@@ -45,9 +56,9 @@ EOF
         done
 
         if [[ ${#unique_patterns[@]} -gt 0 ]]; then
-            printf '\n' >> "$WHITELIST_CONFIG"
+            printf '\n' >> "$config_file"
             for pattern in "${unique_patterns[@]}"; do
-                echo "$pattern" >> "$WHITELIST_CONFIG"
+                echo "$pattern" >> "$config_file"
             done
         fi
     fi
@@ -128,6 +139,24 @@ EOF
     echo "Finder metadata (.DS_Store)|$FINDER_METADATA_SENTINEL|system_cache"
 }
 
+# Get all optimize items with their patterns
+get_optimize_whitelist_items() {
+    # Format: "display_name|pattern|category"
+    cat << 'EOF'
+macOS Firewall check|firewall|security_check
+Gatekeeper check|gatekeeper|security_check
+Homebrew updates check|check_brew_updates|update_check
+macOS system updates check|check_macos_updates|update_check
+Homebrew health check (doctor)|check_brew_health|health_check
+SIP status check|check_sip|security_check
+FileVault status check|check_filevault|security_check
+TouchID sudo check|check_touchid|config_check
+Rosetta 2 check|check_rosetta|config_check
+Git configuration check|check_git_config|config_check
+Login items check|check_login_items|config_check
+EOF
+}
+
 patterns_equivalent() {
     local first="${1/#~/$HOME}"
     local second="${2/#~/$HOME}"
@@ -138,9 +167,17 @@ patterns_equivalent() {
 }
 
 load_whitelist() {
+    local mode="${1:-clean}"
     local -a patterns=()
+    local config_file
 
-    if [[ -f "$WHITELIST_CONFIG" ]]; then
+    if [[ "$mode" == "optimize" ]]; then
+        config_file="$WHITELIST_CONFIG_OPTIMIZE"
+    else
+        config_file="$WHITELIST_CONFIG_CLEAN"
+    fi
+
+    if [[ -f "$config_file" ]]; then
         while IFS= read -r line; do
             # shellcheck disable=SC2295
             line="${line#"${line%%[![:space:]]*}"}"
@@ -148,9 +185,13 @@ load_whitelist() {
             line="${line%"${line##*[![:space:]]}"}"
             [[ -z "$line" || "$line" =~ ^# ]] && continue
             patterns+=("$line")
-        done < "$WHITELIST_CONFIG"
+        done < "$config_file"
     else
-        patterns=("${DEFAULT_WHITELIST_PATTERNS[@]}")
+        if [[ "$mode" == "clean" ]]; then
+            patterns=("${DEFAULT_WHITELIST_PATTERNS[@]}")
+        elif [[ "$mode" == "optimize" ]]; then
+            patterns=("${DEFAULT_OPTIMIZE_WHITELIST_PATTERNS[@]}")
+        fi
     fi
 
     if [[ ${#patterns[@]} -gt 0 ]]; then
@@ -193,18 +234,36 @@ is_whitelisted() {
 }
 
 manage_whitelist() {
-    manage_whitelist_categories
+    local mode="${1:-clean}"
+    manage_whitelist_categories "$mode"
 }
 
 manage_whitelist_categories() {
+    local mode="$1"
+    
     # Load currently enabled patterns from both sources
-    load_whitelist
+    load_whitelist "$mode"
 
     # Build cache items list
     local -a cache_items=()
     local -a cache_patterns=()
     local -a menu_options=()
     local index=0
+
+    # Choose source based on mode
+    local items_source
+    local menu_title
+    local active_config_file
+    
+    if [[ "$mode" == "optimize" ]]; then
+        items_source=$(get_optimize_whitelist_items)
+        menu_title="Whitelist Manager – Select system checks to ignore"
+        active_config_file="$WHITELIST_CONFIG_OPTIMIZE"
+    else
+        items_source=$(get_all_cache_items)
+        menu_title="Whitelist Manager – Select caches to protect"
+        active_config_file="$WHITELIST_CONFIG_CLEAN"
+    fi
 
     while IFS='|' read -r display_name pattern _; do
         # Expand $HOME in pattern
@@ -215,7 +274,7 @@ manage_whitelist_categories() {
         menu_options+=("$display_name")
 
         ((index++)) || true
-    done < <(get_all_cache_items)
+    done <<< "$items_source"
 
     # Identify custom patterns (not in predefined list)
     local -a custom_patterns=()
@@ -280,7 +339,7 @@ manage_whitelist_categories() {
     fi
 
     MOLE_SELECTION_RESULT=""
-    paginated_multi_select "Whitelist Manager – Select caches to protect" "${menu_options[@]}"
+    paginated_multi_select "$menu_title" "${menu_options[@]}"
     unset MOLE_PRESELECTED_INDICES
     local exit_code=$?
 
@@ -318,9 +377,9 @@ manage_whitelist_categories() {
 
     # Save to whitelist config (bash 3.2 + set -u safe)
     if [[ ${#all_patterns[@]} -gt 0 ]]; then
-        save_whitelist_patterns "${all_patterns[@]}"
+        save_whitelist_patterns "$mode" "${all_patterns[@]}"
     else
-        save_whitelist_patterns
+        save_whitelist_patterns "$mode"
     fi
 
     local total_protected=$((${#selected_patterns[@]} + ${#custom_patterns[@]}))
@@ -331,7 +390,7 @@ manage_whitelist_categories() {
     else
         summary_lines+=("Protected ${total_protected} cache(s)")
     fi
-    summary_lines+=("Saved to ${WHITELIST_CONFIG}")
+    summary_lines+=("Saved to ${active_config_file}")
 
     print_summary_block "${summary_lines[@]}"
     printf '\n'

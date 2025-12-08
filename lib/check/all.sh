@@ -30,6 +30,8 @@ list_login_items() {
 # ============================================================================
 
 check_touchid_sudo() {
+    # Check whitelist
+    if command -v is_whitelisted >/dev/null && is_whitelisted "check_touchid"; then return; fi
     # Check if Touch ID is configured for sudo
     local pam_file="/etc/pam.d/sudo"
     if [[ -f "$pam_file" ]] && grep -q "pam_tid.so" "$pam_file" 2> /dev/null; then
@@ -53,6 +55,8 @@ check_touchid_sudo() {
 }
 
 check_rosetta() {
+    # Check whitelist
+    if command -v is_whitelisted >/dev/null && is_whitelisted "check_rosetta"; then return; fi
     # Check Rosetta 2 (for Apple Silicon Macs)
     if [[ "$(uname -m)" == "arm64" ]]; then
         if [[ -f "/Library/Apple/usr/share/rosetta/rosetta" ]]; then
@@ -65,6 +69,8 @@ check_rosetta() {
 }
 
 check_git_config() {
+    # Check whitelist
+    if command -v is_whitelisted >/dev/null && is_whitelisted "check_git_config"; then return; fi
     # Check basic Git configuration
     if command -v git > /dev/null 2>&1; then
         local git_name=$(git config --global user.name 2> /dev/null || echo "")
@@ -89,6 +95,8 @@ check_all_config() {
 # ============================================================================
 
 check_filevault() {
+    # Check whitelist
+    if command -v is_whitelisted >/dev/null && is_whitelisted "check_filevault"; then return; fi
     # Check FileVault encryption status
     if command -v fdesetup > /dev/null 2>&1; then
         local fv_status=$(fdesetup status 2> /dev/null || echo "")
@@ -102,6 +110,8 @@ check_filevault() {
 }
 
 check_firewall() {
+    # Check whitelist
+    if command -v is_whitelisted >/dev/null && is_whitelisted "firewall"; then return; fi
     # Check firewall status
     unset FIREWALL_DISABLED
     local firewall_status=$(defaults read /Library/Preferences/com.apple.alf globalstate 2> /dev/null || echo "0")
@@ -116,6 +126,8 @@ check_firewall() {
 }
 
 check_gatekeeper() {
+    # Check whitelist
+    if command -v is_whitelisted >/dev/null && is_whitelisted "gatekeeper"; then return; fi
     # Check Gatekeeper status
     if command -v spctl > /dev/null 2>&1; then
         local gk_status=$(spctl --status 2> /dev/null || echo "")
@@ -132,6 +144,8 @@ check_gatekeeper() {
 }
 
 check_sip() {
+    # Check whitelist
+    if command -v is_whitelisted >/dev/null && is_whitelisted "check_sip"; then return; fi
     # Check System Integrity Protection
     if command -v csrutil > /dev/null 2>&1; then
         local sip_status=$(csrutil status 2> /dev/null || echo "")
@@ -194,6 +208,8 @@ is_cache_valid() {
 }
 
 check_homebrew_updates() {
+    # Check whitelist
+    if command -v is_whitelisted >/dev/null && is_whitelisted "check_brew_updates"; then return; fi
     if ! command -v brew > /dev/null 2>&1; then
         return
     fi
@@ -320,6 +336,8 @@ check_appstore_updates() {
 }
 
 check_macos_update() {
+    # Check whitelist
+    if command -v is_whitelisted >/dev/null && is_whitelisted "check_macos_updates"; then return; fi
     local spinner_started=false
     if [[ -t 1 ]]; then
         printf "  Checking macOS updates...\r"
@@ -523,6 +541,8 @@ check_memory_usage() {
 }
 
 check_login_items() {
+    # Check whitelist
+    if command -v is_whitelisted >/dev/null && is_whitelisted "check_login_items"; then return; fi
     local login_items_count=0
     local -a login_items_list=()
 
@@ -640,6 +660,8 @@ check_swap_usage() {
 }
 
 check_brew_health() {
+    # Check whitelist
+    if command -v is_whitelisted >/dev/null && is_whitelisted "check_brew_health"; then return; fi
     # Check Homebrew doctor
     if command -v brew > /dev/null 2>&1; then
         # Show spinner while running brew doctor

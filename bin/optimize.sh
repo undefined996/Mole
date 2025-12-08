@@ -14,13 +14,13 @@ source "$SCRIPT_DIR/lib/check/health_json.sh"
 
 # Load check modules
 source "$SCRIPT_DIR/lib/check/all.sh"
+source "$SCRIPT_DIR/lib/manage/whitelist.sh"
 
 # Colors and icons from common.sh
 
 print_header() {
     printf '\n'
     echo -e "${PURPLE_BOLD}Optimize and Check${NC}"
-    echo ""
 }
 
 # System check functions (real-time display)
@@ -123,7 +123,6 @@ show_system_health() {
     # Compact one-line format with icon
     printf "${ICON_ADMIN} System  %.0f/%.0f GB RAM | %.0f/%.0f GB Disk | Uptime %.0fd\n" \
         "$mem_used" "$mem_total" "$disk_used" "$disk_total" "$uptime"
-    echo ""
 }
 
 parse_optimizations() {
@@ -233,10 +232,14 @@ declare -a SECURITY_FIXES=()
 collect_security_fix_actions() {
     SECURITY_FIXES=()
     if [[ "${FIREWALL_DISABLED:-}" == "true" ]]; then
-        SECURITY_FIXES+=("firewall|Enable macOS firewall")
+        if ! is_whitelisted "firewall"; then
+            SECURITY_FIXES+=("firewall|Enable macOS firewall")
+        fi
     fi
     if [[ "${GATEKEEPER_DISABLED:-}" == "true" ]]; then
-        SECURITY_FIXES+=("gatekeeper|Enable Gatekeeper (App download protection)")
+        if ! is_whitelisted "gatekeeper"; then
+            SECURITY_FIXES+=("gatekeeper|Enable Gatekeeper (App download protection)")
+        fi
     fi
 
     ((${#SECURITY_FIXES[@]} > 0))
@@ -325,11 +328,16 @@ cleanup_all() {
 }
 
 main() {
+    local health_json # Declare health_json at the top of main scope
     # Parse args
     for arg in "$@"; do
         case "$arg" in
             "--debug")
                 export MO_DEBUG=1
+                ;;
+            "--whitelist")
+                manage_whitelist "optimize"
+                exit 0
                 ;;
         esac
     done
@@ -340,8 +348,8 @@ main() {
     if [[ -t 1 ]]; then
         clear
     fi
-    print_header
-
+    print_header # Outputs "Optimize and Check"
+    
     # Check dependencies
     if ! command -v jq > /dev/null 2>&1; then
         echo -e "${RED}${ICON_ERROR}${NC} Missing dependency: jq"
@@ -355,28 +363,11 @@ main() {
         exit 1
     fi
 
-    # Simple confirmation
-    echo -ne "${PURPLE}${ICON_ARROW}${NC} Optimization needs sudo — ${GREEN}Enter${NC} continue, ${GRAY}ESC${NC} cancel: "
-
-    local key
-    if ! key=$(read_key); then
-        echo -e " ${GRAY}Cancelled${NC}"
-        exit 0
-    fi
-
-    if [[ "$key" == "ENTER" ]]; then
-        printf "\r\033[K"
-    else
-        echo -e " ${GRAY}Cancelled${NC}"
-        exit 0
-    fi
-
-    # Collect system health data after confirmation
+    # Collect system health data (doesn't require sudo)
     if [[ -t 1 ]]; then
         start_inline_spinner "Collecting system info..."
     fi
 
-    local health_json
     if ! health_json=$(generate_health_json 2> /dev/null); then
         if [[ -t 1 ]]; then
             stop_inline_spinner
@@ -402,7 +393,40 @@ main() {
     fi
 
     # Show system health
-    show_system_health "$health_json"
+    show_system_health "$health_json" # Outputs "⚙ System ..."
+
+    # Load whitelist patterns for checks
+    load_whitelist "optimize"
+
+    # Display active whitelist patterns
+    if [[ ${#CURRENT_WHITELIST_PATTERNS[@]} -gt 0 ]]; then
+        local patterns_list=$(
+            local IFS=', '
+            echo "${CURRENT_WHITELIST_PATTERNS[*]}"
+        )
+        echo -e "${ICON_ADMIN} Active Whitelist: ${patterns_list}"
+    fi
+    echo "" # Empty line before sudo prompt
+
+    # Simple confirmation
+    echo -ne "${PURPLE}${ICON_ARROW}${NC} Optimization needs sudo — ${GREEN}Enter${NC} continue, ${GRAY}ESC${NC} cancel: "
+
+    local key
+    if ! key=$(read_key); then
+        echo -e " ${GRAY}Cancelled${NC}"
+        exit 0
+    fi
+
+    if [[ "$key" == "ENTER" ]]; then
+        printf "\r\033[K"
+    else
+        echo -e " ${GRAY}Cancelled${NC}"
+        exit 0
+    fi
+
+    if [[ -t 1 ]]; then
+        stop_inline_spinner
+    fi
 
     # Parse and display optimizations
     local -a safe_items=()

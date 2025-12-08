@@ -68,6 +68,13 @@ declare -a DEFAULT_WHITELIST_PATTERNS=(
     "$FINDER_METADATA_SENTINEL"
 )
 
+declare -a DEFAULT_OPTIMIZE_WHITELIST_PATTERNS=(
+    "check_brew_updates"
+    "check_brew_health"
+    "check_touchid"
+    "check_git_config"
+)
+
 # ============================================================================
 # BSD Stat Compatibility
 # ============================================================================
