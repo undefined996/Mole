@@ -163,8 +163,8 @@ func buildCards(m MetricsSnapshot, _ int) []cardData {
 		renderProcessCard(m.TopProcesses),
 		renderNetworkCard(m.Network, m.Proxy),
 	}
-	// Only show GPU card if there are GPUs with usage data
-	if len(m.GPU) > 0 && m.GPU[0].Usage >= 0 {
+	// Only show GPU card if there are GPUs with usage data or core count
+	if len(m.GPU) > 0 && (m.GPU[0].Usage >= 0 || m.GPU[0].CoreCount > 0) {
 		cards = append(cards, renderGPUCard(m.GPU))
 	}
 	// Only show sensors if we have valid temperature readings
@@ -186,12 +186,18 @@ func hasSensorData(sensors []SensorReading) bool {
 func renderCPUCard(cpu CPUStatus) cardData {
 	var lines []string
 	lines = append(lines, fmt.Sprintf("Total  %s  %5.1f%%", progressBar(cpu.Usage), cpu.Usage))
-	lines = append(lines, subtleStyle.Render(fmt.Sprintf("%.2f / %.2f / %.2f  (%d cores)", cpu.Load1, cpu.Load5, cpu.Load15, cpu.LogicalCPU)))
+
+	if cpu.PCoreCount > 0 && cpu.ECoreCount > 0 {
+		lines = append(lines, subtleStyle.Render(fmt.Sprintf("Load   %.2f / %.2f / %.2f  (%dP+%dE)",
+			cpu.Load1, cpu.Load5, cpu.Load15, cpu.PCoreCount, cpu.ECoreCount)))
+	} else {
+		lines = append(lines, subtleStyle.Render(fmt.Sprintf("%.2f / %.2f / %.2f  (%d cores)",
+			cpu.Load1, cpu.Load5, cpu.Load15, cpu.LogicalCPU)))
+	}
 
 	if cpu.PerCoreEstimated {
 		lines = append(lines, subtleStyle.Render("Per-core data unavailable (using averaged load)"))
 	} else if len(cpu.PerCore) > 0 {
-		// Show top 3 busiest cores
 		type coreUsage struct {
 			idx int
 			val float64
@@ -221,11 +227,16 @@ func renderGPUCard(gpus []GPUStatus) cardData {
 		lines = append(lines, subtleStyle.Render("No GPU detected"))
 	} else {
 		for _, g := range gpus {
-			name := shorten(g.Name, 12)
 			if g.Usage >= 0 {
-				lines = append(lines, fmt.Sprintf("%-12s  %s  %5.1f%%", name, progressBar(g.Usage), g.Usage))
-			} else {
-				lines = append(lines, name)
+				lines = append(lines, fmt.Sprintf("Total  %s  %5.1f%%", progressBar(g.Usage), g.Usage))
+			}
+			coreInfo := ""
+			if g.CoreCount > 0 {
+				coreInfo = fmt.Sprintf("  (%d cores)", g.CoreCount)
+			}
+			lines = append(lines, subtleStyle.Render(g.Name+coreInfo))
+			if g.Usage < 0 {
+				lines = append(lines, subtleStyle.Render("Run with sudo for usage metrics"))
 			}
 		}
 	}
