@@ -10,6 +10,7 @@ source "$SCRIPT_DIR/lib/manage/update.sh"
 source "$SCRIPT_DIR/lib/manage/autofix.sh"
 source "$SCRIPT_DIR/lib/optimize/maintenance.sh"
 source "$SCRIPT_DIR/lib/optimize/tasks.sh"
+source "$SCRIPT_DIR/lib/check/health_json.sh"
 
 # Load check modules
 source "$SCRIPT_DIR/lib/check/all.sh"
@@ -73,7 +74,6 @@ show_optimization_summary() {
     if ((safe_count == 0 && confirm_count == 0)) && [[ -z "${AUTO_FIX_SUMMARY:-}" ]]; then
         return
     fi
-    echo ""
     local summary_title="Optimization and Check Complete"
     local -a summary_details=()
 
@@ -98,7 +98,7 @@ show_optimization_summary() {
     if [[ "${OPTIMIZE_SHOW_TOUCHID_TIP:-false}" == "true" ]]; then
         echo -e "${YELLOW}☻${NC} Run ${GRAY}mo touchid${NC} to approve sudo via Touch ID"
     fi
-    print_summary_block "success" "$summary_title" "${summary_details[@]}"
+    print_summary_block "$summary_title" "${summary_details[@]}"
 }
 
 show_system_health() {
@@ -325,6 +325,15 @@ cleanup_all() {
 }
 
 main() {
+    # Parse args
+    for arg in "$@"; do
+        case "$arg" in
+            "--debug")
+                export MO_DEBUG=1
+                ;;
+        esac
+    done
+
     # Register unified cleanup handler
     trap cleanup_all EXIT INT TERM
 

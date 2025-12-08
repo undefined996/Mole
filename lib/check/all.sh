@@ -5,6 +5,27 @@
 set -euo pipefail
 
 # ============================================================================
+# Helper Functions
+# ============================================================================
+
+list_login_items() {
+    if ! command -v osascript > /dev/null 2>&1; then
+        return
+    fi
+
+    local raw_items
+    raw_items=$(osascript -e 'tell application "System Events" to get the name of every login item' 2> /dev/null || echo "")
+    [[ -z "$raw_items" || "$raw_items" == "missing value" ]] && return
+
+    IFS=',' read -ra login_items_array <<< "$raw_items"
+    for entry in "${login_items_array[@]}"; do
+        local trimmed
+        trimmed=$(echo "$entry" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+        [[ -n "$trimmed" ]] && printf "%s\n" "$trimmed"
+    done
+}
+
+# ============================================================================
 # Configuration Checks
 # ============================================================================
 

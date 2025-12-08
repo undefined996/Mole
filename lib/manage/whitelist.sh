@@ -5,9 +5,9 @@
 set -euo pipefail
 
 # Get script directory and source dependencies
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../core/common.sh"
-source "$SCRIPT_DIR/../ui/menu_simple.sh"
+_MOLE_MANAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$_MOLE_MANAGE_DIR/../core/common.sh"
+source "$_MOLE_MANAGE_DIR/../ui/menu_simple.sh"
 
 # Config file path
 WHITELIST_CONFIG="$HOME/.config/mole/whitelist"
@@ -214,7 +214,7 @@ manage_whitelist_categories() {
         cache_patterns+=("$pattern")
         menu_options+=("$display_name")
 
-        ((index++))
+        ((index++)) || true
     done < <(get_all_cache_items)
 
     # Identify custom patterns (not in predefined list)
@@ -325,6 +325,7 @@ manage_whitelist_categories() {
 
     local total_protected=$((${#selected_patterns[@]} + ${#custom_patterns[@]}))
     local -a summary_lines=()
+    summary_lines+=("Whitelist Updated")
     if [[ ${#custom_patterns[@]} -gt 0 ]]; then
         summary_lines+=("Protected ${#selected_patterns[@]} predefined + ${#custom_patterns[@]} custom patterns")
     else
@@ -332,7 +333,7 @@ manage_whitelist_categories() {
     fi
     summary_lines+=("Saved to ${WHITELIST_CONFIG}")
 
-    print_summary_block "success" "${summary_lines[@]}"
+    print_summary_block "${summary_lines[@]}"
     printf '\n'
 }
 

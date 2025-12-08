@@ -284,11 +284,15 @@ safe_clean() {
             (
                 local size
                 size=$(get_path_size_kb "$path")
-                local count
-                count=$(find "$path" -type f 2> /dev/null | wc -l | tr -d ' ')
                 # Use index + PID for unique filename
                 local tmp_file="$temp_dir/result_${idx}.$$"
-                echo "$size $count" > "$tmp_file"
+                # Optimization: Skip expensive file counting. Size is the key metric.
+                # Just indicate presence if size > 0
+                if [[ "$size" -gt 0 ]]; then
+                    echo "$size 1" > "$tmp_file"
+                else
+                    echo "0 0" > "$tmp_file"
+                fi
                 mv "$tmp_file" "$temp_dir/result_${idx}" 2> /dev/null || true
             ) &
             pids+=($!)
@@ -298,8 +302,8 @@ safe_clean() {
                 wait "${pids[0]}" 2> /dev/null || true
                 pids=("${pids[@]:1}")
                 ((completed++))
-                # Update progress every 10 items for smoother display
-                if [[ -t 1 ]] && ((completed % 10 == 0)); then
+                # Update progress less frequently to reduce overhead
+                if [[ -t 1 ]] && ((completed % 20 == 0)); then
                     stop_inline_spinner
                     MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning items ($completed/$total_paths)..."
                 fi
@@ -327,7 +331,7 @@ safe_clean() {
                         fi
                     fi
                     ((total_size_bytes += size))
-                    ((total_count += count))
+                    ((total_count += 1))
                     removed_any=1
                 fi
             fi
@@ -343,10 +347,9 @@ safe_clean() {
         for path in "${existing_paths[@]}"; do
             local size_bytes
             size_bytes=$(get_path_size_kb "$path")
-            local count
-            count=$(find "$path" -type f 2> /dev/null | wc -l | tr -d ' ')
 
-            if [[ "$count" -gt 0 && "$size_bytes" -gt 0 ]]; then
+            # Optimization: Skip expensive file counting
+            if [[ "$size_bytes" -gt 0 ]]; then
                 if [[ "$DRY_RUN" != "true" ]]; then
                     # Handle symbolic links separately (only remove the link, not the target)
                     if [[ -L "$path" ]]; then
@@ -356,7 +359,7 @@ safe_clean() {
                     fi
                 fi
                 ((total_size_bytes += size_bytes))
-                ((total_count += count))
+                ((total_count += 1))
                 removed_any=1
             fi
         done
@@ -658,191 +661,7 @@ perform_cleanup() {
     # Only touch apps missing from scan + 60+ days inactive
     # Skip protected vendors, keep Preferences/Application Support
     start_section "Uninstalled app data"
-
-    # Check if we have permission to access Library folders
-    # Use simple ls test instead of find to avoid hanging
-    local has_library_access=true
-    if ! ls "$HOME/Library/Caches" > /dev/null 2>&1; then
-        has_library_access=false
-    fi
-
-    if [[ "$has_library_access" == "false" ]]; then
-        note_activity
-        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Skipped: No permission to access Library folders"
-        echo -e "  ${GRAY}Tip: Grant 'Full Disk Access' to iTerm2/Terminal in System Settings${NC}"
-    else
-
-        local -r ORPHAN_AGE_THRESHOLD=60 # 60 days - good balance between safety and cleanup
-
-        # Build list of installed application bundle identifiers
-        MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning installed applications..."
-        local installed_bundles=$(create_temp_file)
-
-        # Simplified: only scan primary locations (reduces scan time by ~70%)
-        local -a search_paths=(
-            "/Applications"
-            "$HOME/Applications"
-        )
-
-        # Scan for .app bundles with timeout protection
-        for search_path in "${search_paths[@]}"; do
-            [[ -d "$search_path" ]] || continue
-            while IFS= read -r app; do
-                [[ -f "$app/Contents/Info.plist" ]] || continue
-                bundle_id=$(defaults read "$app/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "")
-                [[ -n "$bundle_id" ]] && echo "$bundle_id" >> "$installed_bundles"
-            done < <(run_with_timeout 10 find "$search_path" -maxdepth 2 -type d -name "*.app" 2> /dev/null || true)
-        done
-
-        # Get running applications and LaunchAgents with timeout protection
-        local running_apps=$(run_with_timeout 5 osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null || echo "")
-        echo "$running_apps" | tr ',' '\n' | sed -e 's/^ *//;s/ *$//' -e '/^$/d' >> "$installed_bundles"
-
-        run_with_timeout 5 find ~/Library/LaunchAgents /Library/LaunchAgents \
-            -name "*.plist" -type f 2> /dev/null | while IFS= read -r plist; do
-            basename "$plist" .plist
-        done >> "$installed_bundles" 2> /dev/null || true
-
-        # Deduplicate
-        sort -u "$installed_bundles" -o "$installed_bundles"
-
-        local app_count=$(wc -l < "$installed_bundles" 2> /dev/null | tr -d ' ')
-        stop_inline_spinner
-        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $app_count active/installed apps"
-
-        # Track statistics
-        local orphaned_count=0
-        local total_orphaned_kb=0
-
-        # Check if bundle is orphaned - conservative approach
-        is_orphaned() {
-            local bundle_id="$1"
-            local directory_path="$2"
-
-            # Skip system-critical and protected apps
-            if should_protect_data "$bundle_id"; then
-                return 1
-            fi
-
-            # Check if app exists in our scan
-            if grep -q "^$bundle_id$" "$installed_bundles" 2> /dev/null; then
-                return 1
-            fi
-
-            # Extra check for system bundles
-            case "$bundle_id" in
-                com.apple.* | loginwindow | dock | systempreferences | finder | safari)
-                    return 1
-                    ;;
-            esac
-
-            # Skip major vendors
-            case "$bundle_id" in
-                com.adobe.* | com.microsoft.* | com.google.* | org.mozilla.* | com.jetbrains.* | com.docker.*)
-                    return 1
-                    ;;
-            esac
-
-            # Check file age - only clean if 60+ days inactive
-            # Use modification time (mtime) instead of access time (atime)
-            # because macOS disables atime updates by default for performance
-            if [[ -e "$directory_path" ]]; then
-                local last_modified_epoch=$(get_file_mtime "$directory_path")
-                local current_epoch=$(date +%s)
-                local days_since_modified=$(((current_epoch - last_modified_epoch) / 86400))
-
-                if [[ $days_since_modified -lt $ORPHAN_AGE_THRESHOLD ]]; then
-                    return 1
-                fi
-            fi
-
-            return 0
-        }
-
-        # Unified orphaned resource scanner (caches, logs, states, webkit, HTTP, cookies)
-        MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning orphaned app resources..."
-
-        # Define resource types to scan
-        # CRITICAL: NEVER add LaunchAgents or LaunchDaemons (breaks login items/startup apps)
-        local -a resource_types=(
-            "$HOME/Library/Caches|Caches|com.*:org.*:net.*:io.*"
-            "$HOME/Library/Logs|Logs|com.*:org.*:net.*:io.*"
-            "$HOME/Library/Saved Application State|States|*.savedState"
-            "$HOME/Library/WebKit|WebKit|com.*:org.*:net.*:io.*"
-            "$HOME/Library/HTTPStorages|HTTP|com.*:org.*:net.*:io.*"
-            "$HOME/Library/Cookies|Cookies|*.binarycookies"
-        )
-
-        orphaned_count=0
-
-        for resource_type in "${resource_types[@]}"; do
-            IFS='|' read -r base_path label patterns <<< "$resource_type"
-
-            # Check both existence and permission to avoid hanging
-            if [[ ! -d "$base_path" ]]; then
-                continue
-            fi
-
-            # Quick permission check - if we can't ls the directory, skip it
-            if ! ls "$base_path" > /dev/null 2>&1; then
-                continue
-            fi
-
-            # Build file pattern array
-            local -a file_patterns=()
-            IFS=':' read -ra pattern_arr <<< "$patterns"
-            for pat in "${pattern_arr[@]}"; do
-                file_patterns+=("$base_path/$pat")
-            done
-
-            # Scan and clean orphaned items
-            for item_path in "${file_patterns[@]}"; do
-                # Use shell glob (no ls needed)
-                # Limit iterations to prevent hanging on directories with too many files
-                local iteration_count=0
-                local max_iterations=100
-
-                for match in $item_path; do
-                    [[ -e "$match" ]] || continue
-
-                    # Safety: limit iterations to prevent infinite loops on massive directories
-                    ((iteration_count++))
-                    if [[ $iteration_count -gt $max_iterations ]]; then
-                        break
-                    fi
-
-                    # Extract bundle ID from filename
-                    local bundle_id=$(basename "$match")
-                    bundle_id="${bundle_id%.savedState}"
-                    bundle_id="${bundle_id%.binarycookies}"
-
-                    if is_orphaned "$bundle_id" "$match"; then
-                        # Use timeout to prevent du from hanging on large/problematic directories
-                        local size_kb
-                        size_kb=$(run_with_timeout 2 du -sk "$match" 2> /dev/null | awk '{print $1}' || echo "0")
-                        if [[ -z "$size_kb" || "$size_kb" == "0" ]]; then
-                            continue
-                        fi
-                        safe_clean "$match" "Orphaned $label: $bundle_id"
-                        ((orphaned_count++))
-                        ((total_orphaned_kb += size_kb))
-                    fi
-                done
-            done
-        done
-
-        stop_inline_spinner
-
-        if [[ $orphaned_count -gt 0 ]]; then
-            local orphaned_mb=$(echo "$total_orphaned_kb" | awk '{printf "%.1f", $1/1024}')
-            echo "  ${GREEN}${ICON_SUCCESS}${NC} Cleaned $orphaned_count items (~${orphaned_mb}MB)"
-            note_activity
-        fi
-
-        rm -f "$installed_bundles"
-
-    fi # end of has_library_access check
-
+    clean_orphaned_app_data
     end_section
 
     # ===== 13. Apple Silicon optimizations =====
@@ -888,7 +707,7 @@ perform_cleanup() {
         if [[ "$DRY_RUN" == "true" ]]; then
             # Build compact stats line for dry run
             local stats="Potential space: ${GREEN}${freed_gb}GB${NC}"
-            [[ $files_cleaned -gt 0 ]] && stats+=" | Files: $files_cleaned"
+            [[ $files_cleaned -gt 0 ]] && stats+=" | Items: $files_cleaned"
             [[ $total_items -gt 0 ]] && stats+=" | Categories: $total_items"
             [[ $whitelist_skipped_count -gt 0 ]] && stats+=" | Protected: $whitelist_skipped_count"
             summary_details+=("$stats")
@@ -900,7 +719,7 @@ perform_cleanup() {
                 echo "# Summary"
                 echo "# ============================================"
                 echo "# Potential cleanup: ${freed_gb}GB"
-                echo "# Files: $files_cleaned"
+                echo "# Items: $files_cleaned"
                 echo "# Categories: $total_items"
                 [[ $whitelist_skipped_count -gt 0 ]] && echo "# Protected by whitelist: $whitelist_skipped_count"
             } >> "$EXPORT_LIST_FILE"
@@ -912,11 +731,11 @@ perform_cleanup() {
             summary_details+=("Free space now: $(get_free_space)")
 
             if [[ $files_cleaned -gt 0 && $total_items -gt 0 ]]; then
-                local stats="Files cleaned: $files_cleaned | Categories: $total_items"
+                local stats="Items cleaned: $files_cleaned | Categories: $total_items"
                 [[ $whitelist_skipped_count -gt 0 ]] && stats+=" | Protected: $whitelist_skipped_count"
                 summary_details+=("$stats")
             elif [[ $files_cleaned -gt 0 ]]; then
-                local stats="Files cleaned: $files_cleaned"
+                local stats="Items cleaned: $files_cleaned"
                 [[ $whitelist_skipped_count -gt 0 ]] && stats+=" | Protected: $whitelist_skipped_count"
                 summary_details+=("$stats")
             elif [[ $total_items -gt 0 ]]; then
@@ -943,14 +762,17 @@ perform_cleanup() {
         summary_details+=("Free space now: $(get_free_space)")
     fi
 
-    print_summary_block "$summary_status" "$summary_heading" "${summary_details[@]}"
+    print_summary_block "$summary_heading" "${summary_details[@]}"
     printf '\n'
 }
 
 main() {
-    # Parse args (only dry-run and whitelist)
+    # Parse args
     for arg in "$@"; do
         case "$arg" in
+            "--debug")
+                export MO_DEBUG=1
+                ;;
             "--dry-run" | "-n")
                 DRY_RUN=true
                 ;;

@@ -137,7 +137,7 @@ clean_orphaned_app_data() {
         fi
 
         # Check if app exists in our scan
-        if grep -q "^$bundle_id$" "$installed_bundles" 2> /dev/null; then
+        if grep -Fxq "$bundle_id" "$installed_bundles" 2> /dev/null; then
             return 1
         fi
 
@@ -231,7 +231,7 @@ clean_orphaned_app_data() {
                 if is_orphaned "$bundle_id" "$match"; then
                     # Use timeout to prevent du from hanging on network mounts or problematic paths
                     local size_kb
-                    size_kb=$(run_with_timeout 5 get_path_size_kb "$match")
+                    size_kb=$(get_path_size_kb "$match")
                     if [[ -z "$size_kb" || "$size_kb" == "0" ]]; then
                         continue
                     fi

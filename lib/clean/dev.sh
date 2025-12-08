@@ -3,6 +3,22 @@
 
 set -euo pipefail
 
+# Helper function to clean tool caches using their built-in commands
+# Args: $1 - description, $@ - command to execute
+# Env: DRY_RUN
+clean_tool_cache() {
+    local description="$1"
+    shift
+
+    if [[ "$DRY_RUN" != "true" ]]; then
+        if "$@" > /dev/null 2>&1; then
+            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $description"
+        fi
+    else
+        echo -e "  ${YELLOW}→${NC} $description (would clean)"
+    fi
+}
+
 # Clean npm cache (command + directories)
 # npm cache clean clears official npm cache, safe_clean handles alternative package managers
 # Env: DRY_RUN

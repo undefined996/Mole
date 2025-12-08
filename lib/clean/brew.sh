@@ -64,7 +64,8 @@ clean_orphaned_casks() {
         if sudo -n true 2> /dev/null; then
             if [[ -t 1 ]]; then
                 stop_inline_spinner
-                MOLE_SPINNER_PREFIX="  " start_inline_spinner "Cleaning orphaned casks..."
+                echo -e "  ${BLUE}${ICON_ARROW}${NC} Removing orphaned Homebrew casks (may require password for certain apps)"
+                MOLE_SPINNER_PREFIX="    " start_inline_spinner "Cleaning..."
             fi
 
             local removed_casks=0
@@ -76,7 +77,7 @@ clean_orphaned_casks() {
 
             if [[ -t 1 ]]; then stop_inline_spinner; fi
 
-            [[ $removed_casks -gt 0 ]] && log_success "Orphaned Homebrew casks ($removed_casks apps)"
+            [[ $removed_casks -gt 0 ]] && echo -e "    ${GREEN}${ICON_SUCCESS}${NC} Removed $removed_casks orphaned cask(s)"
         else
             # Sudo session expired - inform user to run brew manually
             if [[ -t 1 ]]; then stop_inline_spinner; fi
