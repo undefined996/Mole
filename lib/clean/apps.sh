@@ -109,11 +109,11 @@ clean_orphaned_app_data() {
         local spinner_chars="|/-\\"
         local i=0
         while true; do
-            local count=$(cat "$progress_count_file" 2>/dev/null || echo "0")
+            local count=$(cat "$progress_count_file" 2> /dev/null || echo "0")
             local c="${spinner_chars:$((i % 4)):1}"
             echo -ne "\r\033[K  $c Scanning installed apps... $count found" >&2
             ((i++))
-            sleep 0.2 2>/dev/null || sleep 1
+            sleep 0.2 2> /dev/null || sleep 1
         done
     ) &
     local spinner_pid=$!
@@ -132,7 +132,7 @@ clean_orphaned_app_data() {
                 if [[ -n "$bundle_id" ]]; then
                     echo "$bundle_id"
                     # Update progress count atomically
-                    local current_count=$(cat "$progress_count_file" 2>/dev/null || echo "0")
+                    local current_count=$(cat "$progress_count_file" 2> /dev/null || echo "0")
                     echo "$((current_count + 1))" > "$progress_count_file"
                 fi
             done > "$scan_tmp_dir/apps_${dir_idx}.txt"
@@ -161,8 +161,8 @@ clean_orphaned_app_data() {
     done
 
     # Stop the spinner
-    kill -TERM "$spinner_pid" 2>/dev/null || true
-    wait "$spinner_pid" 2>/dev/null || true
+    kill -TERM "$spinner_pid" 2> /dev/null || true
+    wait "$spinner_pid" 2> /dev/null || true
     echo -ne "\r\033[K" >&2
 
     # Merge all results
