@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -16,6 +17,7 @@ var (
 	dangerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6B6B")).Bold(true)
 	okStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#87D787"))
 	lineStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#5A5A5A"))
+	hatStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
 )
 
 const (
@@ -29,6 +31,14 @@ const (
 	iconSensors = "♨"
 	iconProcs   = "▶"
 )
+
+// Check if it's Christmas season (Dec 10-31)
+func isChristmasSeason() bool {
+	now := time.Now()
+	month := now.Month()
+	day := now.Day()
+	return month == time.December && day >= 10 && day <= 31
+}
 
 // Mole body frames (legs animate)
 var moleBody = [][]string{
@@ -58,10 +68,55 @@ var moleBody = [][]string{
 	},
 }
 
+// Mole body frames with Christmas hat
+var moleBodyWithHat = [][]string{
+	{
+		`       *`,
+		`      /o\`,
+		`     {/\_/\}`,
+		`  ___/ o o \`,
+		` /___  =-= /`,
+		` \____)-m-m)`,
+	},
+	{
+		`       *`,
+		`      /o\`,
+		`     {/\_/\}`,
+		`  ___/ o o \`,
+		` /___  =-= /`,
+		` \____)mm__)`,
+	},
+	{
+		`       *`,
+		`      /o\`,
+		`     {/\_/\}`,
+		`  ___/ · · \`,
+		` /___  =-= /`,
+		` \___)-m__m)`,
+	},
+	{
+		`       *`,
+		`      /o\`,
+		`     {/\_/\}`,
+		`  ___/ o o \`,
+		` /___  =-= /`,
+		` \____)-mm-)`,
+	},
+}
+
 // Generate frames with horizontal movement
 func getMoleFrame(animFrame int, termWidth int) string {
-	bodyIdx := animFrame % len(moleBody)
-	body := moleBody[bodyIdx]
+	var body []string
+	var bodyIdx int
+	isChristmas := isChristmasSeason()
+	
+	if isChristmas {
+		bodyIdx = animFrame % len(moleBodyWithHat)
+		body = moleBodyWithHat[bodyIdx]
+	} else {
+		bodyIdx = animFrame % len(moleBody)
+		body = moleBody[bodyIdx]
+	}
 
 	// Calculate mole width (approximate)
 	moleWidth := 15
@@ -83,9 +138,22 @@ func getMoleFrame(animFrame int, termWidth int) string {
 
 	padding := strings.Repeat(" ", pos)
 	var lines []string
-	for _, line := range body {
-		lines = append(lines, padding+line)
+	
+	if isChristmas {
+		// Render with red hat on first 3 lines
+		for i, line := range body {
+			if i < 3 {
+				lines = append(lines, padding+hatStyle.Render(line))
+			} else {
+				lines = append(lines, padding+line)
+			}
+		}
+	} else {
+		for _, line := range body {
+			lines = append(lines, padding+line)
+		}
 	}
+	
 	return strings.Join(lines, "\n")
 }
 

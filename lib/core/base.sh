@@ -54,6 +54,21 @@ readonly MOLE_SAVED_STATE_AGE_DAYS=7     # App saved state retention
 readonly MOLE_TM_BACKUP_SAFE_HOURS=48    # Time Machine failed backup safety window
 
 # ============================================================================
+# Seasonal Functions
+# ============================================================================
+is_christmas_season() {
+    local month day
+    month=$(date +%-m)
+    day=$(date +%-d)
+    
+    # December 10 to December 31
+    if [[ $month -eq 12 && $day -ge 10 && $day -le 31 ]]; then
+        return 0
+    fi
+    return 1
+}
+
+# ============================================================================
 # Whitelist Configuration
 # ============================================================================
 readonly FINDER_METADATA_SENTINEL="FINDER_METADATA"
