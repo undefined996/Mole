@@ -216,8 +216,6 @@ clean_project_caches() {
 }
 
 # Clean Spotlight user caches
-# Cleans CoreSpotlight index cache and Spotlight saved state
-# System Spotlight index (/System/Volumes/Data/.Spotlight-V100) is never touched
 clean_spotlight_caches() {
     local cleaned_size=0
     local cleaned_count=0

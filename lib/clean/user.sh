@@ -80,8 +80,7 @@ clean_macos_system_caches() {
     safe_clean ~/Library/Saved\ Application\ State/* "Saved application states"
     safe_clean ~/Library/Caches/com.apple.spotlight "Spotlight cache"
 
-    # Clean Spotlight user caches (CoreSpotlight can grow very large)
-    clean_spotlight_caches
+    # MOVED: Spotlight cache cleanup moved to optimize command
 
     safe_clean ~/Library/Caches/com.apple.photoanalysisd "Photo analysis cache"
     safe_clean ~/Library/Caches/com.apple.akd "Apple ID cache"

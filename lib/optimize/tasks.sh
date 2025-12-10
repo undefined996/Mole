@@ -410,6 +410,56 @@ opt_fix_broken_configs() {
     fi
 }
 
+# Clean Spotlight user caches
+opt_spotlight_cache_cleanup() {
+    # Check whitelist
+    if is_whitelisted "spotlight_cache"; then
+        echo -e "${GRAY}${ICON_SUCCESS}${NC} Spotlight cache cleanup (whitelisted)"
+        return 0
+    fi
+
+    echo -e "${BLUE}${ICON_ARROW}${NC} Cleaning Spotlight user caches..."
+
+    local cleaned_count=0
+    local total_size_kb=0
+
+    # CoreSpotlight user cache (can grow very large)
+    local spotlight_cache="$HOME/Library/Metadata/CoreSpotlight"
+    if [[ -d "$spotlight_cache" ]]; then
+        local size_kb=$(get_path_size_kb "$spotlight_cache")
+        if [[ "$size_kb" -gt 0 ]]; then
+            local size_human=$(bytes_to_human "$((size_kb * 1024))")
+            if safe_remove "$spotlight_cache" true; then
+                echo -e "  ${GREEN}${ICON_SUCCESS}${NC} CoreSpotlight cache ${GREEN}($size_human)${NC}"
+                ((cleaned_count++))
+                ((total_size_kb += size_kb))
+            fi
+        fi
+    fi
+
+    # Spotlight saved application state
+    local spotlight_state="$HOME/Library/Saved Application State/com.apple.spotlight.Spotlight.savedState"
+    if [[ -d "$spotlight_state" ]]; then
+        local size_kb=$(get_path_size_kb "$spotlight_state")
+        if [[ "$size_kb" -gt 0 ]]; then
+            local size_human=$(bytes_to_human "$((size_kb * 1024))")
+            if safe_remove "$spotlight_state" true; then
+                echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Spotlight state ${GREEN}($size_human)${NC}"
+                ((cleaned_count++))
+                ((total_size_kb += size_kb))
+            fi
+        fi
+    fi
+
+    if [[ $cleaned_count -gt 0 ]]; then
+        local total_human=$(bytes_to_human "$((total_size_kb * 1024))")
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} Cleaned $cleaned_count items ${GREEN}($total_human)${NC}"
+        echo -e "${YELLOW}${ICON_WARNING}${NC} System settings may require logout/restart to display correctly"
+    else
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} No Spotlight caches to clean"
+    fi
+}
+
 # Execute optimization by action name
 execute_optimization() {
     local action="$1"
@@ -430,6 +480,7 @@ execute_optimization() {
         local_snapshots) opt_local_snapshots ;;
         developer_cleanup) opt_developer_cleanup ;;
         fix_broken_configs) opt_fix_broken_configs ;;
+        spotlight_cache_cleanup) opt_spotlight_cache_cleanup ;;
         *)
             echo -e "${RED}${ICON_ERROR}${NC} Unknown action: $action"
             return 1

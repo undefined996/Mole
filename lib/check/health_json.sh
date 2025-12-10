@@ -127,6 +127,7 @@ EOF
     items+=('recent_items|Recent Items|Clear recent apps/documents/servers lists|true')
     items+=('log_cleanup|Diagnostics Cleanup|Purge old diagnostic & crash logs|true')
     items+=('startup_cache|Startup Cache Rebuild|Rebuild kext caches & prelinked kernel|true')
+    items+=('spotlight_cache_cleanup|Spotlight Cache Cleanup|Clear CoreSpotlight user cache|false')
 
     # Output items as JSON
     local first=true
