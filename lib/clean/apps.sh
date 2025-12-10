@@ -129,19 +129,19 @@ clean_orphaned_app_data() {
             while IFS= read -r app_path; do
                 [[ -n "$app_path" ]] && app_paths+=("$app_path")
             done < <(find "$app_dir" -name '*.app' -maxdepth 3 -type d 2> /dev/null)
-            
+
             # Read bundle IDs with PlistBuddy
             local count=0
             for app_path in "${app_paths[@]}"; do
                 local plist_path="$app_path/Contents/Info.plist"
                 [[ ! -f "$plist_path" ]] && continue
-                
+
                 local bundle_id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$plist_path" 2> /dev/null || echo "")
-                
+
                 if [[ -n "$bundle_id" ]]; then
                     echo "$bundle_id"
                     ((count++))
-                    
+
                     # Batch update progress every 10 apps to reduce I/O
                     if [[ $((count % 10)) -eq 0 ]]; then
                         local current=$(cat "$progress_count_file" 2> /dev/null || echo "0")
@@ -149,7 +149,7 @@ clean_orphaned_app_data() {
                     fi
                 fi
             done
-            
+
             # Final progress update
             if [[ $((count % 10)) -ne 0 ]]; then
                 local current=$(cat "$progress_count_file" 2> /dev/null || echo "0")
