@@ -9,13 +9,16 @@ permissions:
   contents: write
 
 jobs:
-  shell-quality:
-    name: Code Quality
+  format:
+    name: Auto Format
     runs-on: macos-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cache Homebrew
         uses: actions/cache@v4
@@ -31,16 +34,56 @@ jobs:
       - name: Install tools
         run: brew install shfmt shellcheck
 
-      - name: Format check
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Format all code
         run: |
-          echo "Checking shell script formatting..."
+          echo "Formatting shell scripts..."
           ./scripts/format.sh
+          echo "Formatting Go code..."
+          gofmt -w ./cmd
+          echo "✓ All code formatted"
+
+      - name: Commit formatting changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           if [[ -n $(git status --porcelain) ]]; then
-            echo "Code formatting issues found:"
-            git diff
-            exit 1
+            git add .
+            git commit -m "chore: auto format code"
+            git push
+            echo "✓ Formatting changes committed"
+          else
+            echo "✓ No formatting changes needed"
           fi
-          echo "✓ All scripts properly formatted"
+
+  quality:
+    name: Code Quality
+    runs-on: macos-latest
+    needs: format
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Cache Homebrew
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            /usr/local/Cellar/shfmt
+            /usr/local/Cellar/shellcheck
+          key: ${{ runner.os }}-brew-quality-${{ hashFiles('**/Brewfile') }}
+          restore-keys: |
+            ${{ runner.os }}-brew-quality-
+
+      - name: Install tools
+        run: brew install shfmt shellcheck
 
       - name: ShellCheck
         run: |

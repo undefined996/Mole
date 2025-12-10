@@ -49,16 +49,6 @@ jobs:
           go vet ./cmd/...
           echo "✓ Vet passed"
 
-      - name: Check formatting
-        run: |
-          echo "Checking Go formatting..."
-          if [ -n "$(gofmt -l ./cmd)" ]; then
-            echo "Go code is not formatted:"
-            gofmt -d ./cmd
-            exit 1
-          fi
-          echo "✓ Go code properly formatted"
-
   integration-tests:
     name: Integration Tests
     runs-on: macos-latest
