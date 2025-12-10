@@ -402,7 +402,10 @@ main() {
     if [[ ${#CURRENT_WHITELIST_PATTERNS[@]} -gt 0 ]]; then
         local count=${#CURRENT_WHITELIST_PATTERNS[@]}
         if [[ $count -le 3 ]]; then
-            local patterns_list=$(IFS=', '; echo "${CURRENT_WHITELIST_PATTERNS[*]}")
+            local patterns_list=$(
+                IFS=', '
+                echo "${CURRENT_WHITELIST_PATTERNS[*]}"
+            )
             echo -e "${ICON_ADMIN} Active Whitelist: ${patterns_list}"
         else
             echo -e "${ICON_ADMIN} Active Whitelist: ${GRAY}${count} items${NC}"

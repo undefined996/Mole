@@ -109,7 +109,7 @@ func getMoleFrame(animFrame int, termWidth int) string {
 	var body []string
 	var bodyIdx int
 	isChristmas := isChristmasSeason()
-	
+
 	if isChristmas {
 		bodyIdx = animFrame % len(moleBodyWithHat)
 		body = moleBodyWithHat[bodyIdx]
@@ -138,7 +138,7 @@ func getMoleFrame(animFrame int, termWidth int) string {
 
 	padding := strings.Repeat(" ", pos)
 	var lines []string
-	
+
 	if isChristmas {
 		// Render with red hat on first 3 lines
 		for i, line := range body {
@@ -153,7 +153,7 @@ func getMoleFrame(animFrame int, termWidth int) string {
 			lines = append(lines, padding+line)
 		}
 	}
-	
+
 	return strings.Join(lines, "\n")
 }
 

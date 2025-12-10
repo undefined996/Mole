@@ -16,10 +16,10 @@ format_app_display() {
     [[ "$size" != "0" && "$size" != "" && "$size" != "Unknown" ]] && size_str="$size"
 
     # Calculate available width for app name based on terminal width
-    local terminal_width=$(tput cols 2>/dev/null || echo 80)
+    local terminal_width=$(tput cols 2> /dev/null || echo 80)
     local fixed_width=28
     local available_width=$((terminal_width - fixed_width))
-    
+
     # Set reasonable bounds for name width: 24-35 chars
     [[ $available_width -lt 24 ]] && available_width=24
     [[ $available_width -gt 35 ]] && available_width=35

@@ -60,7 +60,7 @@ is_christmas_season() {
     local month day
     month=$(date +%-m)
     day=$(date +%-d)
-    
+
     # December 10 to December 31
     if [[ $month -eq 12 && $day -ge 10 && $day -le 31 ]]; then
         return 0
