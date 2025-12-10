@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/core/common.sh"
 
 # Version info
-VERSION="1.12.3"
+VERSION="1.12.2"
 MOLE_TAGLINE="can dig deep to clean your Mac."
 
 # Check if Touch ID is already configured
@@ -114,7 +114,7 @@ animate_mole_intro() {
     hide_cursor
 
     local -a mole_lines=()
-    
+
     if is_christmas_season; then
         while IFS= read -r line; do
             mole_lines+=("$line")
@@ -148,7 +148,7 @@ EOF
     local body_cutoff
     local body_color="${PURPLE}"
     local ground_color="${GREEN}"
-    
+
     if is_christmas_season; then
         body_cutoff=6
         for idx in "${!mole_lines[@]}"; do
