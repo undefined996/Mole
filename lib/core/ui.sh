@@ -172,3 +172,43 @@ mo_spinner_chars() {
     [[ -z "$chars" ]] && chars="|/-\\"
     printf "%s" "$chars"
 }
+
+# Format last used time for display
+# Args: $1 = last used string (e.g., "3 days ago", "Today", "Never")
+# Returns: Compact version (e.g., "3d ago", "Today", "Never")
+format_last_used_summary() {
+    local value="$1"
+
+    case "$value" in
+        "" | "Unknown")
+            echo "Unknown"
+            return 0
+            ;;
+        "Never" | "Recent" | "Today" | "Yesterday" | "This year" | "Old")
+            echo "$value"
+            return 0
+            ;;
+    esac
+
+    if [[ $value =~ ^([0-9]+)[[:space:]]+days?\ ago$ ]]; then
+        echo "${BASH_REMATCH[1]}d ago"
+        return 0
+    fi
+    if [[ $value =~ ^([0-9]+)[[:space:]]+weeks?\ ago$ ]]; then
+        echo "${BASH_REMATCH[1]}w ago"
+        return 0
+    fi
+    if [[ $value =~ ^([0-9]+)[[:space:]]+months?\ ago$ ]]; then
+        echo "${BASH_REMATCH[1]}m ago"
+        return 0
+    fi
+    if [[ $value =~ ^([0-9]+)[[:space:]]+month\(s\)\ ago$ ]]; then
+        echo "${BASH_REMATCH[1]}m ago"
+        return 0
+    fi
+    if [[ $value =~ ^([0-9]+)[[:space:]]+years?\ ago$ ]]; then
+        echo "${BASH_REMATCH[1]}y ago"
+        return 0
+    fi
+    echo "$value"
+}

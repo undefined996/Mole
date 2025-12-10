@@ -323,18 +323,18 @@ func (m model) View() string {
 	if m.inOverviewMode() {
 		// Show ← Back if there's history (entered from a parent directory)
 		if len(m.history) > 0 {
-			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  R Refresh  |  O Open  |  F Show  |  ← Back  |  Q Quit%s\n", colorGray, colorReset)
+			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  R Refresh  |  O Open  |  F File  |  ← Back  |  Q Quit%s\n", colorGray, colorReset)
 		} else {
-			fmt.Fprintf(&b, "%s↑↓→  |  Enter  |  R Refresh  |  O Open  |  F Show  |  Q Quit%s\n", colorGray, colorReset)
+			fmt.Fprintf(&b, "%s↑↓→  |  Enter  |  R Refresh  |  O Open  |  F File  |  Q Quit%s\n", colorGray, colorReset)
 		}
 	} else if m.showLargeFiles {
-		fmt.Fprintf(&b, "%s↑↓←  |  R Refresh  |  O Open  |  F Show  |  ⌫ Delete  |  ← Back  |  Q Quit%s\n", colorGray, colorReset)
+		fmt.Fprintf(&b, "%s↑↓←  |  R Refresh  |  O Open  |  F File  |  ⌫ Del  |  ← Back  |  Q Quit%s\n", colorGray, colorReset)
 	} else {
 		largeFileCount := len(m.largeFiles)
 		if largeFileCount > 0 {
-			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  R Refresh  |  O Open  |  F Show  |  ⌫ Delete  |  T Top(%d)  |  Q Quit%s\n", colorGray, largeFileCount, colorReset)
+			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  R Refresh  |  O Open  |  F File  |  ⌫ Del  |  T Top(%d)  |  Q Quit%s\n", colorGray, largeFileCount, colorReset)
 		} else {
-			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  R Refresh  |  O Open  |  F Show  |  ⌫ Delete  |  Q Quit%s\n", colorGray, colorReset)
+			fmt.Fprintf(&b, "%s↑↓←→  |  Enter  |  R Refresh  |  O Open  |  F File  |  ⌫ Del  |  Q Quit%s\n", colorGray, colorReset)
 		}
 	}
 	if m.deleteConfirm && m.deleteTarget != nil {

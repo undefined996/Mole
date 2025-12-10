@@ -7,41 +7,31 @@ set -euo pipefail
 format_app_display() {
     local display_name="$1" size="$2" last_used="$3"
 
-    # Compact last-used wording to keep column width tidy
+    # Use common function from ui.sh to format last used time
     local compact_last_used
-    case "$last_used" in
-        "" | "Unknown") compact_last_used="Unknown" ;;
-        "Never" | "Recent" | "Today" | "Yesterday" | "This year" | "Old") compact_last_used="$last_used" ;;
-        *)
-            if [[ $last_used =~ ^([0-9]+)[[:space:]]+days?\ ago$ ]]; then
-                compact_last_used="${BASH_REMATCH[1]}d ago"
-            elif [[ $last_used =~ ^([0-9]+)[[:space:]]+weeks?\ ago$ ]]; then
-                compact_last_used="${BASH_REMATCH[1]}w ago"
-            elif [[ $last_used =~ ^([0-9]+)[[:space:]]+months?\ ago$ ]]; then
-                compact_last_used="${BASH_REMATCH[1]}m ago"
-            elif [[ $last_used =~ ^([0-9]+)[[:space:]]+month\(s\)\ ago$ ]]; then
-                compact_last_used="${BASH_REMATCH[1]}m ago"
-            elif [[ $last_used =~ ^([0-9]+)[[:space:]]+years?\ ago$ ]]; then
-                compact_last_used="${BASH_REMATCH[1]}y ago"
-            else
-                compact_last_used="$last_used"
-            fi
-            ;;
-    esac
-
-    # Truncate long names with consistent width
-    local truncated_name="$display_name"
-    if [[ ${#display_name} -gt 22 ]]; then
-        truncated_name="${display_name:0:19}..."
-    fi
+    compact_last_used=$(format_last_used_summary "$last_used")
 
     # Format size
     local size_str="Unknown"
     [[ "$size" != "0" && "$size" != "" && "$size" != "Unknown" ]] && size_str="$size"
 
-    # Use consistent column widths for perfect alignment:
-    # name column (22), right-aligned size column (9), then compact last-used value.
-    printf "%-22s %9s | %s" "$truncated_name" "$size_str" "$compact_last_used"
+    # Calculate available width for app name based on terminal width
+    local terminal_width=$(tput cols 2>/dev/null || echo 80)
+    local fixed_width=28
+    local available_width=$((terminal_width - fixed_width))
+    
+    # Set reasonable bounds for name width: 24-35 chars
+    [[ $available_width -lt 24 ]] && available_width=24
+    [[ $available_width -gt 35 ]] && available_width=35
+
+    # Truncate long names if needed
+    local truncated_name="$display_name"
+    if [[ ${#display_name} -gt $available_width ]]; then
+        truncated_name="${display_name:0:$((available_width - 3))}..."
+    fi
+
+    # Use dynamic column width for better readability
+    printf "%-*s %9s | %s" "$available_width" "$truncated_name" "$size_str" "$compact_last_used"
 }
 
 # Global variable to store selection result (bash 3.2 compatible)
