@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/core/common.sh"
 
 # Version info
-VERSION="1.12.11"
+VERSION="1.12.12"
 MOLE_TAGLINE="can dig deep to clean your Mac."
 
 # Check if Touch ID is already configured
@@ -737,9 +737,6 @@ main() {
             ;;
         "touchid")
             exec "$SCRIPT_DIR/bin/touchid.sh" "${args[@]:1}"
-            ;;
-        "test")
-            exec "$SCRIPT_DIR/scripts/run-tests.sh" "${args[@]:1}"
             ;;
         "update")
             update_mole
