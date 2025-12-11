@@ -132,7 +132,7 @@ clean_orphaned_app_data() {
 
             # Read bundle IDs with PlistBuddy
             local count=0
-            for app_path in "${app_paths[@]}"; do
+            for app_path in "${app_paths[@]:-}"; do
                 local plist_path="$app_path/Contents/Info.plist"
                 [[ ! -f "$plist_path" ]] && continue
 
