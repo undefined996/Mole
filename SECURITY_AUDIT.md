@@ -51,6 +51,14 @@ Mole's "Smart Uninstall" and orphan detection (`lib/clean/apps.sh`) are intentio
 2. **Dormancy Check**: Associated data folders are only flagged for removal if they have not been modified for **at least 60 days**.
 3. **Vendor Whitelist**: A hardcoded whitelist protects shared resources from major vendors (Adobe, Microsoft, Google, etc.) to prevent breaking software suites.
 
+### Active Uninstallation Heuristics
+
+When a user explicitly selects an app for uninstallation, Mole employs advanced heuristics to find scattered remnants (e.g., "Visual Studio Code" -> `~/.vscode`, `~/Library/Application Support/VisualStudioCode`).
+
+- **Sanitized Name Matching**: We search for app name variations (removing spaces, replacing with underscores) to catch non-standard folder naming.
+- **Safety Constraints**: Fuzzy matching and sanitized name searches are **strictly disabled** for app names shorter than 4 characters to prevent false positives (e.g., an app named "Box" will not trigger a broad scan).
+- **Plug-in & System Scope**: Mole scans specific system-level directories (`/Library/Audio/Plug-Ins`, `/Library/LaunchAgents`) for related components. These operations are subject to the same **Iron Dome** validation to ensure no critical system files are touched.
+
 ### System Integrity Protection (SIP) Awareness
 
 Mole respects macOS SIP. It detects if SIP is enabled and automatically skips protected directories (like `/Library/Updates`) to avoid triggering permission errors or interfering with macOS updates.
