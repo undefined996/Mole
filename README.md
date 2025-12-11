@@ -70,6 +70,15 @@ mo optimize --whitelist      # Adjust protected optimization items
 - **Navigation**: All menus support Vim keys `h/j/k/l` in addition to arrow keys
 - **Debug**: Use `--debug` flag to see detailed logs: `mo clean --debug`
 
+## Security & Safety
+
+Mole is built with a **"Safety First"** philosophy. We prioritize system stability over aggressive cleaning.
+
+- **Path Validation**: All deletion operations undergo strict validation to prevent accidents.
+- **Protected Directories**: Critical system paths are hard-coded as untouchable.
+- **Conservative Cleanup**: "Orphaned" data is only removed if the app is missing AND the data has been inactive for 60+ days.
+- **Audit Report**: For a detailed technical breakdown of our safety mechanisms, read the [Security Audit Report](SECURITY_AUDIT.md).
+
 ## Features in Detail
 
 ### Deep System Cleanup

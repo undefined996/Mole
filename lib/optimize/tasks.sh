@@ -170,17 +170,19 @@ opt_radio_refresh() {
     local wifi_interface
     wifi_interface=$(networksetup -listallhardwareports | awk '/Wi-Fi/{getline; print $2}' | head -1)
     if [[ -n "$wifi_interface" ]]; then
-        sudo ifconfig "$wifi_interface" down 2> /dev/null || true
-        sleep 1
-        sudo ifconfig "$wifi_interface" up 2> /dev/null || true
-        echo -e "${GREEN}${ICON_SUCCESS}${NC} Wi-Fi interface restarted"
+        # Use atomic execution to ensure interface comes back up even if interrupted
+        if sudo bash -c "trap '' INT TERM; ifconfig '$wifi_interface' down; sleep 1; ifconfig '$wifi_interface' up" 2> /dev/null; then
+            echo -e "${GREEN}${ICON_SUCCESS}${NC} Wi-Fi interface restarted"
+        else
+            echo -e "${YELLOW}!${NC} Failed to restart Wi-Fi interface"
+        fi
     else
         echo -e "${GRAY}-${NC} Wi-Fi interface not found"
     fi
 
     # Restart AirDrop interface
-    sudo ifconfig awdl0 down 2> /dev/null || true
-    sudo ifconfig awdl0 up 2> /dev/null || true
+    # Use atomic execution to ensure interface comes back up even if interrupted
+    sudo bash -c "trap '' INT TERM; ifconfig awdl0 down; ifconfig awdl0 up" 2> /dev/null || true
     echo -e "${GREEN}${ICON_SUCCESS}${NC} Wireless services refreshed"
 }
 
