@@ -1,7 +1,9 @@
 # Mole Security Audit Report
 
 **Date:** December 11, 2025
+
 **Audited Version:** Current `main` branch
+
 **Status:** Passed
 
 ---
