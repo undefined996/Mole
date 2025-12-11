@@ -177,12 +177,54 @@ func collectThermal() ThermalStatus {
 		}
 	}
 
-	// Try to get CPU temperature using sudo powermetrics (may not work without sudo)
-	// Fallback: use SMC reader or estimate from thermal pressure
+	// 1. Try osx-cpu-temp (most accurate for users without sudo)
+	if commandExists("osx-cpu-temp") {
+		ctxTemp, cancelTemp := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancelTemp()
+		if out, err := runCmd(ctxTemp, "osx-cpu-temp"); err == nil {
+			valStr := strings.TrimSpace(out)
+			valStr = strings.TrimSuffix(valStr, "°C")
+			valStr = strings.TrimSuffix(valStr, "C")
+			valStr = strings.TrimSpace(valStr)
+			if t, err := strconv.ParseFloat(valStr, 64); err == nil && t > 0 {
+				thermal.CPUTemp = t
+				return thermal
+			}
+		}
+	}
+
+	// 2. Try powermetrics (requires sudo, works on Apple Silicon)
+	if commandExists("powermetrics") {
+		// Only run if we are effectively root to avoid password prompt/failure delays
+		if os.Geteuid() == 0 {
+			ctxPower, cancelPower := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancelPower()
+			// Use thermal sampler
+			out, err := runCmd(ctxPower, "powermetrics", "-n", "1", "--samplers", "thermal", "-i", "100")
+			if err == nil {
+				lines := strings.Split(out, "\n")
+				for _, line := range lines {
+					if strings.Contains(line, "CPU die temperature") {
+						// Format: "CPU die temperature: 35.43 C"
+						parts := strings.Split(line, ":")
+						if len(parts) == 2 {
+							valStr := strings.TrimSpace(parts[1])
+							valStr = strings.TrimSuffix(valStr, " C")
+							if t, err := strconv.ParseFloat(valStr, 64); err == nil {
+								thermal.CPUTemp = t
+								return thermal
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 3. Try thermal level as a proxy (fallback)
 	ctx2, cancel2 := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel2()
 
-	// Try thermal level as a proxy
 	out2, err := runCmd(ctx2, "sysctl", "-n", "machdep.xcpm.cpu_thermal_level")
 	if err == nil {
 		level, _ := strconv.Atoi(strings.TrimSpace(out2))

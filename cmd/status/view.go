@@ -542,25 +542,26 @@ func renderBatteryCard(batts []BatteryStatus, thermal ThermalStatus) cardData {
 		if len(healthParts) > 0 {
 			lines = append(lines, subtleStyle.Render(strings.Join(healthParts, " · ")))
 		}
-
-		// Line 4: Temp + Fan combined
-		var thermalParts []string
-		if thermal.CPUTemp > 0 {
-			tempStyle := okStyle
-			if thermal.CPUTemp > 80 {
-				tempStyle = dangerStyle
-			} else if thermal.CPUTemp > 60 {
-				tempStyle = warnStyle
-			}
-			thermalParts = append(thermalParts, tempStyle.Render(fmt.Sprintf("%.0f°C", thermal.CPUTemp)))
-		}
-		if thermal.FanSpeed > 0 {
-			thermalParts = append(thermalParts, fmt.Sprintf("%d RPM", thermal.FanSpeed))
-		}
-		if len(thermalParts) > 0 {
-			lines = append(lines, strings.Join(thermalParts, " · "))
-		}
 	}
+
+	// Line 4: Temp + Fan combined
+	var thermalParts []string
+	if thermal.CPUTemp > 0 {
+		tempStyle := okStyle
+		if thermal.CPUTemp > 80 {
+			tempStyle = dangerStyle
+		} else if thermal.CPUTemp > 60 {
+			tempStyle = warnStyle
+		}
+		thermalParts = append(thermalParts, tempStyle.Render(fmt.Sprintf("%.0f°C", thermal.CPUTemp)))
+	}
+	if thermal.FanSpeed > 0 {
+		thermalParts = append(thermalParts, fmt.Sprintf("%d RPM", thermal.FanSpeed))
+	}
+	if len(thermalParts) > 0 {
+		lines = append(lines, strings.Join(thermalParts, " · "))
+	}
+
 	return cardData{icon: iconBattery, title: "Power", lines: lines}
 }
 
