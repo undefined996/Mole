@@ -64,20 +64,11 @@ mo optimize --whitelist      # Adjust protected optimization items
 ## Tips
 
 - **Terminal**: iTerm2 has known compatibility issues, use Alacritty, kitty, WezTerm, Ghostty, or Warp instead
-- **Safety**: Preview cleanup with `mo clean --dry-run` before running full cleanup
+- **Safety**: Built with strict protections. See our [Security Audit](SECURITY_AUDIT.md). Preview with `mo clean --dry-run`
 - **Whitelist**: Use `mo clean --whitelist` to manage protected caches
 - **Touch ID**: Run `mo touchid` to approve sudo with Touch ID instead of password
 - **Navigation**: All menus support Vim keys `h/j/k/l` in addition to arrow keys
 - **Debug**: Use `--debug` flag to see detailed logs: `mo clean --debug`
-
-## Security & Safety
-
-Mole is built with a **"Safety First"** philosophy. We prioritize system stability over aggressive cleaning.
-
-- **Path Validation**: All deletion operations undergo strict validation to prevent accidents.
-- **Protected Directories**: Critical system paths are hard-coded as untouchable.
-- **Conservative Cleanup**: "Orphaned" data is only removed if the app is missing AND the data has been inactive for 60+ days.
-- **Audit Report**: For a detailed technical breakdown of our safety mechanisms, read the [Security Audit Report](SECURITY_AUDIT.md).
 
 ## Features in Detail
 
