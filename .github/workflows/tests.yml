@@ -49,6 +49,12 @@ jobs:
           go vet ./cmd/...
           echo "✓ Vet passed"
 
+      - name: Run go test
+        run: |
+          echo "Running go test..."
+          go test ./cmd/...
+          echo "✓ Go tests passed"
+
   integration-tests:
     name: Integration Tests
     runs-on: macos-latest

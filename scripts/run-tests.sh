@@ -66,7 +66,7 @@ echo ""
 # 4. Go Tests
 echo "4. Running Go tests..."
 if command -v go > /dev/null 2>&1; then
-    if go build ./... && go vet ./cmd/...; then
+    if go build ./... && go vet ./cmd/... && go test ./cmd/...; then
         echo -e "${GREEN}✓ Go tests passed${NC}"
     else
         echo -e "${RED}✗ Go tests failed${NC}"

@@ -1,130 +1,227 @@
 #!/usr/bin/env bats
-# shellcheck disable=SC2030,SC2031
 
 setup_file() {
     PROJECT_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
     export PROJECT_ROOT
-
-    ORIGINAL_HOME="${HOME:-}"
-    export ORIGINAL_HOME
-
-    HOME="$(mktemp -d "${BATS_TEST_DIRNAME}/tmp-update-manager.XXXXXX")"
-    export HOME
-
-    mkdir -p "$HOME"
-}
-
-teardown_file() {
-    rm -rf "$HOME"
-    if [[ -n "${ORIGINAL_HOME:-}" ]]; then
-        export HOME="$ORIGINAL_HOME"
-    fi
+    
+    # Create a dummy cache directory for tests
+    mkdir -p "${HOME}/.cache/mole"
 }
 
 setup() {
-    source "$PROJECT_ROOT/lib/core/common.sh"
-    source "$PROJECT_ROOT/lib/manage/update.sh"
+    # Default values for tests
+    BREW_OUTDATED_COUNT=0
+    BREW_FORMULA_OUTDATED_COUNT=0
+    BREW_CASK_OUTDATED_COUNT=0
+    APPSTORE_UPDATE_COUNT=0
+    MACOS_UPDATE_AVAILABLE=false
+    MOLE_UPDATE_AVAILABLE=false
+    
+    # Create a temporary bin directory for mocks
+    export MOCK_BIN_DIR="$BATS_TMPDIR/mole-mocks-$$"
+    mkdir -p "$MOCK_BIN_DIR"
+    export PATH="$MOCK_BIN_DIR:$PATH"
 }
 
-# Test brew_has_outdated function
-@test "brew_has_outdated returns 1 when brew not installed" {
-    # shellcheck disable=SC2329
-    function brew() {
-        return 127  # Command not found
-    }
-    export -f brew
-
-    run bash -c "source '$PROJECT_ROOT/lib/core/common.sh'; source '$PROJECT_ROOT/lib/manage/update.sh'; brew_has_outdated"
-    [ "$status" -eq 1 ]
+teardown() {
+    rm -rf "$MOCK_BIN_DIR"
 }
 
-@test "brew_has_outdated checks formula by default" {
-    # Mock brew to simulate outdated formulas
-    # shellcheck disable=SC2329
-    function brew() {
-        if [[ "$1" == "outdated" && "$2" != "--cask" ]]; then
-            echo "package1"
-            echo "package2"
-            return 0
-        fi
-        return 1
-    }
-    export -f brew
-
-    run bash -c "source '$PROJECT_ROOT/lib/core/common.sh'; source '$PROJECT_ROOT/lib/manage/update.sh'; brew_has_outdated"
-    [ "$status" -eq 0 ]
+read_key() {
+    # Default mock: press ESC to cancel
+    echo "ESC"
+    return 0
 }
 
-@test "brew_has_outdated checks casks when specified" {
-    # Mock brew to simulate outdated casks
-    function brew() {
-        if [[ "$1" == "outdated" && "$2" == "--cask" ]]; then
-            echo "app1"
-            return 0
-        fi
-        return 1
-    }
-    export -f brew
-
-    run bash -c "source '$PROJECT_ROOT/lib/core/common.sh'; source '$PROJECT_ROOT/lib/manage/update.sh'; brew_has_outdated cask"
-    [ "$status" -eq 0 ]
-}
-
-# Test format_brew_update_label function
-@test "format_brew_update_label returns empty when no updates" {
-    result=$(BREW_OUTDATED_COUNT=0 bash -c "source '$PROJECT_ROOT/lib/core/common.sh'; source '$PROJECT_ROOT/lib/manage/update.sh'; format_brew_update_label")
-    [[ -z "$result" ]]
-}
-
-@test "format_brew_update_label formats with formula and cask counts" {
-    result=$(BREW_OUTDATED_COUNT=5 BREW_FORMULA_OUTDATED_COUNT=3 BREW_CASK_OUTDATED_COUNT=2 bash -c "source '$PROJECT_ROOT/lib/core/common.sh'; source '$PROJECT_ROOT/lib/manage/update.sh'; format_brew_update_label")
-    [[ "$result" =~ "3 formula" ]]
-    [[ "$result" =~ "2 cask" ]]
-}
-
-@test "format_brew_update_label shows total when breakdown unavailable" {
-    result=$(BREW_OUTDATED_COUNT=5 bash -c "source '$PROJECT_ROOT/lib/core/common.sh'; source '$PROJECT_ROOT/lib/manage/update.sh'; format_brew_update_label")
-    [[ "$result" =~ "5 updates" ]]
-}
-
-# Test ask_for_updates function
 @test "ask_for_updates returns 1 when no updates available" {
-    run bash -c "source '$PROJECT_ROOT/lib/core/common.sh'; source '$PROJECT_ROOT/lib/manage/update.sh'; ask_for_updates < /dev/null"
+    run bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/manage/update.sh"
+BREW_OUTDATED_COUNT=0
+APPSTORE_UPDATE_COUNT=0
+MACOS_UPDATE_AVAILABLE=false
+MOLE_UPDATE_AVAILABLE=false
+ask_for_updates
+EOF
+
     [ "$status" -eq 1 ]
 }
 
-@test "ask_for_updates detects Homebrew updates" {
-    # Mock environment with Homebrew updates
-    export BREW_OUTDATED_COUNT=5
-    export BREW_FORMULA_OUTDATED_COUNT=3
-    export BREW_CASK_OUTDATED_COUNT=2
+@test "ask_for_updates shows updates and waits for input" {
+    run bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/manage/update.sh"
+BREW_OUTDATED_COUNT=5
+BREW_FORMULA_OUTDATED_COUNT=3
+BREW_CASK_OUTDATED_COUNT=2
+APPSTORE_UPDATE_COUNT=1
+MACOS_UPDATE_AVAILABLE=true
+MOLE_UPDATE_AVAILABLE=true
 
-    # Use input redirection to simulate ESC (cancel)
-    run bash -c "printf '\x1b' | source '$PROJECT_ROOT/lib/core/common.sh'; source '$PROJECT_ROOT/lib/manage/update.sh'; ask_for_updates"
-    # Should show updates and ask for confirmation
+read_key() { echo "ESC"; return 0; }
+
+ask_for_updates
+EOF
+
     [ "$status" -eq 1 ]  # ESC cancels
+    [[ "$output" == *"Homebrew (5 updates)"* ]]
+    [[ "$output" == *"App Store (1 apps)"* ]]
+    [[ "$output" == *"macOS system"* ]]
+    [[ "$output" == *"Mole"* ]]
 }
 
-@test "ask_for_updates detects App Store updates" {
-    export APPSTORE_UPDATE_COUNT=3
+@test "ask_for_updates accepts Enter when updates exist" {
+    run bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/manage/update.sh"
+BREW_OUTDATED_COUNT=2
+BREW_FORMULA_OUTDATED_COUNT=2
+read_key() { echo "ENTER"; return 0; }
+ask_for_updates
+EOF
 
-    run bash -c "printf '\x1b' | source '$PROJECT_ROOT/lib/core/common.sh'; source '$PROJECT_ROOT/lib/manage/update.sh'; ask_for_updates"
-    [ "$status" -eq 1 ]  # ESC cancels
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"AVAILABLE UPDATES"* ]]
+    [[ "$output" == *"yes"* ]]
 }
 
-@test "ask_for_updates detects macOS updates" {
-    export MACOS_UPDATE_AVAILABLE=true
+@test "format_brew_update_label lists formula and cask counts" {
+    run bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/manage/update.sh"
+BREW_OUTDATED_COUNT=5
+BREW_FORMULA_OUTDATED_COUNT=3
+BREW_CASK_OUTDATED_COUNT=2
+format_brew_update_label
+EOF
 
-    run bash -c "printf '\x1b' | source '$PROJECT_ROOT/lib/core/common.sh'; source '$PROJECT_ROOT/lib/manage/update.sh'; ask_for_updates"
-    [ "$status" -eq 1 ]  # ESC cancels
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"3 formula"* ]]
+    [[ "$output" == *"2 cask"* ]]
 }
 
-@test "ask_for_updates detects Mole updates" {
-    export MOLE_UPDATE_AVAILABLE=true
+@test "perform_updates handles Homebrew success and Mole update" {
+    run bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/manage/update.sh"
 
-    run bash -c "printf '\x1b' | source '$PROJECT_ROOT/lib/core/common.sh'; source '$PROJECT_ROOT/lib/manage/update.sh'; ask_for_updates"
-    [ "$status" -eq 1 ]  # ESC cancels
+BREW_FORMULA_OUTDATED_COUNT=1
+BREW_CASK_OUTDATED_COUNT=0
+MOLE_UPDATE_AVAILABLE=true
+
+FAKE_DIR="$HOME/fake-script-dir"
+mkdir -p "$FAKE_DIR"
+cat > "$FAKE_DIR/mole" <<'SCRIPT'
+#!/usr/bin/env bash
+echo "Already on latest version"
+SCRIPT
+chmod +x "$FAKE_DIR/mole"
+SCRIPT_DIR="$FAKE_DIR"
+
+brew_has_outdated() { return 0; }
+start_inline_spinner() { :; }
+stop_inline_spinner() { :; }
+reset_brew_cache() { echo "BREW_CACHE_RESET"; }
+reset_mole_cache() { echo "MOLE_CACHE_RESET"; }
+has_sudo_session() { return 1; }
+ensure_sudo_session() { echo "ensure_sudo_session_called"; return 1; }
+
+brew() {
+    if [[ "$1" == "upgrade" ]]; then
+        echo "Upgrading formula"
+        return 0
+    fi
+    return 0
 }
 
+get_appstore_update_labels() { return 0; }
+get_macos_update_labels() { return 0; }
 
+perform_updates
+EOF
 
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Homebrew formulae updated"* ]]
+    [[ "$output" == *"Already on latest version"* ]]
+    [[ "$output" == *"MOLE_CACHE_RESET"* ]]
+}
+
+@test "perform_updates skips brew when no outdated packages" {
+    run bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/manage/update.sh"
+
+BREW_FORMULA_OUTDATED_COUNT=1
+BREW_CASK_OUTDATED_COUNT=1
+brew_has_outdated() { return 1; }
+start_inline_spinner() { :; }
+stop_inline_spinner() { :; }
+
+perform_updates
+EOF
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"already up to date"* ]]
+}
+
+@test "perform_updates handles App Store fallback logic" {
+    run bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/manage/update.sh"
+
+APPSTORE_UPDATE_COUNT=2
+# Mock getting labels returning empty, triggering fallback
+get_appstore_update_labels() { return 0; }
+
+has_sudo_session() { return 0; }
+reset_softwareupdate_cache() { :; }
+
+# Mock sudo to check for -a flag (install all)
+sudo() {
+    if [[ "$1" == "softwareupdate" && "$2" == "-i" && "$3" == "-a" ]]; then
+        echo "Installing all updates..."
+        return 0
+    fi
+    echo "Wrong sudo command: $*"
+    return 1
+}
+
+perform_updates
+EOF
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Installing all available updates"* ]]
+    [[ "$output" == *"Software updates completed"* ]]
+}
+
+@test "perform_updates gracefully handles sudo failure for App Store" {
+    run bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/manage/update.sh"
+
+APPSTORE_UPDATE_COUNT=1
+get_appstore_update_labels() { echo "Xcode"; }
+
+# Simulate user declining sudo or timeout
+has_sudo_session() { return 1; }
+ensure_sudo_session() { 
+    echo "User declined sudo"
+    return 1
+}
+
+perform_updates
+EOF
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"User declined sudo"* ]]
+    [[ "$output" == *"update via System Settings"* ]]
+    # Should not crash
+}

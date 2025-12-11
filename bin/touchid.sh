@@ -12,7 +12,7 @@ LIB_DIR="$(cd "$SCRIPT_DIR/../lib" && pwd)"
 # shellcheck source=../lib/core/common.sh
 source "$LIB_DIR/core/common.sh"
 
-readonly PAM_SUDO_FILE="/etc/pam.d/sudo"
+readonly PAM_SUDO_FILE="${MOLE_PAM_SUDO_FILE:-/etc/pam.d/sudo}"
 readonly PAM_TID_LINE="auth       sufficient     pam_tid.so"
 
 # Check if Touch ID is already configured
