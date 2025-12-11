@@ -18,11 +18,11 @@
 
 ## Features
 
-- All-in-one toolkit equal to CleanMyMac + AppCleaner + DaisyDisk + Sensei + iStat in one trusted binary
-- Deep cleanup finds and removes caches, temp files, browser leftovers, and junk to free up tens of gigabytes
-- Smart uninstall finds app bundles plus launch agents, settings, caches, logs, and leftover files
-- Disk insight + optimization show large files, display folders, rebuild caches, clean swap, refresh services
-- Live status shows CPU, GPU, memory, disk, network, battery, and proxy data so you can find problems
+- **All-in-one toolkit** equal to CleanMyMac + AppCleaner + DaisyDisk + Sensei + iStat in one **trusted binary**
+- **Deep cleanup** finds and removes caches, temp files, browser leftovers, and junk to **free up tens of gigabytes**
+- **Smart uninstall** finds app bundles plus launch agents, settings, caches, logs, and **leftover files**
+- **Disk insight + optimization** show large files, display folders, **rebuild caches**, clean swap, refresh services
+- **Live status** shows CPU, GPU, memory, disk, network, battery, and proxy data so you can **find problems**
 
 ## Quick Start
 
@@ -63,7 +63,7 @@ mo optimize --whitelist      # Adjust protected optimization items
 
 ## Tips
 
-- **Terminal**: Use Alacritty, kitty, WezTerm, Ghostty, or Warp for best compatibility. Avoid macOS Terminal and iTerm2 due to known issues
+- **Terminal**: iTerm2 has known compatibility issues, use Alacritty, kitty, WezTerm, Ghostty, or Warp instead
 - **Safety**: Preview cleanup with `mo clean --dry-run` before running full cleanup
 - **Whitelist**: Use `mo clean --whitelist` to manage protected caches
 - **Touch ID**: Run `mo touchid` to approve sudo with Touch ID instead of password
