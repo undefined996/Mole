@@ -87,7 +87,9 @@ get_uptime_days() {
 # JSON escape helper
 json_escape() {
     # Escape backslash, double quote, tab, and newline
-    echo -n "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' | tr '\n' ' '
+    local escaped
+    escaped=$(echo -n "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' | tr '\n' ' ')
+    echo -n "${escaped% }"
 }
 
 # Generate JSON output
