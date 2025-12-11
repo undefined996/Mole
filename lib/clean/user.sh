@@ -10,7 +10,7 @@ clean_user_essentials() {
     safe_clean ~/.Trash/* "Trash"
 
     # Empty trash on mounted volumes
-    if [[ -d "/Volumes" ]]; then
+    if [[ -d "/Volumes" && "$DRY_RUN" != "true" ]]; then
         for volume in /Volumes/*; do
             [[ -d "$volume" && -d "$volume/.Trashes" && -w "$volume" ]] || continue
 
@@ -23,7 +23,6 @@ clean_user_essentials() {
             # Verify volume is mounted and not a symlink
             mount | grep -q "on $volume " || continue
             [[ -L "$volume/.Trashes" ]] && continue
-            [[ "$DRY_RUN" == "true" ]] && continue
 
             # Safely iterate and remove each item
             while IFS= read -r -d '' item; do

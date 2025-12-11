@@ -126,15 +126,18 @@ clean_service_worker_cache() {
 # Clean Next.js (.next/cache) and Python (__pycache__) build caches
 # Uses maxdepth 3, excludes Library/.Trash/node_modules, 10s timeout per scan
 clean_project_caches() {
-    # Clean Next.js caches
     if [[ -t 1 ]]; then
         MOLE_SPINNER_PREFIX="  "
-        start_inline_spinner "Searching Next.js caches..."
+        start_inline_spinner "Searching project caches..."
     fi
 
-    # Use timeout to prevent hanging on problematic directories
     local nextjs_tmp_file
     nextjs_tmp_file=$(create_temp_file)
+    local pycache_tmp_file
+    pycache_tmp_file=$(create_temp_file)
+    local find_timeout=10
+
+    # 1. Start Next.js search
     (
         command find "$HOME" -P -mount -type d -name ".next" -maxdepth 3 \
             -not -path "*/Library/*" \
@@ -143,42 +146,9 @@ clean_project_caches() {
             -not -path "*/.*" \
             2> /dev/null || true
     ) > "$nextjs_tmp_file" 2>&1 &
-    local find_pid=$!
-    local find_timeout=10
-    local elapsed=0
+    local next_pid=$!
 
-    # Wait for find to complete or timeout
-    while kill -0 $find_pid 2> /dev/null && [[ $elapsed -lt $find_timeout ]]; do
-        sleep 1
-        ((elapsed++))
-    done
-
-    # Kill if still running after timeout
-    if kill -0 $find_pid 2> /dev/null; then
-        kill -TERM $find_pid 2> /dev/null || true
-        wait $find_pid 2> /dev/null || true
-    else
-        wait $find_pid 2> /dev/null || true
-    fi
-
-    # Clean found Next.js caches
-    while IFS= read -r next_dir; do
-        [[ -d "$next_dir/cache" ]] && safe_clean "$next_dir/cache"/* "Next.js build cache" || true
-    done < "$nextjs_tmp_file"
-
-    if [[ -t 1 ]]; then
-        stop_inline_spinner
-    fi
-
-    # Clean Python bytecode caches
-    if [[ -t 1 ]]; then
-        MOLE_SPINNER_PREFIX="  "
-        start_inline_spinner "Searching Python caches..."
-    fi
-
-    # Use timeout to prevent hanging on problematic directories
-    local pycache_tmp_file
-    pycache_tmp_file=$(create_temp_file)
+    # 2. Start Python search
     (
         command find "$HOME" -P -mount -type d -name "__pycache__" -maxdepth 3 \
             -not -path "*/Library/*" \
@@ -187,32 +157,41 @@ clean_project_caches() {
             -not -path "*/.*" \
             2> /dev/null || true
     ) > "$pycache_tmp_file" 2>&1 &
-    local find_pid=$!
-    local find_timeout=10
-    local elapsed=0
+    local py_pid=$!
 
-    # Wait for find to complete or timeout
-    while kill -0 $find_pid 2> /dev/null && [[ $elapsed -lt $find_timeout ]]; do
+    # 3. Wait for both with timeout
+    local elapsed=0
+    while [[ $elapsed -lt $find_timeout ]]; do
+        if ! kill -0 $next_pid 2> /dev/null && ! kill -0 $py_pid 2> /dev/null; then
+            break
+        fi
         sleep 1
         ((elapsed++))
     done
 
-    # Kill if still running after timeout
-    if kill -0 $find_pid 2> /dev/null; then
-        kill -TERM $find_pid 2> /dev/null || true
-        wait $find_pid 2> /dev/null || true
-    else
-        wait $find_pid 2> /dev/null || true
-    fi
-
-    # Clean found Python caches
-    while IFS= read -r pycache; do
-        [[ -d "$pycache" ]] && safe_clean "$pycache"/* "Python bytecode cache" || true
-    done < "$pycache_tmp_file"
+    # 4. Clean up any stuck processes
+    for pid in $next_pid $py_pid; do
+        if kill -0 "$pid" 2> /dev/null; then
+            kill -TERM "$pid" 2> /dev/null || true
+            wait "$pid" 2> /dev/null || true
+        else
+            wait "$pid" 2> /dev/null || true
+        fi
+    done
 
     if [[ -t 1 ]]; then
         stop_inline_spinner
     fi
+
+    # 5. Process Next.js results
+    while IFS= read -r next_dir; do
+        [[ -d "$next_dir/cache" ]] && safe_clean "$next_dir/cache"/* "Next.js build cache" || true
+    done < "$nextjs_tmp_file"
+
+    # 6. Process Python results
+    while IFS= read -r pycache; do
+        [[ -d "$pycache" ]] && safe_clean "$pycache"/* "Python bytecode cache" || true
+    done < "$pycache_tmp_file"
 }
 
 # Clean Spotlight user caches
