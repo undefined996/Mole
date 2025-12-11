@@ -55,6 +55,10 @@ read_key() {
         'm' | 'M') echo "MORE" ;;
         'u' | 'U') echo "UPDATE" ;;
         't' | 'T') echo "TOUCHID" ;;
+        'j' | 'J') echo "DOWN" ;;
+        'k' | 'K') echo "UP" ;;
+        'h' | 'H') echo "LEFT" ;;
+        'l' | 'L') echo "RIGHT" ;;
         $'\x03') echo "QUIT" ;;
         $'\x7f' | $'\x08') echo "DELETE" ;;
         $'\x1b')
