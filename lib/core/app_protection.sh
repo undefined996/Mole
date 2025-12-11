@@ -412,6 +412,17 @@ find_app_files() {
     [[ -d ~/Library/Application\ Support/"$app_name" ]] && files_to_clean+=("$HOME/Library/Application Support/$app_name")
     [[ -d ~/Library/Application\ Support/"$bundle_id" ]] && files_to_clean+=("$HOME/Library/Application Support/$bundle_id")
 
+    # Sanitized App Name (remove spaces) - e.g. "Visual Studio Code" -> "VisualStudioCode"
+    if [[ ${#app_name} -gt 3 && "$app_name" =~ [[:space:]] ]]; then
+        local nospace_name="${app_name// /}"
+        [[ -d ~/Library/Application\ Support/"$nospace_name" ]] && files_to_clean+=("$HOME/Library/Application Support/$nospace_name")
+        [[ -d ~/Library/Caches/"$nospace_name" ]] && files_to_clean+=("$HOME/Library/Caches/$nospace_name")
+        [[ -d ~/Library/Logs/"$nospace_name" ]] && files_to_clean+=("$HOME/Library/Logs/$nospace_name")
+        
+        local underscore_name="${app_name// /_}"
+        [[ -d ~/Library/Application\ Support/"$underscore_name" ]] && files_to_clean+=("$HOME/Library/Application Support/$underscore_name")
+    fi
+
     # Caches
     [[ -d ~/Library/Caches/"$bundle_id" ]] && files_to_clean+=("$HOME/Library/Caches/$bundle_id")
     [[ -d ~/Library/Caches/"$app_name" ]] && files_to_clean+=("$HOME/Library/Caches/$app_name")
@@ -425,6 +436,8 @@ find_app_files() {
     # Logs
     [[ -d ~/Library/Logs/"$app_name" ]] && files_to_clean+=("$HOME/Library/Logs/$app_name")
     [[ -d ~/Library/Logs/"$bundle_id" ]] && files_to_clean+=("$HOME/Library/Logs/$bundle_id")
+    # CrashReporter
+    [[ -d ~/Library/Application\ Support/CrashReporter/"$app_name" ]] && files_to_clean+=("$HOME/Library/Application Support/CrashReporter/$app_name")
 
     # Saved Application State
     [[ -d ~/Library/Saved\ Application\ State/"$bundle_id".savedState ]] && files_to_clean+=("$HOME/Library/Saved Application State/$bundle_id.savedState")
@@ -449,6 +462,12 @@ find_app_files() {
 
     # Launch Agents (user-level)
     [[ -f ~/Library/LaunchAgents/"$bundle_id".plist ]] && files_to_clean+=("$HOME/Library/LaunchAgents/$bundle_id.plist")
+    # Search for LaunchAgents by app name if unique enough
+    if [[ ${#app_name} -gt 3 ]]; then
+        while IFS= read -r -d '' plist; do
+            files_to_clean+=("$plist")
+        done < <(find ~/Library/LaunchAgents -name "*$app_name*.plist" -print0 2> /dev/null)
+    fi
 
     # Application Scripts
     [[ -d ~/Library/Application\ Scripts/"$bundle_id" ]] && files_to_clean+=("$HOME/Library/Application Scripts/$bundle_id")
@@ -458,6 +477,15 @@ find_app_files() {
 
     # QuickLook Plugins
     [[ -d ~/Library/QuickLook/"$app_name".qlgenerator ]] && files_to_clean+=("$HOME/Library/QuickLook/$app_name.qlgenerator")
+
+    # Internet Plug-Ins
+    [[ -d ~/Library/Internet\ Plug-Ins/"$app_name".plugin ]] && files_to_clean+=("$HOME/Library/Internet Plug-Ins/$app_name.plugin")
+
+    # Audio Plug-Ins (Components, VST, VST3)
+    [[ -d ~/Library/Audio/Plug-Ins/Components/"$app_name".component ]] && files_to_clean+=("$HOME/Library/Audio/Plug-Ins/Components/$app_name.component")
+    [[ -d ~/Library/Audio/Plug-Ins/VST/"$app_name".vst ]] && files_to_clean+=("$HOME/Library/Audio/Plug-Ins/VST/$app_name.vst")
+    [[ -d ~/Library/Audio/Plug-Ins/VST3/"$app_name".vst3 ]] && files_to_clean+=("$HOME/Library/Audio/Plug-Ins/VST3/$app_name.vst3")
+    [[ -d ~/Library/Audio/Plug-Ins/Digidesign/"$app_name".dpm ]] && files_to_clean+=("$HOME/Library/Audio/Plug-Ins/Digidesign/$app_name.dpm")
 
     # Preference Panes
     [[ -d ~/Library/PreferencePanes/"$app_name".prefPane ]] && files_to_clean+=("$HOME/Library/PreferencePanes/$app_name.prefPane")
@@ -584,12 +612,32 @@ find_app_system_files() {
     # System Application Support
     [[ -d /Library/Application\ Support/"$app_name" ]] && system_files+=("/Library/Application Support/$app_name")
     [[ -d /Library/Application\ Support/"$bundle_id" ]] && system_files+=("/Library/Application Support/$bundle_id")
+    
+    # Sanitized App Name (remove spaces)
+    if [[ ${#app_name} -gt 3 && "$app_name" =~ [[:space:]] ]]; then
+        local nospace_name="${app_name// /}"
+        [[ -d /Library/Application\ Support/"$nospace_name" ]] && system_files+=("/Library/Application Support/$nospace_name")
+        [[ -d /Library/Caches/"$nospace_name" ]] && system_files+=("/Library/Caches/$nospace_name")
+        [[ -d /Library/Logs/"$nospace_name" ]] && system_files+=("/Library/Logs/$nospace_name")
+    fi
 
     # System Launch Agents
     [[ -f /Library/LaunchAgents/"$bundle_id".plist ]] && system_files+=("/Library/LaunchAgents/$bundle_id.plist")
+    # Search for LaunchAgents by app name if unique enough
+    if [[ ${#app_name} -gt 3 ]]; then
+        while IFS= read -r -d '' plist; do
+            system_files+=("$plist")
+        done < <(find /Library/LaunchAgents -name "*$app_name*.plist" -print0 2> /dev/null)
+    fi
 
     # System Launch Daemons
     [[ -f /Library/LaunchDaemons/"$bundle_id".plist ]] && system_files+=("/Library/LaunchDaemons/$bundle_id.plist")
+    # Search for LaunchDaemons by app name if unique enough
+    if [[ ${#app_name} -gt 3 ]]; then
+        while IFS= read -r -d '' plist; do
+            system_files+=("$plist")
+        done < <(find /Library/LaunchDaemons -name "*$app_name*.plist" -print0 2> /dev/null)
+    fi
 
     # Privileged Helper Tools
     [[ -d /Library/PrivilegedHelperTools ]] && while IFS= read -r -d '' helper; do
@@ -610,6 +658,15 @@ find_app_system_files() {
 
     # System Frameworks
     [[ -d /Library/Frameworks/"$app_name".framework ]] && system_files+=("/Library/Frameworks/$app_name.framework")
+
+    # System Internet Plug-Ins
+    [[ -d /Library/Internet\ Plug-Ins/"$app_name".plugin ]] && system_files+=("/Library/Internet Plug-Ins/$app_name.plugin")
+
+    # System Audio Plug-Ins
+    [[ -d /Library/Audio/Plug-Ins/Components/"$app_name".component ]] && system_files+=("/Library/Audio/Plug-Ins/Components/$app_name.component")
+    [[ -d /Library/Audio/Plug-Ins/VST/"$app_name".vst ]] && system_files+=("/Library/Audio/Plug-Ins/VST/$app_name.vst")
+    [[ -d /Library/Audio/Plug-Ins/VST3/"$app_name".vst3 ]] && system_files+=("/Library/Audio/Plug-Ins/VST3/$app_name.vst3")
+    [[ -d /Library/Audio/Plug-Ins/Digidesign/"$app_name".dpm ]] && system_files+=("/Library/Audio/Plug-Ins/Digidesign/$app_name.dpm")
 
     # System QuickLook Plugins
     [[ -d /Library/QuickLook/"$app_name".qlgenerator ]] && system_files+=("/Library/QuickLook/$app_name.qlgenerator")
