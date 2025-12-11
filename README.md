@@ -18,11 +18,11 @@
 
 ## Features
 
-1. All-in-one toolkit equal to CleanMyMac + AppCleaner + DaisyDisk + Sensei + iStat in one trusted binary.
-2. Deep cleanup finds and removes caches, temp files, browser leftovers, and junk to free up tens of gigabytes.
-3. Smart uninstall finds app bundles plus launch agents, settings, caches, logs, and leftover files.
-4. Disk insight + optimization show large files, display folders, rebuild caches, clean swap, refresh services.
-5. Live status shows CPU, GPU, memory, disk, network, battery, and proxy data so you can find problems.
+- All-in-one toolkit equal to CleanMyMac + AppCleaner + DaisyDisk + Sensei + iStat in one trusted binary
+- Deep cleanup finds and removes caches, temp files, browser leftovers, and junk to free up tens of gigabytes
+- Smart uninstall finds app bundles plus launch agents, settings, caches, logs, and leftover files
+- Disk insight + optimization show large files, display folders, rebuild caches, clean swap, refresh services
+- Live status shows CPU, GPU, memory, disk, network, battery, and proxy data so you can find problems
 
 ## Quick Start
 
@@ -63,12 +63,12 @@ mo optimize --whitelist      # Adjust protected optimization items
 
 ## Tips
 
-- Safety first, if your Mac is very important, wait for Mole to become stable before full cleanups.
-- Preview the cleanup by running `mo clean --dry-run` and reviewing the list.
-- Use `mo clean --whitelist` to manage protected caches.
-- Use `mo touchid` to approve sudo with Touch ID instead of typing your password.
-- Prefer Vim-style navigation? All menus understand `h/j/k/l` in addition to the arrow keys.
-- Run into issues? Use `--debug` flag to see detailed operation logs: `mo clean --debug`
+- **Terminal**: Use Alacritty, kitty, WezTerm, Ghostty, or Warp for best compatibility. Avoid macOS Terminal and iTerm2 due to known issues
+- **Safety**: Preview cleanup with `mo clean --dry-run` before running full cleanup
+- **Whitelist**: Use `mo clean --whitelist` to manage protected caches
+- **Touch ID**: Run `mo touchid` to approve sudo with Touch ID instead of password
+- **Navigation**: All menus support Vim keys `h/j/k/l` in addition to arrow keys
+- **Debug**: Use `--debug` flag to see detailed logs: `mo clean --debug`
 
 ## Features in Detail
 
@@ -133,7 +133,7 @@ System: 5/32 GB RAM | 333/460 GB Disk (72%) | Uptime 6d
 System optimization completed
 ====================================================================
 
-You can use `mo optimize --whitelist` to manage which optimization items (like rebuilding specific caches or refreshing services) are protected from being run. This is useful for preventing Mole from interfering with specific system configurations or third-party applications you rely on.
+Use `mo optimize --whitelist` to protect specific optimization items from being run.
 ```
 
 ### Disk Space Analyzer
@@ -179,7 +179,7 @@ Up      ▮▯▯▯▯  0.8 MB/s                  Chrome     ▮▮▮▯▯  2
 Proxy   HTTP · 192.168.1.100             Terminal   ▮▯▯▯▯  12.5%
 ```
 
-Health score calculated from CPU, memory, disk, temperature, and I/O load. Color-coded by range.
+Health score based on CPU, memory, disk, temperature, and I/O load. Color-coded by range.
 
 ## Quick Launchers
 
@@ -189,9 +189,7 @@ Launch Mole commands instantly from Raycast or Alfred:
 curl -fsSL https://raw.githubusercontent.com/tw93/Mole/main/scripts/setup-quick-launchers.sh | bash
 ```
 
-Adds 5 commands: `clean`, `uninstall`, `optimize`, `analyze`, `status`. Finds your terminal automatically or set `MO_LAUNCHER_APP=<name>` to override.
-
-For Raycast, reload by running `Reload Script Directories` or restarting Raycast. For Alfred, workflows are registered automatically and ready to use.
+Adds 5 commands: `clean`, `uninstall`, `optimize`, `analyze`, `status`. Finds your terminal automatically or set `MO_LAUNCHER_APP=<name>` to override. For Raycast, search "Reload Script Directories" to load new commands.
 
 ## Support
 

@@ -201,7 +201,7 @@ func renderHeader(m MetricsSnapshot, errMsg string, animFrame int, termWidth int
 	if errMsg != "" {
 		return lipgloss.JoinVertical(lipgloss.Left, headerLine, "", mole, dangerStyle.Render(errMsg), "")
 	}
-	return headerLine + "\n\n" + mole
+	return headerLine + "\n" + mole
 }
 
 func getScoreStyle(score int) lipgloss.Style {
@@ -531,7 +531,7 @@ func renderBatteryCard(batts []BatteryStatus, thermal ThermalStatus) cardData {
 		}
 		lines = append(lines, statusStyle.Render(statusText+statusIcon))
 
-		// Line 3: Health + cycles
+		// Line 3: Health + cycles + temp
 		healthParts := []string{}
 		if b.Health != "" {
 			healthParts = append(healthParts, b.Health)
@@ -539,27 +539,26 @@ func renderBatteryCard(batts []BatteryStatus, thermal ThermalStatus) cardData {
 		if b.CycleCount > 0 {
 			healthParts = append(healthParts, fmt.Sprintf("%d cycles", b.CycleCount))
 		}
+		
+		// Add temperature if available
+		if thermal.CPUTemp > 0 {
+			tempStyle := subtleStyle
+			if thermal.CPUTemp > 80 {
+				tempStyle = dangerStyle
+			} else if thermal.CPUTemp > 60 {
+				tempStyle = warnStyle
+			}
+			healthParts = append(healthParts, tempStyle.Render(fmt.Sprintf("%.0f°C", thermal.CPUTemp)))
+		}
+		
+		// Add fan speed if available
+		if thermal.FanSpeed > 0 {
+			healthParts = append(healthParts, fmt.Sprintf("%d RPM", thermal.FanSpeed))
+		}
+		
 		if len(healthParts) > 0 {
 			lines = append(lines, subtleStyle.Render(strings.Join(healthParts, " · ")))
 		}
-	}
-
-	// Line 4: Temp + Fan combined
-	var thermalParts []string
-	if thermal.CPUTemp > 0 {
-		tempStyle := okStyle
-		if thermal.CPUTemp > 80 {
-			tempStyle = dangerStyle
-		} else if thermal.CPUTemp > 60 {
-			tempStyle = warnStyle
-		}
-		thermalParts = append(thermalParts, tempStyle.Render(fmt.Sprintf("%.0f°C", thermal.CPUTemp)))
-	}
-	if thermal.FanSpeed > 0 {
-		thermalParts = append(thermalParts, fmt.Sprintf("%d RPM", thermal.FanSpeed))
-	}
-	if len(thermalParts) > 0 {
-		lines = append(lines, strings.Join(thermalParts, " · "))
 	}
 
 	return cardData{icon: iconBattery, title: "Power", lines: lines}
