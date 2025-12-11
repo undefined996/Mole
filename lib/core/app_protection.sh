@@ -418,7 +418,7 @@ find_app_files() {
         [[ -d ~/Library/Application\ Support/"$nospace_name" ]] && files_to_clean+=("$HOME/Library/Application Support/$nospace_name")
         [[ -d ~/Library/Caches/"$nospace_name" ]] && files_to_clean+=("$HOME/Library/Caches/$nospace_name")
         [[ -d ~/Library/Logs/"$nospace_name" ]] && files_to_clean+=("$HOME/Library/Logs/$nospace_name")
-        
+
         local underscore_name="${app_name// /_}"
         [[ -d ~/Library/Application\ Support/"$underscore_name" ]] && files_to_clean+=("$HOME/Library/Application Support/$underscore_name")
     fi
@@ -612,7 +612,7 @@ find_app_system_files() {
     # System Application Support
     [[ -d /Library/Application\ Support/"$app_name" ]] && system_files+=("/Library/Application Support/$app_name")
     [[ -d /Library/Application\ Support/"$bundle_id" ]] && system_files+=("/Library/Application Support/$bundle_id")
-    
+
     # Sanitized App Name (remove spaces)
     if [[ ${#app_name} -gt 3 && "$app_name" =~ [[:space:]] ]]; then
         local nospace_name="${app_name// /}"
