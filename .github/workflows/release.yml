@@ -27,17 +27,6 @@ jobs:
       - name: Build Universal Binary for system status
         run: ./scripts/build-status.sh
 
-      - name: Update Security Audit Metadata
-        run: |
-          TAG=${GITHUB_REF#refs/tags/}
-          VERSION=${TAG#V} # Remove 'V' prefix if present
-          DATE=$(date +'%B %d, %Y')
-          
-          # Update Date and Audited Version in SECURITY_AUDIT.md
-          sed -i "s|^**Date:**.*|**Date:** $DATE|" SECURITY_AUDIT.md
-          sed -i "s|^**Audited Version:**.*|**Audited Version:** $VERSION|" SECURITY_AUDIT.md
-          echo "Updated SECURITY_AUDIT.md with Date: $DATE and Version: $VERSION"
-
       - name: Verify binary is valid
         run: |
           if [[ ! -x bin/analyze-go ]]; then
@@ -60,11 +49,11 @@ jobs:
         run: |
           git config user.name "Tw93"
           git config user.email "tw93@qq.com"
-          git add bin/analyze-go bin/status-go SECURITY_AUDIT.md
+          git add bin/analyze-go bin/status-go
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: update binaries and security audit for ${GITHUB_REF#refs/tags/}"
+            git commit -m "chore: update binaries for ${GITHUB_REF#refs/tags/}"
             git push origin HEAD:main
           fi
 
