@@ -67,7 +67,7 @@ Mole's "Smart Uninstall" and orphan detection (`lib/clean/apps.sh`) are intentio
 We anticipate that scripts can be interrupted (e.g., power loss, `Ctrl+C`).
 
 - **Network Interface Reset**: Wi-Fi and AirDrop resets use **atomic execution blocks**.
-- **Swap Clearing**: Swap files are only touched after verifying that the `dynamic_pager` daemon has successfully unloaded.
+- **Swap Clearing**: Swap files are reset by securely restarting the `dynamic_pager` daemon. We intentionally avoid manual `rm` operations on swap files to prevent instability during high memory pressure.
 
 ## 5. User Control & Transparency
 
@@ -80,7 +80,7 @@ We anticipate that scripts can be interrupted (e.g., power loss, `Ctrl+C`).
     Mole relies on standard, battle-tested macOS binaries for critical tasks:
   - `plutil`: Used to validate `.plist` integrity.
   - `tmutil`: Used for safe interaction with Time Machine.
-  - `kextcache`, `dscacheutil`: Used for system-compliant cache rebuilding.
+  - `dscacheutil`: Used for system-compliant cache rebuilding.
 
 - **Go Dependencies (Interactive Tools)**
     The compiled Go binary (`analyze-go`) includes the following libraries:
