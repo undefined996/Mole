@@ -321,8 +321,8 @@ func renderMemoryCard(mem MemoryStatus) cardData {
 		if mem.SwapTotal > 0 {
 			swapPercent = (float64(mem.SwapUsed) / float64(mem.SwapTotal)) * 100.0
 		}
-		swapText := subtleStyle.Render(fmt.Sprintf("%s / %s swap", humanBytes(mem.SwapUsed), humanBytes(mem.SwapTotal)))
-		lines = append(lines, fmt.Sprintf("Swap   %s  %5.1f%%  %s", progressBar(swapPercent), swapPercent, swapText))
+		swapText := subtleStyle.Render(fmt.Sprintf("(%s/%s)", humanBytesCompact(mem.SwapUsed), humanBytesCompact(mem.SwapTotal)))
+		lines = append(lines, fmt.Sprintf("Swap   %s  %5.1f%% %s", progressBar(swapPercent), swapPercent, swapText))
 	} else {
 		lines = append(lines, fmt.Sprintf("Swap   %s", subtleStyle.Render("not in use")))
 	}
@@ -714,6 +714,21 @@ func humanBytesShort(v uint64) string {
 		return fmt.Sprintf("%.0fM", float64(v)/(1<<20))
 	case v >= 1<<10:
 		return fmt.Sprintf("%.0fK", float64(v)/(1<<10))
+	default:
+		return strconv.FormatUint(v, 10)
+	}
+}
+
+func humanBytesCompact(v uint64) string {
+	switch {
+	case v >= 1<<40:
+		return fmt.Sprintf("%.1fT", float64(v)/(1<<40))
+	case v >= 1<<30:
+		return fmt.Sprintf("%.1fG", float64(v)/(1<<30))
+	case v >= 1<<20:
+		return fmt.Sprintf("%.1fM", float64(v)/(1<<20))
+	case v >= 1<<10:
+		return fmt.Sprintf("%.1fK", float64(v)/(1<<10))
 	default:
 		return strconv.FormatUint(v, 10)
 	}
