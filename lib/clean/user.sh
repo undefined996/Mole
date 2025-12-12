@@ -209,8 +209,8 @@ clean_application_support_logs() {
 
         # Explicit safety check for System Settings / Login Items (Issue #122)
         if [[ "$app_name" =~ backgroundtaskmanagement || "$app_name" =~ loginitems ]]; then
-             debug_log "Skipping critical system component: $app_name"
-             continue
+            debug_log "Skipping critical system component: $app_name"
+            continue
         fi
 
         # Clean log directories - simple direct removal without deep scanning
