@@ -1,92 +1,91 @@
 # Mole Security Audit Report
 
-**Date:** December 11, 2025
+**Date:** December 12, 2025
 
 **Audited Version:** Current `main` branch
 
 **Status:** Passed
 
----
-
 ## Security Philosophy: "Do No Harm"
 
 Mole is designed with a **Zero Trust** architecture regarding file operations. Every request to modify the filesystem is treated as potentially dangerous until strictly validated. Our primary directive is to prioritize system stability over aggressive cleaning—we would rather leave 1GB of junk than delete 1KB of critical user data.
 
-## 1. Multi-Layered Defense Architecture
+## 1. Multi-Layered Defense Architecture (Automated Core)
 
-Mole does not execute raw commands directly. All operations pass through a hardened middleware layer (`lib/core/file_ops.sh`).
+Mole's automated shell-based operations (Clean, Optimize, Uninstall) do not execute raw commands directly. All operations pass through a hardened middleware layer (`lib/core/file_ops.sh`).
 
-### Layer 1: Input Sanitization
+- **Layer 1: Input Sanitization**
+    Before any operation reaches the execution stage, the target path is sanitized:
+  - **Absolute Path Enforcement**: Relative paths (e.g., `../foo`) are strictly rejected to prevent path traversal attacks.
+  - **Control Character Filtering**: Paths containing hidden control characters or newlines are blocked.
+  - **Empty Variable Protection**: Guards against shell scripting errors where an empty variable could result in `rm -rf /`.
 
-Before any operation reaches the execution stage, the target path is sanitized:
+- **Layer 2: The "Iron Dome" (Path Validation)**
+    A centralized validation logic explicitly blocks operations on critical system hierarchies within the shell core, even with `sudo` privileges:
+  - `/` (Root)
+  - `/System` and `/System/*`
+  - `/bin`, `/sbin`, `/usr`, `/usr/bin`, `/usr/sbin`
+  - `/etc`, `/var`
+  - `/Library/Extensions`
 
-- **Absolute Path Enforcement**: Relative paths (e.g., `../foo`) are strictly rejected to prevent path traversal attacks.
-- **Control Character Filtering**: Paths containing hidden control characters or newlines are blocked.
-- **Empty Variable Protection**: Guards against shell scripting errors where an empty variable could result in `rm -rf /`.
+- **Layer 3: Symlink Failsafe**
+    For privileged (`sudo`) operations, Mole performs a pre-flight check to verify if the target is a **Symbolic Link**.
+  - **Risk**: A malicious or accidental symlink could point from a cache folder to a system file.
+  - **Defense**: Mole explicitly refuses to recursively delete symbolic links in privileged mode.
 
-### Layer 2: The "Iron Dome" (Path Validation)
+## 2. Interactive Analyzer Safety (Go Architecture)
 
-A centralized validation logic explicitly blocks operations on critical system hierarchies, even with `sudo` privileges:
+The interactive analyzer (`mo analyze`) operates on a different security model focused on manual user control:
 
-- `/` (Root)
-- `/System`, `/usr`, `/bin`, `/sbin`, `/etc`, `/var`
-- `/Library` (Root Library)
-- `/Applications` (Root Applications)
-- `/Users` (Root User Directory)
+- **Standard User Permissions**: The tool runs with the invoking user's standard permissions. It respects macOS System Integrity Protection (SIP) and filesystem permissions.
+- **Manual Confirmation**: Deletions are not automated; they require explicit user selection and confirmation.
+- **OS-Level Enforcement**: Unlike the automated scripts, the analyzer relies on the operating system's built-in protections (e.g., inability to delete `/System` due to Read-Only Volume or SIP) rather than a hardcoded application-level blocklist.
 
-### Layer 3: Symlink Failsafe
-
-For privileged (`sudo`) operations, Mole performs a pre-flight check to verify if the target is a **Symbolic Link**.
-
-- **Risk**: A malicious or accidental symlink could point from a cache folder to a system file.
-- **Defense**: Mole explicitly refuses to recursively delete symbolic links in privileged mode.
-
-## 2. Conservative Cleaning Logic
-
-### Orphaned Data: The "60-Day Rule"
+## 3. Conservative Cleaning Logic
 
 Mole's "Smart Uninstall" and orphan detection (`lib/clean/apps.sh`) are intentionally conservative:
 
-1. **Verification**: An app is confirmed "uninstalled" only if it is completely missing from `/Applications`, `~/Applications`, and `/System/Applications`.
-2. **Dormancy Check**: Associated data folders are only flagged for removal if they have not been modified for **at least 60 days**.
-3. **Vendor Whitelist**: A hardcoded whitelist protects shared resources from major vendors (Adobe, Microsoft, Google, etc.) to prevent breaking software suites.
+- **Orphaned Data: The "60-Day Rule"**
+    1. **Verification**: An app is confirmed "uninstalled" only if it is completely missing from `/Applications`, `~/Applications`, and `/System/Applications`.
+    2. **Dormancy Check**: Associated data folders are only flagged for removal if they have not been modified for **at least 60 days**.
+    3. **Vendor Whitelist**: A hardcoded whitelist protects shared resources from major vendors (Adobe, Microsoft, Google, etc.) to prevent breaking software suites.
 
-### Active Uninstallation Heuristics
+- **Active Uninstallation Heuristics**
+    When a user explicitly selects an app for uninstallation, Mole employs advanced heuristics to find scattered remnants (e.g., "Visual Studio Code" -> `~/.vscode`, `~/Library/Application Support/VisualStudioCode`).
+  - **Sanitized Name Matching**: We search for app name variations to catch non-standard folder naming.
+  - **Safety Constraints**: Fuzzy matching and sanitized name searches are **strictly disabled** for app names shorter than 4 characters to prevent false positives.
+  - **System Scope**: Mole scans specific system-level directories (`/Library/LaunchAgents`, etc.) for related components.
 
-When a user explicitly selects an app for uninstallation, Mole employs advanced heuristics to find scattered remnants (e.g., "Visual Studio Code" -> `~/.vscode`, `~/Library/Application Support/VisualStudioCode`).
+- **System Integrity Protection (SIP) Awareness**
+    Mole respects macOS SIP. It detects if SIP is enabled and automatically skips protected directories (like `/Library/Updates`) to avoid triggering permission errors.
 
-- **Sanitized Name Matching**: We search for app name variations (removing spaces, replacing with underscores) to catch non-standard folder naming.
-- **Safety Constraints**: Fuzzy matching and sanitized name searches are **strictly disabled** for app names shorter than 4 characters to prevent false positives (e.g., an app named "Box" will not trigger a broad scan).
-- **Plug-in & System Scope**: Mole scans specific system-level directories (`/Library/Audio/Plug-Ins`, `/Library/LaunchAgents`) for related components. These operations are subject to the same **Iron Dome** validation to ensure no critical system files are touched.
+- **Time Machine Preservation**
+    Before cleaning failed backups, Mole checks for the `backupd` process. If a backup is currently running, the cleanup task is strictly **aborted** to prevent data corruption.
 
-### System Integrity Protection (SIP) Awareness
-
-Mole respects macOS SIP. It detects if SIP is enabled and automatically skips protected directories (like `/Library/Updates`) to avoid triggering permission errors or interfering with macOS updates.
-
-### Time Machine Preservation
-
-Before cleaning failed backups, Mole checks for the `backupd` process. If a backup is currently running, the cleanup task is strictly **aborted** to prevent data corruption.
-
-## 3. Atomic Operations & Crash Safety
+## 4. Atomic Operations & Crash Safety
 
 We anticipate that scripts can be interrupted (e.g., power loss, `Ctrl+C`).
 
-- **Network Interface Reset**: Wi-Fi and AirDrop resets use **atomic execution blocks**. The script ignores termination signals (`SIGINT`, `SIGTERM`) during the critical 1-second window of resetting the interface, ensuring you are never left without a network connection.
+- **Network Interface Reset**: Wi-Fi and AirDrop resets use **atomic execution blocks**.
 - **Swap Clearing**: Swap files are only touched after verifying that the `dynamic_pager` daemon has successfully unloaded.
 
-## 4. User Control & Transparency
+## 5. User Control & Transparency
 
-- **Dry-Run Mode (`--dry-run`)**: We believe users should trust but verify. This mode simulates the entire cleanup process, listing every single file and byte that *would* be removed, without touching the disk.
-- **Custom Whitelists**: Users can define their own immutable paths in `~/.config/mole/whitelist`. These paths are loaded into memory before any scan begins and serve as a "final override" to prevent deletion.
+- **Dry-Run Mode (`--dry-run`)**: Simulates the entire cleanup process, listing every single file and byte that *would* be removed, without touching the disk.
+- **Custom Whitelists**: Users can define their own immutable paths in `~/.config/mole/whitelist`.
 
-## 5. Dependency Audit
+## 6. Dependency Audit
 
-Mole relies on standard, battle-tested macOS binaries for critical tasks, minimizing the attack surface:
+- **System Binaries (Shell Core)**
+    Mole relies on standard, battle-tested macOS binaries for critical tasks:
+  - `plutil`: Used to validate `.plist` integrity.
+  - `tmutil`: Used for safe interaction with Time Machine.
+  - `kextcache`, `dscacheutil`: Used for system-compliant cache rebuilding.
 
-- `plutil`: Used to validate `.plist` integrity before modification.
-- `tmutil`: Used for safe interaction with Time Machine snapshots.
-- `kextcache`, `dscacheutil`: Used for system-compliant cache rebuilding.
-
----
+- **Go Dependencies (Interactive Tools)**
+    The compiled Go binary (`analyze-go`) includes the following libraries:
+  - `bubbletea` & `lipgloss`: UI framework (Charm).
+  - `gopsutil`: System metrics collection.
+  - `xxhash`: Efficient hashing.
 
 *This document certifies that Mole's architecture implements industry-standard defensive programming practices to ensure the safety and integrity of your Mac.*

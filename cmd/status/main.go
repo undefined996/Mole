@@ -98,7 +98,10 @@ func (m model) View() string {
 
 	if m.width <= 80 {
 		var rendered []string
-		for _, c := range cards {
+		for i, c := range cards {
+			if i > 0 {
+				rendered = append(rendered, "")
+			}
 			rendered = append(rendered, renderCard(c, cardWidth, 0))
 		}
 		return header + "\n" + lipgloss.JoinVertical(lipgloss.Left, rendered...)

@@ -585,7 +585,7 @@ func renderCard(data cardData, width int, height int) string {
 		lineLen = 4
 	}
 	header := titleStyle.Render(titleText) + " " + lineStyle.Render(strings.Repeat("─", lineLen))
-	content := header + "\n" + strings.Join(data.lines, "\n") + "\n"
+	content := header + "\n" + strings.Join(data.lines, "\n")
 
 	// Pad to target height
 	lines := strings.Split(content, "\n")
@@ -765,7 +765,16 @@ func renderTwoColumns(cards []cardData, width int) string {
 			rows = append(rows, left)
 		}
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+	
+	// Add empty lines between rows for separation
+	var spacedRows []string
+	for i, r := range rows {
+		if i > 0 {
+			spacedRows = append(spacedRows, "")
+		}
+		spacedRows = append(spacedRows, r)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, spacedRows...)
 }
 
 func maxInt(a, b int) int {
