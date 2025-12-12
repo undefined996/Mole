@@ -230,7 +230,7 @@ clean_dev_api_tools() {
 # Clean misc dev tools
 clean_dev_misc() {
     safe_clean ~/Library/Caches/com.unity3d.*/* "Unity cache"
-    safe_clean ~/Library/Caches/com.jetbrains.toolbox/* "JetBrains Toolbox cache"
+    # safe_clean ~/Library/Caches/com.jetbrains.toolbox/* "JetBrains Toolbox cache"
     safe_clean ~/Library/Caches/com.mongodb.compass/* "MongoDB Compass cache"
     safe_clean ~/Library/Caches/com.figma.Desktop/* "Figma cache"
     safe_clean ~/Library/Caches/com.github.GitHubDesktop/* "GitHub Desktop cache"
