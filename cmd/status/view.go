@@ -765,7 +765,7 @@ func renderTwoColumns(cards []cardData, width int) string {
 			rows = append(rows, left)
 		}
 	}
-	
+
 	// Add empty lines between rows for separation
 	var spacedRows []string
 	for i, r := range rows {
