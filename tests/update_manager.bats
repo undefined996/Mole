@@ -115,13 +115,13 @@ BREW_CASK_OUTDATED_COUNT=0
 MOLE_UPDATE_AVAILABLE=true
 
 FAKE_DIR="$HOME/fake-script-dir"
-mkdir -p "$FAKE_DIR"
+mkdir -p "$FAKE_DIR/lib/manage"
 cat > "$FAKE_DIR/mole" <<'SCRIPT'
 #!/usr/bin/env bash
 echo "Already on latest version"
 SCRIPT
 chmod +x "$FAKE_DIR/mole"
-SCRIPT_DIR="$FAKE_DIR"
+SCRIPT_DIR="$FAKE_DIR/lib/manage"
 
 brew_has_outdated() { return 0; }
 start_inline_spinner() { :; }

@@ -47,14 +47,30 @@ jobs:
 
       - name: Commit binaries for release
         run: |
+          # Configure Git
           git config user.name "Tw93"
           git config user.email "tw93@qq.com"
+
+          # Save binaries to temp location
+          cp bin/analyze-go /tmp/analyze-go
+          cp bin/status-go /tmp/status-go
+
+          # Switch to main branch
+          git fetch origin main
+          git checkout main
+          git pull origin main
+
+          # Restore binaries
+          mv /tmp/analyze-go bin/analyze-go
+          mv /tmp/status-go bin/status-go
+
+          # Commit and Push
           git add bin/analyze-go bin/status-go
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
             git commit -m "chore: update binaries for ${GITHUB_REF#refs/tags/}"
-            git push origin HEAD:main
+            git push origin main
           fi
 
   update-formula:
