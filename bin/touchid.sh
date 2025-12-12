@@ -58,6 +58,10 @@ show_status() {
 
 # Enable Touch ID for sudo
 enable_touchid() {
+    # Cleanup trap
+    local temp_file=""
+    trap '[[ -n "$temp_file" ]] && rm -f "$temp_file"' EXIT
+
     # First check if system supports Touch ID
     if ! supports_touchid; then
         log_warning "This Mac may not support Touch ID"
@@ -75,14 +79,15 @@ enable_touchid() {
         return 0
     fi
 
-    # Create backup and apply changes
-    if ! sudo cp "$PAM_SUDO_FILE" "${PAM_SUDO_FILE}.mole-backup" 2> /dev/null; then
-        log_error "Failed to create backup"
-        return 1
+    # Create backup only if it doesn't exist to preserve original state
+    if [[ ! -f "${PAM_SUDO_FILE}.mole-backup" ]]; then
+        if ! sudo cp "$PAM_SUDO_FILE" "${PAM_SUDO_FILE}.mole-backup" 2> /dev/null; then
+            log_error "Failed to create backup"
+            return 1
+        fi
     fi
 
-    # Create temp file with the modification
-    local temp_file
+    # Create temp file
     temp_file=$(mktemp)
 
     # Insert pam_tid.so after the first comment block
@@ -96,13 +101,18 @@ enable_touchid() {
         { print }
     ' "$PAM_SUDO_FILE" > "$temp_file"
 
+    # Verify content change
+    if cmp -s "$PAM_SUDO_FILE" "$temp_file"; then
+        log_error "Failed to modify configuration"
+        return 1
+    fi
+
     # Apply the changes
     if sudo mv "$temp_file" "$PAM_SUDO_FILE" 2> /dev/null; then
         echo -e "${GREEN}${ICON_SUCCESS} Touch ID enabled${NC} ${GRAY}- try: sudo ls${NC}"
         echo ""
         return 0
     else
-        rm -f "$temp_file" 2> /dev/null || true
         log_error "Failed to enable Touch ID"
         return 1
     fi
@@ -110,19 +120,24 @@ enable_touchid() {
 
 # Disable Touch ID for sudo
 disable_touchid() {
+    # Cleanup trap
+    local temp_file=""
+    trap '[[ -n "$temp_file" ]] && rm -f "$temp_file"' EXIT
+
     if ! is_touchid_configured; then
         echo -e "${YELLOW}Touch ID is not currently enabled${NC}"
         return 0
     fi
 
-    # Create backup and remove configuration
-    if ! sudo cp "$PAM_SUDO_FILE" "${PAM_SUDO_FILE}.mole-backup" 2> /dev/null; then
-        log_error "Failed to create backup"
-        return 1
+    # Create backup only if it doesn't exist
+    if [[ ! -f "${PAM_SUDO_FILE}.mole-backup" ]]; then
+        if ! sudo cp "$PAM_SUDO_FILE" "${PAM_SUDO_FILE}.mole-backup" 2> /dev/null; then
+            log_error "Failed to create backup"
+            return 1
+        fi
     fi
 
     # Remove pam_tid.so line
-    local temp_file
     temp_file=$(mktemp)
     grep -v "pam_tid.so" "$PAM_SUDO_FILE" > "$temp_file"
 
@@ -131,7 +146,6 @@ disable_touchid() {
         echo ""
         return 0
     else
-        rm -f "$temp_file" 2> /dev/null || true
         log_error "Failed to disable Touch ID"
         return 1
     fi

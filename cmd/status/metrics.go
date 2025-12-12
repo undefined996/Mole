@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/disk"
@@ -155,34 +156,67 @@ func NewCollector() *Collector {
 
 func (c *Collector) Collect() (MetricsSnapshot, error) {
 	now := time.Now()
+
+	// Start host info collection early (it's fast but good to parallelize if possible,
+	// but it returns a struct needed for result, so we can just run it here or in parallel)
+	// host.Info is usually cached by gopsutil but let's just call it.
 	hostInfo, _ := host.Info()
 
-	cpuStats, cpuErr := collectCPU()
-	memStats, memErr := collectMemory()
-	diskStats, diskErr := collectDisks()
-	hwInfo := collectHardware(memStats.Total, diskStats)
-	diskIO := c.collectDiskIO(now)
-	netStats, netErr := c.collectNetwork(now)
-	proxyStats := collectProxy()
-	batteryStats, _ := collectBatteries()
-	thermalStats := collectThermal()
-	sensorStats, _ := collectSensors()
-	gpuStats, gpuErr := c.collectGPU(now)
-	btStats := c.collectBluetooth(now)
-	topProcs := collectTopProcesses()
+	var (
+		wg          sync.WaitGroup
+		errMu       sync.Mutex
+		mergeErr    error
 
-	var mergeErr error
-	for _, e := range []error{cpuErr, memErr, diskErr, netErr, gpuErr} {
-		if e != nil {
-			if mergeErr == nil {
-				mergeErr = e
-			} else {
-				mergeErr = fmt.Errorf("%v; %w", mergeErr, e)
+		cpuStats    CPUStatus
+		memStats    MemoryStatus
+		diskStats   []DiskStatus
+		diskIO      DiskIOStatus
+		netStats    []NetworkStatus
+		proxyStats  ProxyStatus
+		batteryStats []BatteryStatus
+		thermalStats ThermalStatus
+		sensorStats []SensorReading
+		gpuStats    []GPUStatus
+		btStats     []BluetoothDevice
+		topProcs    []ProcessInfo
+	)
+
+	// Helper to launch concurrent collection
+	collect := func(fn func() error) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := fn(); err != nil {
+				errMu.Lock()
+				if mergeErr == nil {
+					mergeErr = err
+				} else {
+					mergeErr = fmt.Errorf("%v; %w", mergeErr, err)
+				}
+				errMu.Unlock()
 			}
-		}
+		}()
 	}
 
-	// Calculate health score
+	// Launch all independent collection tasks
+	collect(func() (err error) { cpuStats, err = collectCPU(); return })
+	collect(func() (err error) { memStats, err = collectMemory(); return })
+	collect(func() (err error) { diskStats, err = collectDisks(); return })
+	collect(func() (err error) { diskIO = c.collectDiskIO(now); return nil })
+	collect(func() (err error) { netStats, err = c.collectNetwork(now); return })
+	collect(func() (err error) { proxyStats = collectProxy(); return nil })
+	collect(func() (err error) { batteryStats, _ = collectBatteries(); return nil })
+	collect(func() (err error) { thermalStats = collectThermal(); return nil })
+	collect(func() (err error) { sensorStats, _ = collectSensors(); return nil })
+	collect(func() (err error) { gpuStats, err = c.collectGPU(now); return })
+	collect(func() (err error) { btStats = c.collectBluetooth(now); return nil })
+	collect(func() (err error) { topProcs = collectTopProcesses(); return nil })
+
+	// Wait for all to complete
+	wg.Wait()
+
+	// Dependent tasks (must run after others)
+	hwInfo := collectHardware(memStats.Total, diskStats)
 	score, scoreMsg := calculateHealthScore(cpuStats, memStats, diskStats, diskIO, thermalStats)
 
 	return MetricsSnapshot{
