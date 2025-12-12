@@ -38,25 +38,35 @@ clean_orphaned_casks() {
         rm -f "$cask_cache" 2> /dev/null || true
         true > "$cask_cache"
 
-        while IFS= read -r cask; do
+    while IFS= read -r cask; do
             # Get app path from cask info with timeout protection (expensive call, hence caching)
             local cask_info
             cask_info=$(run_with_timeout 10 brew info --cask "$cask" 2> /dev/null || true)
+
+            # SAFETY: Skip if cask contains non-App artifacts (Screen Savers, Plugins, etc.)
+            # This prevents accidental deletion of casks that don't primarily install to /Applications
+            if echo "$cask_info" | grep -qE '\((Screen Saver|Preference Pane|Audio Unit|VST|VST3|Component|QuickLook|Spotlight|Artifact)\)'; then
+                continue
+            fi
 
             # Extract app name from "AppName.app (App)" format in cask info output
             local app_name
             app_name=$(echo "$cask_info" | grep -E '\.app \(App\)' | head -1 | sed -E 's/^[[:space:]]*//' | sed -E 's/ \(App\).*//' || true)
 
-            # Skip if no app artifact (might be a utility package like fonts)
+            # Skip if no app artifact (might be a utility package like fonts or just drivers)
             [[ -z "$app_name" ]] && continue
 
             # Save to cache for future runs
             echo "$cask|$app_name" >> "$cask_cache"
 
-            # Check if app exists in /Applications
-            [[ ! -e "/Applications/$app_name" ]] && orphaned_casks+=("$cask")
+            # Check if app exists into common locations
+            # We must check both /Applications and ~/Applications
+            if [[ ! -e "/Applications/$app_name" ]] && [[ ! -e "$HOME/Applications/$app_name" ]]; then
+                 orphaned_casks+=("$cask")
+            fi
         done < <(brew list --cask 2> /dev/null || true)
     fi
+
 
     # Remove orphaned casks if found and sudo session is still valid
     if [[ ${#orphaned_casks[@]} -gt 0 ]]; then

@@ -52,10 +52,7 @@ clean_deep_system() {
         fi
     fi
 
-    # Clean orphaned cask records (delegated to clean_brew module)
-    # DISABLED: This feature triggers password prompts and provides minimal benefit
-    # Users can manually run: brew list --cask && brew uninstall --cask <name>
-    # clean_orphaned_casks
+
 
     # Clean macOS Install Data (system upgrade leftovers)
     # Only remove if older than 30 days to ensure system stability

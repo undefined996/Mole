@@ -79,15 +79,10 @@ clean_ds_store_tree() {
 # Clean data for uninstalled apps (caches/logs/states older than 60 days)
 # Protects system apps, major vendors, scans /Applications+running processes
 # Max 100 items/pattern, 2s du timeout. Env: ORPHAN_AGE_THRESHOLD, DRY_RUN
-clean_orphaned_app_data() {
-    # Quick permission check - if we can't access Library folders, skip
-    if ! ls "$HOME/Library/Caches" > /dev/null 2>&1; then
-        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Skipped: No permission to access Library folders"
-        return 0
-    fi
-
-    # Build list of installed/active apps
-    local installed_bundles=$(create_temp_file)
+# Scan system for installed application bundle IDs
+# Usage: scan_installed_apps "output_file"
+scan_installed_apps() {
+    local installed_bundles="$1"
 
     # Scan all Applications directories
     local -a app_dirs=(
@@ -169,8 +164,8 @@ clean_orphaned_app_data() {
 
     (
         run_with_timeout 5 find ~/Library/LaunchAgents /Library/LaunchAgents \
-            -name "*.plist" -type f 2> /dev/null |
-            xargs -I {} basename {} .plist > "$scan_tmp_dir/agents.txt" 2> /dev/null || true
+             -name "*.plist" -type f 2> /dev/null |
+             xargs -I {} basename {} .plist > "$scan_tmp_dir/agents.txt" 2> /dev/null || true
     ) &
     pids+=($!)
 
@@ -193,55 +188,70 @@ clean_orphaned_app_data() {
 
     local app_count=$(wc -l < "$installed_bundles" 2> /dev/null | tr -d ' ')
     echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Found $app_count active/installed apps"
+}
+
+# Check if bundle is orphaned
+# Usage: is_bundle_orphaned "bundle_id" "directory_path" "installed_bundles_file"
+is_bundle_orphaned() {
+    local bundle_id="$1"
+    local directory_path="$2"
+    local installed_bundles="$3"
+
+    # Skip system-critical and protected apps
+    if should_protect_data "$bundle_id"; then
+        return 1
+    fi
+
+    # Check if app exists in our scan
+    if grep -Fxq "$bundle_id" "$installed_bundles" 2> /dev/null; then
+        return 1
+    fi
+
+    # Check against centralized protected patterns (app_protection.sh)
+    if should_protect_data "$bundle_id"; then
+        return 1
+    fi
+
+
+    # Extra check for specific system bundles not covered by patterns
+    case "$bundle_id" in
+        loginwindow | dock | systempreferences | finder | safari)
+            return 1
+            ;;
+    esac
+
+    # Check file age - only clean if 60+ days inactive
+    # Use existing logic
+    if [[ -e "$directory_path" ]]; then
+        local last_modified_epoch=$(get_file_mtime "$directory_path")
+        local current_epoch=$(date +%s)
+        local days_since_modified=$(((current_epoch - last_modified_epoch) / 86400))
+
+        if [[ $days_since_modified -lt ${ORPHAN_AGE_THRESHOLD:-60} ]]; then
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
+# Clean data for uninstalled apps (caches/logs/states older than 60 days)
+# Protects system apps, major vendors, scans /Applications+running processes
+# Max 100 items/pattern, 2s du timeout. Env: ORPHAN_AGE_THRESHOLD, DRY_RUN
+clean_orphaned_app_data() {
+    # Quick permission check - if we can't access Library folders, skip
+    if ! ls "$HOME/Library/Caches" > /dev/null 2>&1; then
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} Skipped: No permission to access Library folders"
+        return 0
+    fi
+
+    # Build list of installed/active apps
+    local installed_bundles=$(create_temp_file)
+    scan_installed_apps "$installed_bundles"
 
     # Track statistics
     local orphaned_count=0
     local total_orphaned_kb=0
-
-    # Check if bundle is orphaned - conservative approach
-    is_orphaned() {
-        local bundle_id="$1"
-        local directory_path="$2"
-
-        # Skip system-critical and protected apps
-        if should_protect_data "$bundle_id"; then
-            return 1
-        fi
-
-        # Check if app exists in our scan
-        if grep -Fxq "$bundle_id" "$installed_bundles" 2> /dev/null; then
-            return 1
-        fi
-
-        # Extra check for system bundles
-        case "$bundle_id" in
-            com.apple.* | loginwindow | dock | systempreferences | finder | safari)
-                return 1
-                ;;
-        esac
-
-        # Skip major vendors
-        case "$bundle_id" in
-            com.adobe.* | com.microsoft.* | com.google.* | org.mozilla.* | com.jetbrains.* | com.docker.*)
-                return 1
-                ;;
-        esac
-
-        # Check file age - only clean if 60+ days inactive
-        # Use modification time (mtime) instead of access time (atime)
-        # because macOS disables atime updates by default for performance
-        if [[ -e "$directory_path" ]]; then
-            local last_modified_epoch=$(get_file_mtime "$directory_path")
-            local current_epoch=$(date +%s)
-            local days_since_modified=$(((current_epoch - last_modified_epoch) / 86400))
-
-            if [[ $days_since_modified -lt ${ORPHAN_AGE_THRESHOLD:-60} ]]; then
-                return 1
-            fi
-        fi
-
-        return 0
-    }
 
     # Unified orphaned resource scanner (caches, logs, states, webkit, HTTP, cookies)
     MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning orphaned app resources..."
@@ -300,7 +310,7 @@ clean_orphaned_app_data() {
                 bundle_id="${bundle_id%.savedState}"
                 bundle_id="${bundle_id%.binarycookies}"
 
-                if is_orphaned "$bundle_id" "$match"; then
+                if is_bundle_orphaned "$bundle_id" "$match" "$installed_bundles"; then
                     # Use timeout to prevent du from hanging on network mounts or problematic paths
                     local size_kb
                     size_kb=$(get_path_size_kb "$match")

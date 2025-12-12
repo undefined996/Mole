@@ -193,11 +193,19 @@ clean_application_support_logs() {
         # Skip system and protected apps (case-insensitive)
         local app_name_lower
         app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]')
-        case "$app_name_lower" in
-            com.apple.* | adobe* | jetbrains* | 1password | claude | *clashx* | *clash* | mihomo* | *surge* | iterm* | warp* | kitty* | alacritty* | wezterm* | ghostty*)
-                continue
-                ;;
-        esac
+        # Use centralized protection logic from app_protection.sh
+        # Check against System Critical and Data Protected bundles
+        local is_protected=false
+
+        # Check if directory name matches any protected pattern
+        # We check both exact name and lowercase version against the patterns
+        if should_protect_data "$app_name"; then
+            is_protected=true
+        elif should_protect_data "$app_name_lower"; then
+            is_protected=true
+        fi
+
+        [[ "$is_protected" == "true" ]] && continue
 
         # Clean log directories - simple direct removal without deep scanning
         [[ -d "$app_dir/log" ]] && safe_clean "$app_dir/log"/* "App logs: $app_name"

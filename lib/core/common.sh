@@ -15,6 +15,7 @@ _MOLE_CORE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Load core modules in dependency order
 source "$_MOLE_CORE_DIR/base.sh"
 source "$_MOLE_CORE_DIR/log.sh"
+
 source "$_MOLE_CORE_DIR/timeout.sh"
 source "$_MOLE_CORE_DIR/file_ops.sh"
 source "$_MOLE_CORE_DIR/ui.sh"

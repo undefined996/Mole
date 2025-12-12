@@ -22,6 +22,7 @@ fi
 # ============================================================================
 
 readonly LOG_FILE="${HOME}/.config/mole/mole.log"
+readonly DEBUG_LOG_FILE="${HOME}/.config/mole/mole_debug_session.log"
 readonly LOG_MAX_SIZE_DEFAULT=1048576 # 1MB
 
 # Ensure log directory exists
@@ -53,28 +54,44 @@ rotate_log_once() {
 # Args: $1 - message
 log_info() {
     echo -e "${BLUE}$1${NC}"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: $1" >> "$LOG_FILE" 2> /dev/null || true
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] INFO: $1" >> "$LOG_FILE" 2> /dev/null || true
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        echo "[$timestamp] INFO: $1" >> "$DEBUG_LOG_FILE" 2> /dev/null || true
+    fi
 }
 
 # Log success message
 # Args: $1 - message
 log_success() {
     echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] SUCCESS: $1" >> "$LOG_FILE" 2> /dev/null || true
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] SUCCESS: $1" >> "$LOG_FILE" 2> /dev/null || true
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        echo "[$timestamp] SUCCESS: $1" >> "$DEBUG_LOG_FILE" 2> /dev/null || true
+    fi
 }
 
 # Log warning message
 # Args: $1 - message
 log_warning() {
     echo -e "${YELLOW}$1${NC}"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: $1" >> "$LOG_FILE" 2> /dev/null || true
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] WARNING: $1" >> "$LOG_FILE" 2> /dev/null || true
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        echo "[$timestamp] WARNING: $1" >> "$DEBUG_LOG_FILE" 2> /dev/null || true
+    fi
 }
 
 # Log error message
 # Args: $1 - message
 log_error() {
     echo -e "${RED}${ICON_ERROR}${NC} $1" >&2
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1" >> "$LOG_FILE" 2> /dev/null || true
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] ERROR: $1" >> "$LOG_FILE" 2> /dev/null || true
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        echo "[$timestamp] ERROR: $1" >> "$DEBUG_LOG_FILE" 2> /dev/null || true
+    fi
 }
 
 # Debug logging - only shown when MO_DEBUG=1
@@ -82,7 +99,44 @@ log_error() {
 debug_log() {
     if [[ "${MO_DEBUG:-}" == "1" ]]; then
         echo -e "${GRAY}[DEBUG]${NC} $*" >&2
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] DEBUG: $*" >> "$DEBUG_LOG_FILE" 2> /dev/null || true
     fi
+}
+
+# Log system information for debugging
+log_system_info() {
+    # Only allow once per session
+    [[ -n "${MOLE_SYS_INFO_LOGGED:-}" ]] && return 0
+    export MOLE_SYS_INFO_LOGGED=1
+
+    # Reset debug log file for this new session
+    : > "$DEBUG_LOG_FILE"
+
+    # Start block in debug log file
+    {
+        echo "----------------------------------------------------------------------"
+        echo "Mole Debug Session - $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "----------------------------------------------------------------------"
+        echo "User: $USER"
+        echo "Hostname: $(hostname)"
+        echo "Architecture: $(uname -m)"
+        echo "Kernel: $(uname -r)"
+        if command -v sw_vers > /dev/null; then
+            echo "macOS: $(sw_vers -productVersion) ($(sw_vers -buildVersion))"
+        fi
+        echo "Shell: ${SHELL:-unknown} (${TERM:-unknown})"
+
+        # Check sudo status non-interactively
+        if sudo -n true 2>/dev/null; then
+            echo "Sudo Access: Active"
+        else
+            echo "Sudo Access: Required"
+        fi
+        echo "----------------------------------------------------------------------"
+    } >> "$DEBUG_LOG_FILE" 2> /dev/null || true
+
+    # Notification to stderr
+    echo -e "${GRAY}[DEBUG] Debug logging enabled. Session log: $DEBUG_LOG_FILE${NC}" >&2
 }
 
 # ============================================================================
@@ -100,9 +154,17 @@ run_silent() {
 # Returns: command exit code
 run_logged() {
     local cmd="$1"
-    if ! "$@" 2>&1 | tee -a "$LOG_FILE" > /dev/null; then
-        log_warning "Command failed: $cmd"
-        return 1
+    # Log to main file, and also to debug file if enabled
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        if ! "$@" 2>&1 | tee -a "$LOG_FILE" | tee -a "$DEBUG_LOG_FILE" > /dev/null; then
+            log_warning "Command failed: $cmd"
+            return 1
+        fi
+    else
+        if ! "$@" 2>&1 | tee -a "$LOG_FILE" > /dev/null; then
+            log_warning "Command failed: $cmd"
+            return 1
+        fi
     fi
     return 0
 }
@@ -143,6 +205,11 @@ print_summary_block() {
         echo -e "${detail}"
     done
     echo "$divider"
+
+    # If debug mode is on, remind user about the log file location
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        echo -e "${GRAY}Debug session log saved to:${NC} ${DEBUG_LOG_FILE}"
+    fi
 }
 
 # ============================================================================
@@ -151,3 +218,8 @@ print_summary_block() {
 
 # Perform log rotation check on module load
 rotate_log_once
+
+# If debug mode is enabled, log system info immediately
+if [[ "${MO_DEBUG:-}" == "1" ]]; then
+    log_system_info
+fi

@@ -685,6 +685,107 @@ find_app_system_files() {
     if [[ ${#system_files[@]} -gt 0 ]]; then
         printf '%s\n' "${system_files[@]}"
     fi
+
+    # Find files from receipts (Deep Scan)
+    find_app_receipt_files "$bundle_id"
+}
+
+# Find files from installation receipts (Bom files)
+find_app_receipt_files() {
+    local bundle_id="$1"
+
+    # Skip if no bundle ID
+    [[ -z "$bundle_id" || "$bundle_id" == "unknown" ]] && return 0
+
+    local -a receipt_files=()
+    local -a bom_files=()
+
+    # Find receipts matching the bundle ID
+    # Usually in /var/db/receipts/
+    if [[ -d /private/var/db/receipts ]]; then
+        while IFS= read -r -d '' bom; do
+            bom_files+=("$bom")
+        done < <(find /private/var/db/receipts -name "${bundle_id}*.bom" -print0 2> /dev/null)
+    fi
+
+    for bom_file in "${bom_files[@]}"; do
+        [[ ! -f "$bom_file" ]] && continue
+
+        # Parse bom file
+        # lsbom -f: file paths only
+        # -s: suppress output (convert to text)
+        local bom_content
+        bom_content=$(lsbom -f -s "$bom_file" 2> /dev/null)
+
+        while IFS= read -r file_path; do
+            # Standardize path (remove leading dot)
+            local clean_path="${file_path#.}"
+
+            # Ensure it starts with /
+            if [[ "$clean_path" != /* ]]; then
+                clean_path="/$clean_path"
+            fi
+
+            # ------------------------------------------------------------------------
+            # SAFETY FILTER: Only allow specific removal paths
+            # ------------------------------------------------------------------------
+            local is_safe=false
+
+            # Whitelisted prefixes
+            case "$clean_path" in
+                /Applications/*) is_safe=true ;;
+                /Users/*)        is_safe=true ;;
+                /usr/local/*)    is_safe=true ;;
+                /opt/*)          is_safe=true ;;
+                /Library/*)
+                    # Filter sub-paths in /Library to avoid system damage
+                    # Allow safely: Application Support, Caches, Logs, Preferences
+                    case "$clean_path" in
+                        /Library/Application\ Support/*) is_safe=true ;;
+                        /Library/Caches/*)               is_safe=true ;;
+                        /Library/Logs/*)                 is_safe=true ;;
+                        /Library/Preferences/*)          is_safe=true ;;
+                        /Library/PrivilegedHelperTools/*) is_safe=true ;;
+                        /Library/LaunchAgents/*)         is_safe=true ;;
+                        /Library/LaunchDaemons/*)        is_safe=true ;;
+                        /Library/Internet\ Plug-Ins/*)   is_safe=true ;;
+                        /Library/Audio/Plug-Ins/*)       is_safe=true ;;
+                        /Library/Extensions/*)           is_safe=false ;; # Default unsafe
+                        *) is_safe=false ;;
+                    esac
+                    ;;
+            esac
+
+            # Hard blocks
+            case "$clean_path" in
+                /System/*|/usr/bin/*|/usr/lib/*|/bin/*|/sbin/*) is_safe=false ;;
+            esac
+
+            if [[ "$is_safe" == "true" && -e "$clean_path" ]]; then
+                # Only valid files
+                # Don't delete directories if they are non-empty parents?
+                # lsbom lists directories too.
+                # If we return a directory, `safe_remove` logic handles it.
+                # `uninstall.sh` uses `remove_file_list`.
+                # If `lsbom` lists `/Applications` (it shouldn't, only contents), we must be careful.
+                # `lsbom` usually lists `./Applications/MyApp.app`.
+                # If it lists `./Applications`, we must skip it.
+
+                # Extra check: path must be deep enough?
+                # If path is just "/Applications", skip.
+                if [[ "$clean_path" == "/Applications" || "$clean_path" == "/Library" || "$clean_path" == "/usr/local" ]]; then
+                   continue
+                fi
+
+                receipt_files+=("$clean_path")
+            fi
+
+        done <<< "$bom_content"
+    done
+
+    if [[ ${#receipt_files[@]} -gt 0 ]]; then
+        printf '%s\n' "${receipt_files[@]}"
+    fi
 }
 
 # Force quit an application
