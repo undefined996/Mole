@@ -169,11 +169,16 @@ var skipSystemDirs = map[string]bool{
 	"bin":                     true,
 	"etc":                     true,
 	"var":                     true,
+	"opt":                     false, // User might want to specific check opt
+	"usr":                     false, // User might check usr
+	"Volumes":                 true,  // Skip external drives by default when scanning root
+	"Network":                 true,  // Skip network mounts
 	".vol":                    true,
 	".Spotlight-V100":         true,
 	".fseventsd":              true,
 	".DocumentRevisions-V100": true,
 	".TemporaryItems":         true,
+	".MobileBackups":          true, // Time Machine local snapshots
 }
 
 var skipExtensions = map[string]bool{
