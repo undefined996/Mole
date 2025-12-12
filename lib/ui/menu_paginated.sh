@@ -510,10 +510,10 @@ paginated_multi_select() {
                         "${GRAY}${ICON_NAV_UP}${ICON_NAV_DOWN}${NC}"
                         "${GRAY}Space Select${NC}"
                         "${GRAY}Enter${NC}"
-                        "${GRAY}F Refresh${NC}"
+                        "${GRAY}R Refresh${NC}"
                         "${GRAY}${filter_text}${NC}"
                         "${GRAY}S ${sort_status}${NC}"
-                        "${GRAY}R ${reverse_arrow}${NC}"
+                        "${GRAY}O ${reverse_arrow}${NC}"
                         "${GRAY}Q Exit${NC}"
                     )
                     _print_wrapped_controls "$sep" "${_segs_all[@]}"
@@ -641,20 +641,60 @@ paginated_multi_select() {
                     rebuild_view
                 fi
                 ;;
+            "CHAR:j")
+                if [[ "$filter_mode" != "true" ]]; then
+                    # Down navigation
+                    if [[ ${#view_indices[@]} -gt 0 ]]; then
+                        local absolute_index=$((top_index + cursor_pos))
+                        local last_index=$((${#view_indices[@]} - 1))
+                        if [[ $absolute_index -lt $last_index ]]; then
+                            local visible_count=$((${#view_indices[@]} - top_index))
+                            [[ $visible_count -gt $items_per_page ]] && visible_count=$items_per_page
+                            if [[ $cursor_pos -lt $((visible_count - 1)) ]]; then
+                                ((cursor_pos++))
+                            elif [[ $((top_index + visible_count)) -lt ${#view_indices[@]} ]]; then
+                                ((top_index++))
+                            fi
+                        fi
+                    fi
+                else
+                    filter_query+="j"
+                fi
+                ;;
+            "CHAR:k")
+                if [[ "$filter_mode" != "true" ]]; then
+                    # Up navigation
+                    if [[ ${#view_indices[@]} -gt 0 ]]; then
+                        if [[ $cursor_pos -gt 0 ]]; then
+                            ((cursor_pos--))
+                        elif [[ $top_index -gt 0 ]]; then
+                            ((top_index--))
+                        fi
+                    fi
+                else
+                    filter_query+="k"
+                fi
+                ;;
             "CHAR:f" | "CHAR:F")
                 if [[ "$filter_mode" == "true" ]]; then
                     filter_query+="${key#CHAR:}"
+                fi
+                # F is currently unbound in normal mode to avoid conflict with Refresh (R)
+                ;;
+            "CHAR:r" | "CHAR:R")
+                if [[ "$filter_mode" == "true" ]]; then
+                    filter_query+="${key#CHAR:}"
                 else
-                    # Trigger Refresh signal
+                    # Trigger Refresh signal (Unified with Analyze)
                     cleanup
                     return 10
                 fi
                 ;;
-            "CHAR:r")
-                # lower-case r: behave like reverse when NOT in filter mode
+            "CHAR:o" | "CHAR:O")
                 if [[ "$filter_mode" == "true" ]]; then
-                    filter_query+="r"
-                else
+                    filter_query+="${key#CHAR:}"
+                elif [[ "$has_metadata" == "true" ]]; then
+                    # O toggles reverse order (Unified Sort Order)
                     if [[ "$sort_reverse" == "true" ]]; then
                         sort_reverse="false"
                     else

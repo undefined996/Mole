@@ -130,7 +130,7 @@ EOF
     items+=('mail_downloads|Mail Downloads|Clear old mail attachments (> 30 days)|true')
     items+=('swap_cleanup|Swap Refresh|Reset swap files and dynamic pager|true')
     items+=('spotlight_cache_cleanup|Spotlight Cache|Clear user-level Spotlight indexes|true')
-    items+=('developer_cleanup|Developer Cleanup|Clear Xcode DerivedData & DeviceSupport|false')
+    items+=('developer_cleanup|Developer Cleanup|Clear Xcode DerivedData & DeviceSupport|true')
 
     # Output items as JSON
     local first=true

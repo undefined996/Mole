@@ -10,17 +10,17 @@ const (
 	defaultViewport       = 12                 // Default viewport when terminal height is unknown
 	overviewCacheTTL      = 7 * 24 * time.Hour // 7 days
 	overviewCacheFile     = "overview_sizes.json"
-	duTimeout             = 60 * time.Second // Increased for large directories
+	duTimeout             = 30 * time.Second // Fail faster to fallback to concurrent scan
 	mdlsTimeout           = 5 * time.Second
-	maxConcurrentOverview = 3                // Scan up to 3 overview dirs concurrently
+	maxConcurrentOverview = 8                // Increased parallel overview scans
 	batchUpdateSize       = 100              // Batch atomic updates every N items
 	cacheModTimeGrace     = 30 * time.Minute // Ignore minor directory mtime bumps
 
 	// Worker pool configuration
-	minWorkers         = 8                // Minimum workers for better I/O throughput
-	maxWorkers         = 64               // Maximum workers to avoid excessive goroutines
-	cpuMultiplier      = 2                // Worker multiplier per CPU core for I/O-bound operations
-	maxDirWorkers      = 16               // Maximum concurrent subdirectory scans
+	minWorkers         = 16               // Safe baseline for older machines
+	maxWorkers         = 64               // Cap at 64 to avoid OS resource contention
+	cpuMultiplier      = 4                // Balanced CPU usage
+	maxDirWorkers      = 32               // Limit concurrent subdirectory scans
 	openCommandTimeout = 10 * time.Second // Timeout for open/reveal commands
 )
 

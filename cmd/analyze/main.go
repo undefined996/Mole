@@ -376,7 +376,7 @@ func (m model) scanCmd(path string) tea.Cmd {
 }
 
 func tickCmd() tea.Cmd {
-	return tea.Tick(time.Millisecond*120, func(t time.Time) tea.Msg {
+	return tea.Tick(time.Millisecond*80, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
@@ -429,7 +429,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = fmt.Sprintf("Scan failed: %v", msg.err)
 			return m, nil
 		}
-		m.entries = msg.result.Entries
+		// Filter out 0-byte items for cleaner view
+		filteredEntries := make([]dirEntry, 0, len(msg.result.Entries))
+		for _, e := range msg.result.Entries {
+			if e.Size > 0 {
+				filteredEntries = append(filteredEntries, e)
+			}
+		}
+		m.entries = filteredEntries
 		m.largeFiles = msg.result.LargeFiles
 		m.totalSize = msg.result.TotalSize
 		m.status = fmt.Sprintf("Scanned %s", humanizeBytes(m.totalSize))
@@ -639,7 +646,24 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.scanning = false
 		return m, nil
 	case "r":
-		// Invalidate cache before rescanning to ensure fresh data
+		if m.inOverviewMode() {
+			// In overview mode, clear cache and re-scan known entries
+			m.overviewSizeCache = make(map[string]int64)
+			m.overviewScanningSet = make(map[string]bool)
+			m.hydrateOverviewEntries() // Reset sizes to pending
+
+			// Reset all entries to pending state for visual feedback
+			for i := range m.entries {
+				m.entries[i].Size = -1
+			}
+			m.totalSize = 0
+
+			m.status = "Refreshing..."
+			m.overviewScanning = true
+			return m, tea.Batch(m.scheduleOverviewScans(), tickCmd())
+		}
+
+		// Normal mode: Invalidate cache before rescanning
 		invalidateCache(m.path)
 		m.status = "Refreshing..."
 		m.scanning = true

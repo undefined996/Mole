@@ -97,7 +97,17 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 		// Skip symlinks to avoid following them into unexpected locations
 		// Use Type() instead of IsDir() to check without following symlinks
 		if child.Type()&fs.ModeSymlink != 0 {
-			// For symlinks, get their target info but mark them specially
+			// For symlinks, check if they point to a directory
+			targetInfo, err := os.Stat(fullPath)
+			isDir := false
+			if err == nil && targetInfo.IsDir() {
+				isDir = true
+			}
+
+			// Get symlink size (we don't effectively count the target size towards parent to avoid double counting,
+			// or we just count the link size itself. Existing logic counts 'size' via getActualFileSize on the link info).
+			// Ideally we just want navigation.
+			// Re-fetching info for link itself if needed, but child.Info() does that.
 			info, err := child.Info()
 			if err != nil {
 				continue
@@ -109,7 +119,7 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 				Name:       child.Name() + " →", // Add arrow to indicate symlink
 				Path:       fullPath,
 				Size:       size,
-				IsDir:      false, // Don't allow navigation into symlinks
+				IsDir:      isDir, // Allow navigation if target is directory
 				LastAccess: getLastAccessTimeFromInfo(info),
 			}
 			continue
@@ -287,7 +297,7 @@ func calculateDirSizeFast(root string, filesScanned, dirsScanned, bytesScanned *
 		default:
 		}
 
-		if currentPath != nil {
+		if currentPath != nil && atomic.LoadInt64(filesScanned)%int64(batchUpdateSize) == 0 {
 			*currentPath = dirPath
 		}
 
@@ -496,8 +506,9 @@ func calculateDirSizeConcurrent(root string, largeFileChan chan<- fileEntry, fil
 			largeFileChan <- fileEntry{Name: child.Name(), Path: fullPath, Size: size}
 		}
 
-		// Update current path
-		if currentPath != nil {
+
+		// Update current path occasionally to prevent UI jitter
+		if currentPath != nil && atomic.LoadInt64(filesScanned)%int64(batchUpdateSize) == 0 {
 			*currentPath = fullPath
 		}
 	}
