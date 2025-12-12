@@ -52,8 +52,6 @@ clean_deep_system() {
         fi
     fi
 
-
-
     # Clean macOS Install Data (system upgrade leftovers)
     # Only remove if older than 30 days to ensure system stability
     if [[ -d "/macOS Install Data" ]]; then
