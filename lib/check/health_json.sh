@@ -125,11 +125,9 @@ EOF
     # Always-on items (no size checks - instant)
     items+=('system_maintenance|System Maintenance|Rebuild system databases & flush caches|true')
     items+=('maintenance_scripts|Maintenance Scripts|Run daily/weekly/monthly scripts & rotate logs|true')
-    items+=('radio_refresh|Bluetooth & Wi-Fi Refresh|Reset wireless preference caches|true')
     items+=('recent_items|Recent Items|Clear recent apps/documents/servers lists|true')
     items+=('log_cleanup|Diagnostics Cleanup|Purge old diagnostic & crash logs|true')
     items+=('startup_cache|Startup Cache Rebuild|Rebuild kext caches & prelinked kernel|true')
-    items+=('spotlight_cache_cleanup|Spotlight Cache Cleanup|Clear CoreSpotlight user cache|true')
 
     # Output items as JSON
     local first=true
