@@ -506,7 +506,6 @@ func calculateDirSizeConcurrent(root string, largeFileChan chan<- fileEntry, fil
 			largeFileChan <- fileEntry{Name: child.Name(), Path: fullPath, Size: size}
 		}
 
-
 		// Update current path occasionally to prevent UI jitter
 		if currentPath != nil && atomic.LoadInt64(filesScanned)%int64(batchUpdateSize) == 0 {
 			*currentPath = fullPath
