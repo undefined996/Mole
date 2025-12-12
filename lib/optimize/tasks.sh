@@ -16,45 +16,22 @@ opt_system_maintenance() {
         echo -e "${RED}${ICON_ERROR}${NC} Failed to clear DNS cache"
     fi
 
-    echo -e "${BLUE}${ICON_ARROW}${NC} Clearing memory cache..."
-    if sudo purge 2> /dev/null; then
-        echo -e "${GREEN}${ICON_SUCCESS}${NC} Memory cache cleared"
-    else
-        echo -e "${RED}${ICON_ERROR}${NC} Failed to clear memory"
-    fi
 
-    # Skip: Font cache rebuild breaks ScreenSaverEngine and other system components
-    # echo -e "${BLUE}${ICON_ARROW}${NC} Rebuilding font cache..."
-    # sudo atsutil databases -remove > /dev/null 2>&1
-    # echo -e "${GREEN}${ICON_SUCCESS}${NC} Font cache rebuilt"
 
-    echo -e "${BLUE}${ICON_ARROW}${NC} Rebuilding Spotlight index (runs in background)..."
+    echo -e "${BLUE}${ICON_ARROW}${NC} Checking Spotlight index..."
     local md_status
     md_status=$(mdutil -s / 2> /dev/null || echo "")
     if echo "$md_status" | grep -qi "Indexing disabled"; then
-        echo -e "${GRAY}-${NC} Spotlight indexing disabled, skipping rebuild"
+        echo -e "${GRAY}-${NC} Spotlight indexing disabled"
     else
-        # mdutil triggers background indexing - don't wait
-        run_with_timeout 10 sudo mdutil -E / > /dev/null 2>&1 || true
-        echo -e "${GREEN}${ICON_SUCCESS}${NC} Spotlight rebuild initiated"
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} Spotlight index functioning"
     fi
 
     echo -e "${BLUE}${ICON_ARROW}${NC} Refreshing Bluetooth services..."
     sudo pkill -f blued 2> /dev/null || true
     echo -e "${GREEN}${ICON_SUCCESS}${NC} Bluetooth controller refreshed"
 
-    # Skip: log erase --all --force deletes ALL system logs, making debugging impossible
-    # Users should manually manage logs if needed using: sudo log erase --all --force
-    # if command -v log > /dev/null 2>&1 && [[ "${MO_ENABLE_LOG_CLEANUP:-0}" == "1" ]]; then
-    #     echo -e "${BLUE}${ICON_ARROW}${NC} Compressing system logs..."
-    #     if command -v has_sudo_session > /dev/null 2>&1 && ! has_sudo_session; then
-    #         echo -e "${YELLOW}!${NC} Skipped log compression ${GRAY}(admin session inactive)${NC}"
-    #     elif run_with_timeout 15 sudo -n log erase --all --force > /dev/null 2>&1; then
-    #         echo -e "${GREEN}${ICON_SUCCESS}${NC} logarchive trimmed"
-    #     else
-    #         echo -e "${YELLOW}!${NC} Skipped log compression ${GRAY}(requires Full Disk Access)${NC}"
-    #     fi
-    # fi
+
 }
 
 # Cache refresh: update Finder/Safari caches
@@ -81,41 +58,12 @@ opt_cache_refresh() {
 
 # Maintenance scripts: run periodic tasks
 opt_maintenance_scripts() {
-    local success=true
-    local periodic_cmd="/usr/sbin/periodic"
-
-    # Show spinner while running all tasks
-    if [[ -t 1 ]]; then
-        start_inline_spinner ""
-    fi
-
-    # Run periodic scripts silently with timeout
-    if [[ -x "$periodic_cmd" ]]; then
-        if ! run_with_timeout 180 sudo "$periodic_cmd" daily weekly monthly > /dev/null 2>&1; then
-            success=false
-        fi
-    fi
-
-    # Run newsyslog silently with timeout
-    if ! run_with_timeout 120 sudo newsyslog > /dev/null 2>&1; then
-        success=false
-    fi
-
-    # Run repair_packages silently with timeout
-    if [[ -x "/usr/libexec/repair_packages" ]]; then
-        if ! run_with_timeout 180 sudo /usr/libexec/repair_packages --repair --standard-pkgs --volume / > /dev/null 2>&1; then
-            success=false
-        fi
-    fi
-
-    if [[ -t 1 ]]; then
-        stop_inline_spinner
-    fi
-
-    if [[ "$success" == "true" ]]; then
-        echo -e "${GREEN}${ICON_SUCCESS}${NC} Complete"
+    # Run newsyslog to rotate system logs
+    echo -e "${BLUE}${ICON_ARROW}${NC} Rotating system logs..."
+    if run_with_timeout 120 sudo newsyslog > /dev/null 2>&1; then
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} Logs rotated"
     else
-        echo -e "${YELLOW}!${NC} Some tasks timed out or failed"
+        echo -e "${YELLOW}!${NC} Failed to rotate logs"
     fi
 }
 
@@ -163,8 +111,7 @@ opt_radio_refresh() {
 
     echo -e "${BLUE}${ICON_ARROW}${NC} Refreshing Wi-Fi service..."
     # Only restart Wi-Fi service, do NOT delete saved networks
-    # Skip: Deleting airport.preferences.plist causes all saved Wi-Fi passwords to be lost
-    # sudo rm -f "$sysconfig"/com.apple.airport.preferences.plist
+
 
     # Safe alternative: just restart the Wi-Fi interface
     local wifi_interface
@@ -274,9 +221,7 @@ opt_finder_dock_refresh() {
 opt_swap_cleanup() {
     echo -e "${BLUE}${ICON_ARROW}${NC} Removing swapfiles and resetting dynamic pager..."
     if sudo launchctl unload /System/Library/LaunchDaemons/com.apple.dynamic_pager.plist > /dev/null 2>&1; then
-        sudo rm -f /private/var/vm/swapfile* > /dev/null 2>&1 || true
-        sudo touch /private/var/vm/swapfile0 > /dev/null 2>&1 || true
-        sudo chmod 600 /private/var/vm/swapfile0 > /dev/null 2>&1 || true
+        # Safe swap reset: just restart the pager, don't manually rm files
         sudo launchctl load /System/Library/LaunchDaemons/com.apple.dynamic_pager.plist > /dev/null 2>&1 || true
         echo -e "${GREEN}${ICON_SUCCESS}${NC} Swap cache rebuilt"
     else
@@ -286,37 +231,9 @@ opt_swap_cleanup() {
 
 # Startup cache: rebuild kernel caches
 opt_startup_cache() {
-    local macos_version
-    macos_version=$(sw_vers -productVersion | cut -d '.' -f 1)
-    local success=true
-
-    if [[ -t 1 ]]; then
-        start_inline_spinner ""
-    fi
-
-    if [[ "$macos_version" -ge 11 ]] || [[ "$(uname -m)" == "arm64" ]]; then
-        if ! run_with_timeout 120 sudo kextcache -i / > /dev/null 2>&1; then
-            success=false
-        fi
-    else
-        if ! run_with_timeout 180 sudo kextcache -i / > /dev/null 2>&1; then
-            success=false
-        fi
-
-        # Skip: Deleting PrelinkedKernels breaks ScreenSaverEngine and other system components
-        # sudo rm -rf /System/Library/PrelinkedKernels/* > /dev/null 2>&1 || true
-        run_with_timeout 120 sudo kextcache -system-prelinked-kernel > /dev/null 2>&1 || true
-    fi
-
-    if [[ -t 1 ]]; then
-        stop_inline_spinner
-    fi
-
-    if [[ "$success" == "true" ]]; then
-        echo -e "${GREEN}${ICON_SUCCESS}${NC} Complete"
-    else
-        echo -e "${YELLOW}!${NC} Timed out or failed"
-    fi
+    # kextcache/PrelinkedKernel rebuilds are legacy and heavy.
+    # Modern macOS (Big Sur+) handles this automatically and securely (SSV).
+    echo -e "${GRAY}-${NC} Startup cache rebuild skipped (handled by macOS)"
 }
 
 # Local snapshots: thin Time Machine snapshots

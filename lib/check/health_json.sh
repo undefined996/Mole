@@ -124,10 +124,13 @@ EOF
 
     # Always-on items (no size checks - instant)
     items+=('system_maintenance|System Maintenance|Rebuild system databases & flush caches|true')
-    items+=('maintenance_scripts|Maintenance Scripts|Run daily/weekly/monthly scripts & rotate logs|true')
+    items+=('maintenance_scripts|Maintenance Scripts|Rotate system logs|true')
     items+=('recent_items|Recent Items|Clear recent apps/documents/servers lists|true')
     items+=('log_cleanup|Diagnostics Cleanup|Purge old diagnostic & crash logs|true')
-    items+=('startup_cache|Startup Cache Rebuild|Rebuild kext caches & prelinked kernel|true')
+    items+=('mail_downloads|Mail Downloads|Clear old mail attachments (> 30 days)|true')
+    items+=('swap_cleanup|Swap Refresh|Reset swap files and dynamic pager|true')
+    items+=('spotlight_cache_cleanup|Spotlight Cache|Clear user-level Spotlight indexes|true')
+    items+=('developer_cleanup|Developer Cleanup|Clear Xcode DerivedData & DeviceSupport|false')
 
     # Output items as JSON
     local first=true

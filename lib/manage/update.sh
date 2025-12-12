@@ -152,7 +152,7 @@ perform_updates() {
 
             local brew_output=""
             local brew_status=0
-            if ! brew_output=$(brew upgrade 2>&1); then
+            if ! brew_output=$(brew upgrade --formula 2>&1); then
                 brew_status=$?
             fi
 
@@ -248,12 +248,20 @@ perform_updates() {
     # Update Mole
     if [[ -n "${MOLE_UPDATE_AVAILABLE:-}" && "${MOLE_UPDATE_AVAILABLE}" == "true" ]]; then
         echo -e "${BLUE}Updating Mole...${NC}"
-        if "${SCRIPT_DIR}/mole" update 2>&1 | grep -qE "(Updated|latest version)"; then
+        # Try to find mole executable
+        local mole_bin="${SCRIPT_DIR}/../../mole"
+        [[ ! -f "$mole_bin" ]] && mole_bin=$(command -v mole 2> /dev/null || echo "")
+
+        if [[ -x "$mole_bin" ]]; then
+            if "$mole_bin" update 2>&1 | grep -qE "(Updated|latest version)"; then
             echo -e "${GREEN}✓${NC} Mole updated"
             reset_mole_cache
             ((updated_count++))
         else
             echo -e "${RED}✗${NC} Mole update failed"
+        fi
+        else
+            echo -e "${RED}✗${NC} Mole executable not found"
         fi
         echo ""
     fi
