@@ -708,32 +708,34 @@ find_app_receipt_files() {
         done < <(find /private/var/db/receipts -name "${bundle_id}*.bom" -print0 2> /dev/null)
     fi
 
-    for bom_file in "${bom_files[@]}"; do
-        [[ ! -f "$bom_file" ]] && continue
+    # Process bom files if any found
+    if [[ ${#bom_files[@]} -gt 0 ]]; then
+        for bom_file in "${bom_files[@]}"; do
+            [[ ! -f "$bom_file" ]] && continue
 
-        # Parse bom file
-        # lsbom -f: file paths only
-        # -s: suppress output (convert to text)
-        local bom_content
-        bom_content=$(lsbom -f -s "$bom_file" 2> /dev/null)
+            # Parse bom file
+            # lsbom -f: file paths only
+            # -s: suppress output (convert to text)
+            local bom_content
+            bom_content=$(lsbom -f -s "$bom_file" 2> /dev/null)
 
-        while IFS= read -r file_path; do
-            # Standardize path (remove leading dot)
-            local clean_path="${file_path#.}"
+            while IFS= read -r file_path; do
+                # Standardize path (remove leading dot)
+                local clean_path="${file_path#.}"
 
-            # Ensure it starts with /
-            if [[ "$clean_path" != /* ]]; then
-                clean_path="/$clean_path"
-            fi
+                # Ensure it starts with /
+                if [[ "$clean_path" != /* ]]; then
+                    clean_path="/$clean_path"
+                fi
 
-            # ------------------------------------------------------------------------
-            # SAFETY FILTER: Only allow specific removal paths
-            # ------------------------------------------------------------------------
-            local is_safe=false
+                # ------------------------------------------------------------------------
+                # SAFETY FILTER: Only allow specific removal paths
+                # ------------------------------------------------------------------------
+                local is_safe=false
 
-            # Whitelisted prefixes
-            case "$clean_path" in
-                /Applications/*) is_safe=true ;;
+                # Whitelisted prefixes
+                case "$clean_path" in
+                    /Applications/*) is_safe=true ;;
                 /Users/*)        is_safe=true ;;
                 /usr/local/*)    is_safe=true ;;
                 /opt/*)          is_safe=true ;;
@@ -782,7 +784,7 @@ find_app_receipt_files() {
 
         done <<< "$bom_content"
     done
-
+    fi
     if [[ ${#receipt_files[@]} -gt 0 ]]; then
         printf '%s\n' "${receipt_files[@]}"
     fi

@@ -474,11 +474,11 @@ paginated_multi_select() {
         fi
 
         # Footer: single line with controls
-        local sep="  ${GRAY}|${NC}  "
+        local sep=" ${GRAY}|${NC} "
         if [[ "$filter_mode" == "true" ]]; then
             # Filter mode: simple controls without sort
             local -a _segs_filter=(
-                "${GRAY}Filter: ${filter_status}${NC}"
+                "${GRAY}Search: ${filter_status}${NC}"
                 "${GRAY}Delete${NC}"
                 "${GRAY}Enter Confirm${NC}"
                 "${GRAY}ESC Cancel${NC}"
@@ -490,7 +490,7 @@ paginated_multi_select() {
             [[ "$sort_reverse" == "true" ]] && reverse_arrow="↓"
 
             # Determine filter text based on whether filter is active
-            local filter_text="/ Filter"
+            local filter_text="/ Search"
             [[ -n "$applied_query" ]] && filter_text="/ Clear"
 
             if [[ "$has_metadata" == "true" ]]; then
@@ -508,8 +508,9 @@ paginated_multi_select() {
                     # Normal: show full controls
                     local -a _segs_all=(
                         "${GRAY}${ICON_NAV_UP}${ICON_NAV_DOWN}${NC}"
-                        "${GRAY}Space${NC}"
+                        "${GRAY}Space Select${NC}"
                         "${GRAY}Enter${NC}"
+                        "${GRAY}F Refresh${NC}"
                         "${GRAY}${filter_text}${NC}"
                         "${GRAY}S ${sort_status}${NC}"
                         "${GRAY}R ${reverse_arrow}${NC}"
@@ -521,7 +522,7 @@ paginated_multi_select() {
                 # Without metadata: basic controls
                 local -a _segs_simple=(
                     "${GRAY}${ICON_NAV_UP}${ICON_NAV_DOWN}${NC}"
-                    "${GRAY}Space${NC}"
+                    "${GRAY}Space Select${NC}"
                     "${GRAY}Enter${NC}"
                     "${GRAY}${filter_text}${NC}"
                     "${GRAY}Q Exit${NC}"
@@ -643,6 +644,10 @@ paginated_multi_select() {
             "CHAR:f" | "CHAR:F")
                 if [[ "$filter_mode" == "true" ]]; then
                     filter_query+="${key#CHAR:}"
+                else
+                    # Trigger Refresh signal
+                    cleanup
+                    return 10
                 fi
                 ;;
             "CHAR:r")

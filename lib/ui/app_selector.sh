@@ -85,6 +85,11 @@ select_apps_for_uninstall() {
     unset MOLE_MENU_META_EPOCHS MOLE_MENU_META_SIZEKB
     # leave MOLE_MENU_SORT_DEFAULT untouched if user set it globally
 
+    # Refresh signal handling
+    if [[ $exit_code -eq 10 ]]; then
+        return 10
+    fi
+
     if [[ $exit_code -ne 0 ]]; then
         echo "Cancelled"
         return 1

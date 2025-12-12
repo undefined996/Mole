@@ -498,7 +498,12 @@ main() {
         fi
 
         # Interactive selection using paginated menu
-        if ! select_apps_for_uninstall; then
+        set +e
+        select_apps_for_uninstall
+        local exit_code=$?
+        set -e
+
+        if [[ $exit_code -ne 0 ]]; then
             if [[ "${MOLE_ALT_SCREEN_ACTIVE:-}" == "1" ]]; then
                 leave_alt_screen
                 unset MOLE_ALT_SCREEN_ACTIVE
@@ -508,6 +513,13 @@ main() {
             clear_screen
             printf '\033[2J\033[H' >&2 # Also clear stderr
             rm -f "$apps_file"
+
+            # Handle Refresh (code 10)
+            if [[ $exit_code -eq 10 ]]; then
+                force_rescan=true
+                continue
+            fi
+
             # User cancelled selection, exit the loop
             return 0
         fi
