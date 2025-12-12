@@ -115,7 +115,7 @@ scan_applications() {
         local parent_dir
         parent_dir=$(dirname "$app_path")
         if [[ "$parent_dir" == *".app" || "$parent_dir" == *".app/"* ]]; then
-             continue
+            continue
         fi
 
         # Try to get English name from bundle info, fallback to folder name
