@@ -16,8 +16,6 @@ opt_system_maintenance() {
         echo -e "${RED}${ICON_ERROR}${NC} Failed to clear DNS cache"
     fi
 
-
-
     echo -e "${BLUE}${ICON_ARROW}${NC} Checking Spotlight index..."
     local md_status
     md_status=$(mdutil -s / 2> /dev/null || echo "")
@@ -30,7 +28,6 @@ opt_system_maintenance() {
     echo -e "${BLUE}${ICON_ARROW}${NC} Refreshing Bluetooth services..."
     sudo pkill -f blued 2> /dev/null || true
     echo -e "${GREEN}${ICON_SUCCESS}${NC} Bluetooth controller refreshed"
-
 
 }
 
@@ -111,7 +108,6 @@ opt_radio_refresh() {
 
     echo -e "${BLUE}${ICON_ARROW}${NC} Refreshing Wi-Fi service..."
     # Only restart Wi-Fi service, do NOT delete saved networks
-
 
     # Safe alternative: just restart the Wi-Fi interface
     local wifi_interface

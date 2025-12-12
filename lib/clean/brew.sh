@@ -38,7 +38,7 @@ clean_orphaned_casks() {
         rm -f "$cask_cache" 2> /dev/null || true
         true > "$cask_cache"
 
-    while IFS= read -r cask; do
+        while IFS= read -r cask; do
             # Get app path from cask info with timeout protection (expensive call, hence caching)
             local cask_info
             cask_info=$(run_with_timeout 10 brew info --cask "$cask" 2> /dev/null || true)
@@ -62,11 +62,10 @@ clean_orphaned_casks() {
             # Check if app exists into common locations
             # We must check both /Applications and ~/Applications
             if [[ ! -e "/Applications/$app_name" ]] && [[ ! -e "$HOME/Applications/$app_name" ]]; then
-                 orphaned_casks+=("$cask")
+                orphaned_casks+=("$cask")
             fi
         done < <(brew list --cask 2> /dev/null || true)
     fi
-
 
     # Remove orphaned casks if found and sudo session is still valid
     if [[ ${#orphaned_casks[@]} -gt 0 ]]; then

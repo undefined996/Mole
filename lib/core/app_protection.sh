@@ -734,23 +734,23 @@ find_app_receipt_files() {
             # Whitelisted prefixes
             case "$clean_path" in
                 /Applications/*) is_safe=true ;;
-                /Users/*)        is_safe=true ;;
-                /usr/local/*)    is_safe=true ;;
-                /opt/*)          is_safe=true ;;
+                /Users/*) is_safe=true ;;
+                /usr/local/*) is_safe=true ;;
+                /opt/*) is_safe=true ;;
                 /Library/*)
                     # Filter sub-paths in /Library to avoid system damage
                     # Allow safely: Application Support, Caches, Logs, Preferences
                     case "$clean_path" in
                         /Library/Application\ Support/*) is_safe=true ;;
-                        /Library/Caches/*)               is_safe=true ;;
-                        /Library/Logs/*)                 is_safe=true ;;
-                        /Library/Preferences/*)          is_safe=true ;;
+                        /Library/Caches/*) is_safe=true ;;
+                        /Library/Logs/*) is_safe=true ;;
+                        /Library/Preferences/*) is_safe=true ;;
                         /Library/PrivilegedHelperTools/*) is_safe=true ;;
-                        /Library/LaunchAgents/*)         is_safe=true ;;
-                        /Library/LaunchDaemons/*)        is_safe=true ;;
-                        /Library/Internet\ Plug-Ins/*)   is_safe=true ;;
-                        /Library/Audio/Plug-Ins/*)       is_safe=true ;;
-                        /Library/Extensions/*)           is_safe=false ;; # Default unsafe
+                        /Library/LaunchAgents/*) is_safe=true ;;
+                        /Library/LaunchDaemons/*) is_safe=true ;;
+                        /Library/Internet\ Plug-Ins/*) is_safe=true ;;
+                        /Library/Audio/Plug-Ins/*) is_safe=true ;;
+                        /Library/Extensions/*) is_safe=false ;; # Default unsafe
                         *) is_safe=false ;;
                     esac
                     ;;
@@ -758,7 +758,7 @@ find_app_receipt_files() {
 
             # Hard blocks
             case "$clean_path" in
-                /System/*|/usr/bin/*|/usr/lib/*|/bin/*|/sbin/*) is_safe=false ;;
+                /System/* | /usr/bin/* | /usr/lib/* | /bin/* | /sbin/*) is_safe=false ;;
             esac
 
             if [[ "$is_safe" == "true" && -e "$clean_path" ]]; then
@@ -774,7 +774,7 @@ find_app_receipt_files() {
                 # Extra check: path must be deep enough?
                 # If path is just "/Applications", skip.
                 if [[ "$clean_path" == "/Applications" || "$clean_path" == "/Library" || "$clean_path" == "/usr/local" ]]; then
-                   continue
+                    continue
                 fi
 
                 receipt_files+=("$clean_path")

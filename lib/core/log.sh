@@ -127,7 +127,7 @@ log_system_info() {
         echo "Shell: ${SHELL:-unknown} (${TERM:-unknown})"
 
         # Check sudo status non-interactively
-        if sudo -n true 2>/dev/null; then
+        if sudo -n true 2> /dev/null; then
             echo "Sudo Access: Active"
         else
             echo "Sudo Access: Required"

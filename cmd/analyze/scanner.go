@@ -306,7 +306,7 @@ func calculateDirSizeFast(root string, filesScanned, dirsScanned, bytesScanned *
 				subDir := filepath.Join(dirPath, entry.Name())
 				go func(p string) {
 					defer wg.Done()
-					sem <- struct{}{} // Acquire token
+					sem <- struct{}{}        // Acquire token
 					defer func() { <-sem }() // Release token
 					walk(p)
 				}(subDir)

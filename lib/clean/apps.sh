@@ -164,8 +164,8 @@ scan_installed_apps() {
 
     (
         run_with_timeout 5 find ~/Library/LaunchAgents /Library/LaunchAgents \
-             -name "*.plist" -type f 2> /dev/null |
-             xargs -I {} basename {} .plist > "$scan_tmp_dir/agents.txt" 2> /dev/null || true
+            -name "*.plist" -type f 2> /dev/null |
+            xargs -I {} basename {} .plist > "$scan_tmp_dir/agents.txt" 2> /dev/null || true
     ) &
     pids+=($!)
 
@@ -211,7 +211,6 @@ is_bundle_orphaned() {
     if should_protect_data "$bundle_id"; then
         return 1
     fi
-
 
     # Extra check for specific system bundles not covered by patterns
     case "$bundle_id" in

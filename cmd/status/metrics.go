@@ -163,22 +163,22 @@ func (c *Collector) Collect() (MetricsSnapshot, error) {
 	hostInfo, _ := host.Info()
 
 	var (
-		wg          sync.WaitGroup
-		errMu       sync.Mutex
-		mergeErr    error
+		wg       sync.WaitGroup
+		errMu    sync.Mutex
+		mergeErr error
 
-		cpuStats    CPUStatus
-		memStats    MemoryStatus
-		diskStats   []DiskStatus
-		diskIO      DiskIOStatus
-		netStats    []NetworkStatus
-		proxyStats  ProxyStatus
+		cpuStats     CPUStatus
+		memStats     MemoryStatus
+		diskStats    []DiskStatus
+		diskIO       DiskIOStatus
+		netStats     []NetworkStatus
+		proxyStats   ProxyStatus
 		batteryStats []BatteryStatus
 		thermalStats ThermalStatus
-		sensorStats []SensorReading
-		gpuStats    []GPUStatus
-		btStats     []BluetoothDevice
-		topProcs    []ProcessInfo
+		sensorStats  []SensorReading
+		gpuStats     []GPUStatus
+		btStats      []BluetoothDevice
+		topProcs     []ProcessInfo
 	)
 
 	// Helper to launch concurrent collection

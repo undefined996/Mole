@@ -254,12 +254,12 @@ perform_updates() {
 
         if [[ -x "$mole_bin" ]]; then
             if "$mole_bin" update 2>&1 | grep -qE "(Updated|latest version)"; then
-            echo -e "${GREEN}✓${NC} Mole updated"
-            reset_mole_cache
-            ((updated_count++))
-        else
-            echo -e "${RED}✗${NC} Mole update failed"
-        fi
+                echo -e "${GREEN}✓${NC} Mole updated"
+                reset_mole_cache
+                ((updated_count++))
+            else
+                echo -e "${RED}✗${NC} Mole update failed"
+            fi
         else
             echo -e "${RED}✗${NC} Mole executable not found"
         fi
