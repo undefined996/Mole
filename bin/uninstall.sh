@@ -455,8 +455,8 @@ main() {
             # No, select_apps_for_uninstall will handle its own screen management.
             unset MOLE_INLINE_LOADING MOLE_MANAGED_ALT_SCREEN MOLE_ALT_SCREEN_ACTIVE
             if [[ "${MOLE_ALT_SCREEN_ACTIVE:-}" == "1" ]]; then
-                 leave_alt_screen
-                 unset MOLE_ALT_SCREEN_ACTIVE
+                leave_alt_screen
+                unset MOLE_ALT_SCREEN_ACTIVE
             fi
         fi
 
@@ -589,8 +589,8 @@ main() {
                 # Continue loop
                 ;;
         esac
-        
-        # Reset force_rescan to false for subsequent loops, 
+
+        # Reset force_rescan to false for subsequent loops,
         # but relying on batch_uninstall's cache deletion for actual update
         force_rescan=false
     done
