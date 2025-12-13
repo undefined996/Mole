@@ -137,7 +137,7 @@ clean_sandboxed_app_caches() {
                     # Clean contents safely
                     # We know this is a user cache path, so rm -rf is acceptable here
                     # provided we keep the Cache directory itself
-                    rm -rf "$cache_dir"/* 2> /dev/null || true
+                    rm -rf "${cache_dir:?}"/* 2> /dev/null || true
                 fi
             fi
         fi
@@ -247,7 +247,9 @@ clean_application_support_logs() {
             is_protected=true
         fi
 
-        [[ "$is_protected" == "true" ]] && continue
+        if [[ "$is_protected" == "true" ]]; then
+            continue
+        fi
 
         if [[ "$app_name" =~ backgroundtaskmanagement || "$app_name" =~ loginitems ]]; then
             continue

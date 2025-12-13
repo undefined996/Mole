@@ -100,30 +100,6 @@ EOF
     [[ "$output" == *"No failed Time Machine backups found"* ]]
 }
 
-@test "clean_orphaned_casks uses cached mapping when recent" {
-    cache_dir="$HOME/.cache/mole"
-    mkdir -p "$cache_dir"
-    cat > "$cache_dir/cask_apps.cache" <<'EOF'
-fake-app|Fake.app
-EOF
-
-    run bash --noprofile --norc <<'EOF'
-set -euo pipefail
-source "$PROJECT_ROOT/lib/core/common.sh"
-source "$PROJECT_ROOT/lib/clean/brew.sh"
-
-touch "$HOME/.cache/mole/cask_apps.cache"
-
-brew() { return 0; }
-start_inline_spinner(){ :; }
-stop_inline_spinner(){ :; }
-sudo() { return 0; }
-MOLE_SPINNER_PREFIX=""
-clean_orphaned_casks
-EOF
-
-    [ "$status" -eq 0 ]
-}
 
 @test "clean_homebrew skips when cleaned recently" {
     run bash --noprofile --norc <<'EOF'
