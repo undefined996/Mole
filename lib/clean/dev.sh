@@ -151,7 +151,23 @@ clean_dev_mobile() {
     # Can free up significant space (70GB+ in some cases)
     if command -v xcrun > /dev/null 2>&1; then
         debug_log "Checking for unavailable Xcode simulators"
-        clean_tool_cache "Xcode unavailable simulators" xcrun simctl delete unavailable
+
+        if [[ "$DRY_RUN" == "true" ]]; then
+             clean_tool_cache "Xcode unavailable simulators" xcrun simctl delete unavailable
+        else
+            if [[ -t 1 ]]; then
+                MOLE_SPINNER_PREFIX="  " start_inline_spinner "Checking unavailable simulators..."
+            fi
+
+            # Run command manually to control UI output order
+            if xcrun simctl delete unavailable > /dev/null 2>&1; then
+                if [[ -t 1 ]]; then stop_inline_spinner; fi
+                echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Xcode unavailable simulators"
+            else
+                if [[ -t 1 ]]; then stop_inline_spinner; fi
+                # Silently fail or log error if needed, matching clean_tool_cache behavior
+            fi
+        fi
         note_activity
     fi
 
@@ -286,7 +302,26 @@ clean_developer_tools() {
 
     # Homebrew caches and cleanup (delegated to clean_brew module)
     safe_clean ~/Library/Caches/Homebrew/* "Homebrew cache"
-    safe_clean /opt/homebrew/var/homebrew/locks/* "Homebrew lock files (M series)"
-    safe_clean /usr/local/var/homebrew/locks/* "Homebrew lock files (Intel)"
+
+    # Clean Homebrew locks intelligently (avoid repeated sudo prompts)
+    local brew_lock_dirs=(
+        "/opt/homebrew/var/homebrew/locks"
+        "/usr/local/var/homebrew/locks"
+    )
+
+    for lock_dir in "${brew_lock_dirs[@]}"; do
+        if [[ -d "$lock_dir" && -w "$lock_dir" ]]; then
+            # User can write, safe to clean
+            safe_clean "$lock_dir"/* "Homebrew lock files"
+        elif [[ -d "$lock_dir" ]]; then
+            # Directory exists but not writable. Check if empty to avoid noise.
+            if [[ -n "$(ls -A "$lock_dir" 2>/dev/null)" ]]; then
+                 # Only try sudo ONCE if we really need to, or just skip to avoid spam
+                 # Decision: Skip strict system/root owned locks to avoid nag.
+                 debug_log "Skipping read-only Homebrew locks in $lock_dir"
+            fi
+        fi
+    done
+
     clean_homebrew
 }

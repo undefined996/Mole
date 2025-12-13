@@ -131,6 +131,7 @@ EOF
     items+=('swap_cleanup|Swap Refresh|Reset swap files and dynamic pager|true')
     items+=('spotlight_cache_cleanup|Spotlight Cache|Clear user-level Spotlight indexes|true')
     items+=('developer_cleanup|Developer Cleanup|Clear Xcode DerivedData & DeviceSupport|true')
+    items+=('network_optimization|Network Optimization|Flush DNS, ARP & reset mDNS|true')
 
     # Output items as JSON
     local first=true

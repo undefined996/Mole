@@ -283,7 +283,7 @@ get_software_updates() {
             # Show spinner while checking (only on first call)
             local show_spinner=false
             if [[ -t 1 && -z "${SOFTWAREUPDATE_SPINNER_SHOWN:-}" ]]; then
-                start_inline_spinner "Checking system updates..."
+                start_inline_spinner "Checking system updates (querying Apple servers)..."
                 show_spinner=true
                 export SOFTWAREUPDATE_SPINNER_SHOWN="true"
             fi
@@ -305,7 +305,7 @@ check_appstore_updates() {
     local spinner_started=false
     if [[ -t 1 ]]; then
         printf "  Checking App Store updates...\r"
-        start_inline_spinner "Checking App Store updates..."
+        start_inline_spinner "Checking App Store updates (querying Apple servers)..."
         spinner_started=true
         export SOFTWAREUPDATE_SPINNER_SHOWN="external"
     else
@@ -329,7 +329,7 @@ check_appstore_updates() {
 
     if [[ $update_count -gt 0 ]]; then
         echo -e "  ${YELLOW}${ICON_WARNING}${NC} App Store    ${YELLOW}${update_count} apps${NC} need update"
-        echo -e "    ${GRAY}Run: ${GREEN}softwareupdate -i <label>${NC}"
+        echo -e "    ${GRAY}updates available in final step${NC}"
     else
         echo -e "  ${GREEN}✓${NC} App Store    Up to date"
     fi
@@ -341,7 +341,7 @@ check_macos_update() {
     local spinner_started=false
     if [[ -t 1 ]]; then
         printf "  Checking macOS updates...\r"
-        start_inline_spinner "Checking macOS updates..."
+        start_inline_spinner "Checking macOS updates (querying Apple servers)..."
         spinner_started=true
         export SOFTWAREUPDATE_SPINNER_SHOWN="external"
     else
@@ -367,7 +367,7 @@ check_macos_update() {
         else
             echo -e "  ${YELLOW}${ICON_WARNING}${NC} macOS        ${YELLOW}Update available${NC}"
         fi
-        echo -e "    ${GRAY}Run: ${GREEN}softwareupdate -i <label>${NC}"
+        echo -e "    ${GRAY}update available in final step${NC}"
     else
         echo -e "  ${GREEN}✓${NC} macOS        Up to date"
     fi
@@ -662,32 +662,10 @@ check_swap_usage() {
 check_brew_health() {
     # Check whitelist
     if command -v is_whitelisted > /dev/null && is_whitelisted "check_brew_health"; then return; fi
-    # Check Homebrew doctor
+    # Check Homebrew status (fast)
     if command -v brew > /dev/null 2>&1; then
-        # Show spinner while running brew doctor
-        if [[ -t 1 ]]; then
-            start_inline_spinner "Running brew doctor..."
-        fi
-
-        local brew_doctor=$(brew doctor 2>&1 || echo "")
-
-        # Stop spinner before output
-        if [[ -t 1 ]]; then
-            stop_inline_spinner
-        fi
-
-        if echo "$brew_doctor" | grep -q "ready to brew"; then
-            echo -e "  ${GREEN}✓${NC} Homebrew     Healthy"
-        else
-            local warning_count=$(echo "$brew_doctor" | grep -c "Warning:" || echo "0")
-            if [[ $warning_count -gt 0 ]]; then
-                echo -e "  ${YELLOW}${ICON_WARNING}${NC} Homebrew     ${YELLOW}${warning_count} warnings${NC}"
-                echo -e "    ${GRAY}Run: ${GREEN}brew doctor${NC} to see fixes, then rerun until clean${NC}"
-                export BREW_HAS_WARNINGS=true
-            else
-                echo -e "  ${GREEN}✓${NC} Homebrew     Healthy"
-            fi
-        fi
+        # Skip slow 'brew doctor' check by default
+        echo -e "  ${GREEN}✓${NC} Homebrew     Installed"
     fi
 }
 

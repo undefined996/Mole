@@ -290,6 +290,7 @@ _perform_appstore_update() {
 
     if [[ "$appstore_needs_fallback" == "true" ]]; then
         echo -e "  ${GRAY}Installing all available updates${NC}"
+        echo -e "  ${GRAY}Contacting Apple servers (this may take a few minutes)...${NC}"
         if sudo softwareupdate -i -a 2>&1 | tee "$appstore_log" | grep -v "^$"; then
             echo -e "${GREEN}✓${NC} Software updates completed"
             ((updated_count++))
@@ -301,6 +302,7 @@ _perform_appstore_update() {
             echo -e "${RED}✗${NC} Software update failed"
         fi
     else
+        echo -e "  ${GRAY}Contacting Apple servers (this may take a few minutes)...${NC}"
         if sudo softwareupdate -i "${appstore_labels[@]}" 2>&1 | tee "$appstore_log" | grep -v "^$"; then
             echo -e "${GREEN}✓${NC} App Store apps updated"
             ((updated_count++))
@@ -322,6 +324,7 @@ _perform_macos_update() {
     macos_log=$(mktemp "${TMPDIR:-/tmp}/mole-macos.XXXXXX" 2> /dev/null || echo "/tmp/mole-macos.log")
 
     if [[ "$macos_needs_fallback" == "true" ]]; then
+        echo -e "  ${GRAY}Contacting Apple servers (this may take a few minutes)...${NC}"
         if sudo softwareupdate -i -r 2>&1 | tee "$macos_log" | grep -v "^$"; then
             echo -e "${GREEN}✓${NC} macOS updated"
             ((updated_count++))
@@ -329,6 +332,7 @@ _perform_macos_update() {
             echo -e "${RED}✗${NC} macOS update failed"
         fi
     else
+        echo -e "  ${GRAY}Contacting Apple servers (this may take a few minutes)...${NC}"
         if sudo softwareupdate -i "${macos_labels[@]}" 2>&1 | tee "$macos_log" | grep -v "^$"; then
             echo -e "${GREEN}✓${NC} macOS updated"
             ((updated_count++))

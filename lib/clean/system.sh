@@ -77,6 +77,9 @@ clean_deep_system() {
 
     # Clean browser code signature caches
     # These are regenerated automatically when needed
+    if [[ -t 1 ]]; then
+        MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning system caches..."
+    fi
     local code_sign_cleaned=0
     while IFS= read -r -d '' cache_dir; do
         debug_log "Found code sign cache: $cache_dir"
@@ -84,6 +87,8 @@ clean_deep_system() {
             ((code_sign_cleaned++))
         fi
     done < <(find /private/var/folders -type d -name "*.code_sign_clone" -path "*/X/*" -print0 2> /dev/null || true)
+
+    if [[ -t 1 ]]; then stop_inline_spinner; fi
 
     [[ $code_sign_cleaned -gt 0 ]] && log_success "Browser code signature caches ($code_sign_cleaned items)"
 
@@ -126,6 +131,10 @@ clean_time_machine_failed_backups() {
 
         # Skip system and network volumes
         [[ "$volume" == "/Volumes/MacintoshHD" || "$volume" == "/" ]] && continue
+
+        if [[ -t 1 ]]; then
+             MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning backup volumes..."
+        fi
 
         # Skip if volume is a symlink (security check)
         [[ -L "$volume" ]] && continue
@@ -242,9 +251,73 @@ clean_time_machine_failed_backups() {
                 done < <(run_with_timeout 15 find "$mounted_path" -maxdepth 3 -type d \( -name "*.inProgress" -o -name "*.inprogress" \) 2> /dev/null || true)
             fi
         done
+        if [[ -t 1 ]]; then stop_inline_spinner; fi
     done
 
     if [[ $tm_cleaned -eq 0 ]]; then
         echo -e "  ${GREEN}${ICON_SUCCESS}${NC} No failed Time Machine backups found"
+    fi
+}
+
+# Clean local APFS snapshots (older than 24h)
+clean_local_snapshots() {
+    # Check if tmutil is available
+    if ! command -v tmutil > /dev/null 2>&1; then
+        return 0
+    fi
+
+    if [[ -t 1 ]]; then
+        MOLE_SPINNER_PREFIX="  " start_inline_spinner "Checking local snapshots..."
+    fi
+
+    # Check for local snapshots
+    local snapshot_list
+    snapshot_list=$(tmutil listlocalsnapshots / 2> /dev/null)
+
+    if [[ -t 1 ]]; then stop_inline_spinner; fi
+
+    [[ -z "$snapshot_list" ]] && return 0
+
+    # Parse and clean snapshots
+    local cleaned_count=0
+    local total_cleaned_size=0 # Estimation not possible without thin
+
+    # Get current time
+    local current_ts=$(date +%s)
+    local one_day_ago=$((current_ts - 86400))
+
+    while IFS= read -r line; do
+        # Format: com.apple.TimeMachine.2023-10-25-120000
+        if [[ "$line" =~ com\.apple\.TimeMachine\.([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{6}) ]]; then
+            local date_str="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} ${BASH_REMATCH[4]:0:2}:${BASH_REMATCH[4]:2:2}:${BASH_REMATCH[4]:4:2}"
+            local snap_ts=$(date -j -f "%Y-%m-%d %H:%M:%S" "$date_str" "+%s" 2>/dev/null || echo "0")
+
+            # Skip if parsing failed
+            [[ "$snap_ts" == "0" ]] && continue
+
+            # If snapshot is older than 24 hours
+            if [[ $snap_ts -lt $one_day_ago ]]; then
+                local snap_name="${BASH_REMATCH[0]}"
+
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    echo -e "  ${YELLOW}→${NC} Old local snapshot: $snap_name ${YELLOW}(dry)${NC}"
+                    ((cleaned_count++))
+                    note_activity
+                else
+                    # Secure removal
+                    if safe_sudo tmutil deletelocalsnapshots "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}-${BASH_REMATCH[4]}" > /dev/null 2>&1; then
+                         echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed snapshot: $snap_name"
+                         ((cleaned_count++))
+                         note_activity
+                    else
+                         echo -e "  ${YELLOW}!${NC} Failed to remove: $snap_name"
+                    fi
+                fi
+            fi
+        fi
+    done <<< "$snapshot_list"
+
+    if [[ $cleaned_count -gt 0 && "$DRY_RUN" != "true" ]]; then
+        log_success "Cleaned $cleaned_count old local snapshots"
     fi
 }

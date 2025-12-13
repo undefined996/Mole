@@ -11,6 +11,9 @@ clean_user_essentials() {
 
     # Empty trash on mounted volumes
     if [[ -d "/Volumes" && "$DRY_RUN" != "true" ]]; then
+        if [[ -t 1 ]]; then
+            MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning external volumes..."
+        fi
         for volume in /Volumes/*; do
             [[ -d "$volume" && -d "$volume/.Trashes" && -w "$volume" ]] || continue
 
@@ -29,6 +32,7 @@ clean_user_essentials() {
                 safe_remove "$item" true || true
             done < <(command find "$volume/.Trashes" -mindepth 1 -maxdepth 1 -print0 2> /dev/null || true)
         done
+        if [[ -t 1 ]]; then stop_inline_spinner; fi
     fi
 
     safe_clean ~/Library/DiagnosticReports/* "Diagnostic reports"
@@ -97,11 +101,17 @@ clean_sandboxed_app_caches() {
     safe_clean ~/Library/Containers/com.apple.AppStore/Data/Library/Caches/* "App Store cache"
     safe_clean ~/Library/Containers/com.apple.configurator.xpc.InternetService/Data/tmp/* "Apple Configurator temp files"
 
-    # Clean sandboxed app caches - iterate to avoid shell expansion hang
-    # Check container protection BEFORE expanding cache files to prevent
-    # redundant protection checks on each file (Issue #116)
+    # Clean sandboxed app caches - iterate quietly to avoid UI flashing
     local containers_dir="$HOME/Library/Containers"
     [[ ! -d "$containers_dir" ]] && return 0
+
+    if [[ -t 1 ]]; then
+        MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning sandboxed apps..."
+    fi
+
+    local total_size=0
+    local cleaned_count=0
+    local found_any=false
 
     for container_dir in "$containers_dir"/*; do
         [[ -d "$container_dir" ]] || continue
@@ -109,13 +119,45 @@ clean_sandboxed_app_caches() {
         # Extract bundle ID and check protection status early
         local bundle_id=$(basename "$container_dir")
         if should_protect_data "$bundle_id"; then
-            debug_log "Protecting system container: $bundle_id"
             continue
         fi
 
         local cache_dir="$container_dir/Data/Library/Caches"
-        [[ -d "$cache_dir" ]] && safe_clean "$cache_dir"/* "Sandboxed app caches"
+        # Check if dir exists and has content
+        if [[ -d "$cache_dir" ]]; then
+            # Fast check if empty (avoid expensive size calc on empty dirs)
+            if [[ -n "$(ls -A "$cache_dir" 2>/dev/null)" ]]; then
+                # Get size
+                local size=$(get_path_size_kb "$cache_dir")
+                ((total_size += size))
+                found_any=true
+                ((cleaned_count++))
+
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    # Clean contents safely
+                    # We know this is a user cache path, so rm -rf is acceptable here
+                    # provided we keep the Cache directory itself
+                    rm -rf "$cache_dir"/* 2>/dev/null || true
+                fi
+            fi
+        fi
     done
+
+    if [[ -t 1 ]]; then stop_inline_spinner; fi
+
+    if [[ "$found_any" == "true" ]]; then
+        local size_human=$(bytes_to_human "$((total_size * 1024))")
+        if [[ "$DRY_RUN" == "true" ]]; then
+            echo -e "  ${YELLOW}→${NC} Sandboxed app caches ${YELLOW}($size_human dry)${NC}"
+        else
+            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Sandboxed app caches ${GREEN}($size_human)${NC}"
+        fi
+        # Update global counters
+        ((files_cleaned += cleaned_count))
+        ((total_size_cleaned += total_size))
+        ((total_items++))
+        note_activity
+    fi
 }
 
 # Clean browser caches (Safari, Chrome, Edge, Firefox, etc.)
@@ -177,28 +219,28 @@ clean_virtualization_tools() {
 
 # Clean Application Support logs and caches
 clean_application_support_logs() {
-    # Check permission
     if [[ ! -d "$HOME/Library/Application Support" ]] || ! ls "$HOME/Library/Application Support" > /dev/null 2>&1; then
         note_activity
         echo -e "  ${YELLOW}${ICON_WARNING}${NC} Skipped: No permission to access Application Support"
         return 0
     fi
 
+    if [[ -t 1 ]]; then
+        MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning Application Support..."
+    fi
+
+    local total_size=0
+    local cleaned_count=0
+    local found_any=false
+
     # Clean log directories and cache patterns
     for app_dir in ~/Library/Application\ Support/*; do
         [[ -d "$app_dir" ]] || continue
 
-        app_name=$(basename "$app_dir")
-
-        # Skip system and protected apps (case-insensitive)
-        local app_name_lower
-        app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]')
-        # Use centralized protection logic from app_protection.sh
-        # Check against System Critical and Data Protected bundles
+        local app_name=$(basename "$app_dir")
+        local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]')
         local is_protected=false
 
-        # Check if directory name matches any protected pattern
-        # We check both exact name and lowercase version against the patterns
         if should_protect_data "$app_name"; then
             is_protected=true
         elif should_protect_data "$app_name_lower"; then
@@ -207,45 +249,68 @@ clean_application_support_logs() {
 
         [[ "$is_protected" == "true" ]] && continue
 
-        # Explicit safety check for System Settings / Login Items (Issue #122)
         if [[ "$app_name" =~ backgroundtaskmanagement || "$app_name" =~ loginitems ]]; then
-            debug_log "Skipping critical system component: $app_name"
             continue
         fi
 
-        # Clean log directories - simple direct removal without deep scanning
-        [[ -d "$app_dir/log" ]] && safe_clean "$app_dir/log"/* "App logs: $app_name"
-        [[ -d "$app_dir/logs" ]] && safe_clean "$app_dir/logs"/* "App logs: $app_name"
-        [[ -d "$app_dir/activitylog" ]] && safe_clean "$app_dir/activitylog"/* "Activity logs: $app_name"
+        local -a start_candidates=("$app_dir/log" "$app_dir/logs" "$app_dir/activitylog" "$app_dir/Cache/Cache_Data" "$app_dir/Crashpad/completed")
 
-        # Clean common cache patterns - skip complex patterns that might hang
-        [[ -d "$app_dir/Cache/Cache_Data" ]] && safe_clean "$app_dir/Cache/Cache_Data" "Cache data: $app_name"
-        [[ -d "$app_dir/Crashpad/completed" ]] && safe_clean "$app_dir/Crashpad/completed"/* "Crash reports: $app_name"
+        for candidate in "${start_candidates[@]}"; do
+             if [[ -d "$candidate" ]]; then
+                if [[ -n "$(ls -A "$candidate" 2>/dev/null)" ]]; then
+                    local size=$(get_path_size_kb "$candidate")
+                    ((total_size += size))
+                    ((cleaned_count++))
+                    found_any=true
 
-        # DISABLED: Service Worker and update scanning (too slow, causes hanging)
-        # These are covered by browser-specific cleaning in clean_browsers()
+                    if [[ "$DRY_RUN" != "true" ]]; then
+                        safe_remove "$candidate"/* true >/dev/null 2>&1 || true
+                    fi
+                fi
+             fi
+        done
     done
 
-    # Clean Group Containers logs - only scan known containers to avoid hanging
-    # Direct path access is fast and won't cause performance issues
-    # Add new containers here as users report them
+    # Clean Group Containers logs
     local known_group_containers=(
-        "group.com.apple.contentdelivery" # Issue #104: Can accumulate 4GB+ in Library/Logs/Transporter
+        "group.com.apple.contentdelivery"
     )
 
     for container in "${known_group_containers[@]}"; do
         local container_path="$HOME/Library/Group Containers/$container"
+        local -a gc_candidates=("$container_path/Logs" "$container_path/Library/Logs")
 
-        # Check both direct Logs and Library/Logs patterns
-        if [[ -d "$container_path/Logs" ]]; then
-            debug_log "Scanning Group Container: $container/Logs"
-            safe_clean "$container_path/Logs"/* "Group container logs: $container"
-        fi
-        if [[ -d "$container_path/Library/Logs" ]]; then
-            debug_log "Scanning Group Container: $container/Library/Logs"
-            safe_clean "$container_path/Library/Logs"/* "Group container logs: $container"
-        fi
+        for candidate in "${gc_candidates[@]}"; do
+             if [[ -d "$candidate" ]]; then
+                if [[ -n "$(ls -A "$candidate" 2>/dev/null)" ]]; then
+                    local size=$(get_path_size_kb "$candidate")
+                    ((total_size += size))
+                    ((cleaned_count++))
+                    found_any=true
+
+                    if [[ "$DRY_RUN" != "true" ]]; then
+                        safe_remove "$candidate"/* true >/dev/null 2>&1 || true
+                    fi
+                fi
+             fi
+        done
     done
+
+    if [[ -t 1 ]]; then stop_inline_spinner; fi
+
+    if [[ "$found_any" == "true" ]]; then
+        local size_human=$(bytes_to_human "$((total_size * 1024))")
+        if [[ "$DRY_RUN" == "true" ]]; then
+             echo -e "  ${YELLOW}→${NC} Application Support logs/caches ${YELLOW}($size_human dry)${NC}"
+        else
+             echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Application Support logs/caches ${GREEN}($size_human)${NC}"
+        fi
+        # Update global counters
+        ((files_cleaned += cleaned_count))
+        ((total_size_cleaned += total_size))
+        ((total_items++))
+        note_activity
+    fi
 }
 
 # Check and show iOS device backup info

@@ -596,6 +596,7 @@ perform_cleanup() {
         start_section "Deep system"
         # Deep system cleanup (delegated to clean_system module)
         clean_deep_system
+        clean_local_snapshots
         end_section
     fi
 
