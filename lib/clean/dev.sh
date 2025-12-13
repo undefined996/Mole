@@ -77,7 +77,6 @@ clean_dev_go() {
 clean_dev_rust() {
     safe_clean ~/.cargo/registry/cache/* "Rust cargo cache"
     safe_clean ~/.cargo/git/* "Cargo git cache"
-    safe_clean ~/.rustup/toolchains/*/share/doc/* "Rust documentation cache"
     safe_clean ~/.rustup/downloads/* "Rust downloads cache"
 }
 
