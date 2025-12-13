@@ -377,6 +377,9 @@ readonly DATA_PROTECTED_BUNDLES=(
     "com.spotify.client"      # Spotify
     "com.apple.Music"         # Apple Music
     "com.apple.podcasts"      # Apple Podcasts
+    "com.apple.BKAgentService" # Apple Books (Agent)
+    "com.apple.iBooksX"       # Apple Books
+    "com.apple.iBooks"        # Apple Books (Legacy)
     "com.apple.FinalCutPro"   # Final Cut Pro
     "com.apple.Motion"        # Motion
     "com.apple.Compressor"    # Compressor
