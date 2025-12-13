@@ -126,6 +126,11 @@ func scanPathConcurrent(root string, filesScanned, dirsScanned, bytesScanned *in
 		}
 
 		if child.IsDir() {
+			// Check if directory should be skipped based on user configuration
+			if defaultSkipDirs[child.Name()] {
+				continue
+			}
+
 			// In root directory, skip system directories completely
 			if isRootDir && skipSystemDirs[child.Name()] {
 				continue

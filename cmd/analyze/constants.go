@@ -181,6 +181,12 @@ var skipSystemDirs = map[string]bool{
 	".MobileBackups":          true, // Time Machine local snapshots
 }
 
+var defaultSkipDirs = map[string]bool{
+	"nfs":         true, // Network File System
+	"PHD":         true, // Parallels Shared Folders / Home Directories
+	"Permissions": true, // Common macOS deny folder
+}
+
 var skipExtensions = map[string]bool{
 	".go":     true,
 	".js":     true,
