@@ -133,7 +133,7 @@ clean_time_machine_failed_backups() {
         [[ "$volume" == "/Volumes/MacintoshHD" || "$volume" == "/" ]] && continue
 
         if [[ -t 1 ]]; then
-             MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning backup volumes..."
+            MOLE_SPINNER_PREFIX="  " start_inline_spinner "Scanning backup volumes..."
         fi
 
         # Skip if volume is a symlink (security check)
@@ -290,7 +290,7 @@ clean_local_snapshots() {
         # Format: com.apple.TimeMachine.2023-10-25-120000
         if [[ "$line" =~ com\.apple\.TimeMachine\.([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{6}) ]]; then
             local date_str="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} ${BASH_REMATCH[4]:0:2}:${BASH_REMATCH[4]:2:2}:${BASH_REMATCH[4]:4:2}"
-            local snap_ts=$(date -j -f "%Y-%m-%d %H:%M:%S" "$date_str" "+%s" 2>/dev/null || echo "0")
+            local snap_ts=$(date -j -f "%Y-%m-%d %H:%M:%S" "$date_str" "+%s" 2> /dev/null || echo "0")
 
             # Skip if parsing failed
             [[ "$snap_ts" == "0" ]] && continue
@@ -306,11 +306,11 @@ clean_local_snapshots() {
                 else
                     # Secure removal
                     if safe_sudo tmutil deletelocalsnapshots "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}-${BASH_REMATCH[4]}" > /dev/null 2>&1; then
-                         echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed snapshot: $snap_name"
-                         ((cleaned_count++))
-                         note_activity
+                        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Removed snapshot: $snap_name"
+                        ((cleaned_count++))
+                        note_activity
                     else
-                         echo -e "  ${YELLOW}!${NC} Failed to remove: $snap_name"
+                        echo -e "  ${YELLOW}!${NC} Failed to remove: $snap_name"
                     fi
                 fi
             fi

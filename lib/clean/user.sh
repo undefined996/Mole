@@ -126,7 +126,7 @@ clean_sandboxed_app_caches() {
         # Check if dir exists and has content
         if [[ -d "$cache_dir" ]]; then
             # Fast check if empty (avoid expensive size calc on empty dirs)
-            if [[ -n "$(ls -A "$cache_dir" 2>/dev/null)" ]]; then
+            if [[ -n "$(ls -A "$cache_dir" 2> /dev/null)" ]]; then
                 # Get size
                 local size=$(get_path_size_kb "$cache_dir")
                 ((total_size += size))
@@ -137,7 +137,7 @@ clean_sandboxed_app_caches() {
                     # Clean contents safely
                     # We know this is a user cache path, so rm -rf is acceptable here
                     # provided we keep the Cache directory itself
-                    rm -rf "$cache_dir"/* 2>/dev/null || true
+                    rm -rf "$cache_dir"/* 2> /dev/null || true
                 fi
             fi
         fi
@@ -256,18 +256,18 @@ clean_application_support_logs() {
         local -a start_candidates=("$app_dir/log" "$app_dir/logs" "$app_dir/activitylog" "$app_dir/Cache/Cache_Data" "$app_dir/Crashpad/completed")
 
         for candidate in "${start_candidates[@]}"; do
-             if [[ -d "$candidate" ]]; then
-                if [[ -n "$(ls -A "$candidate" 2>/dev/null)" ]]; then
+            if [[ -d "$candidate" ]]; then
+                if [[ -n "$(ls -A "$candidate" 2> /dev/null)" ]]; then
                     local size=$(get_path_size_kb "$candidate")
                     ((total_size += size))
                     ((cleaned_count++))
                     found_any=true
 
                     if [[ "$DRY_RUN" != "true" ]]; then
-                        safe_remove "$candidate"/* true >/dev/null 2>&1 || true
+                        safe_remove "$candidate"/* true > /dev/null 2>&1 || true
                     fi
                 fi
-             fi
+            fi
         done
     done
 
@@ -281,18 +281,18 @@ clean_application_support_logs() {
         local -a gc_candidates=("$container_path/Logs" "$container_path/Library/Logs")
 
         for candidate in "${gc_candidates[@]}"; do
-             if [[ -d "$candidate" ]]; then
-                if [[ -n "$(ls -A "$candidate" 2>/dev/null)" ]]; then
+            if [[ -d "$candidate" ]]; then
+                if [[ -n "$(ls -A "$candidate" 2> /dev/null)" ]]; then
                     local size=$(get_path_size_kb "$candidate")
                     ((total_size += size))
                     ((cleaned_count++))
                     found_any=true
 
                     if [[ "$DRY_RUN" != "true" ]]; then
-                        safe_remove "$candidate"/* true >/dev/null 2>&1 || true
+                        safe_remove "$candidate"/* true > /dev/null 2>&1 || true
                     fi
                 fi
-             fi
+            fi
         done
     done
 
@@ -301,9 +301,9 @@ clean_application_support_logs() {
     if [[ "$found_any" == "true" ]]; then
         local size_human=$(bytes_to_human "$((total_size * 1024))")
         if [[ "$DRY_RUN" == "true" ]]; then
-             echo -e "  ${YELLOW}→${NC} Application Support logs/caches ${YELLOW}($size_human dry)${NC}"
+            echo -e "  ${YELLOW}→${NC} Application Support logs/caches ${YELLOW}($size_human dry)${NC}"
         else
-             echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Application Support logs/caches ${GREEN}($size_human)${NC}"
+            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Application Support logs/caches ${GREEN}($size_human)${NC}"
         fi
         # Update global counters
         ((files_cleaned += cleaned_count))
