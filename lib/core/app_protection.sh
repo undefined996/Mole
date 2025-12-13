@@ -149,38 +149,38 @@ readonly DATA_PROTECTED_BUNDLES=(
     "*OpenVPN*"             # OpenVPN capitalized variants
 
     # Proxy Clients (Shadowsocks, V2Ray, etc)
-    "*ShadowsocksX-NG*"     # ShadowsocksX-NG
-    "com.qiuyuzhou.*"       # ShadowsocksX-NG bundle
-    "*v2ray*"               # V2Ray variants
-    "*V2Ray*"               # V2Ray variants
-    "*v2box*"               # V2Box
-    "*V2Box*"               # V2Box
-    "*nekoray*"             # Nekoray
-    "*sing-box*"            # Sing-box
-    "*OneBox*"              # OneBox
-    "*hiddify*"             # Hiddify
-    "*Hiddify*"             # Hiddify
-    "*loon*"                # Loon
-    "*Loon*"                # Loon
-    "*quantumult*"          # Quantumult X
+    "*ShadowsocksX-NG*" # ShadowsocksX-NG
+    "com.qiuyuzhou.*"   # ShadowsocksX-NG bundle
+    "*v2ray*"           # V2Ray variants
+    "*V2Ray*"           # V2Ray variants
+    "*v2box*"           # V2Box
+    "*V2Box*"           # V2Box
+    "*nekoray*"         # Nekoray
+    "*sing-box*"        # Sing-box
+    "*OneBox*"          # OneBox
+    "*hiddify*"         # Hiddify
+    "*Hiddify*"         # Hiddify
+    "*loon*"            # Loon
+    "*Loon*"            # Loon
+    "*quantumult*"      # Quantumult X
 
     # Mesh & Corporate VPNs
-    "*tailscale*"           # Tailscale
-    "io.tailscale.*"        # Tailscale bundle
-    "*zerotier*"            # ZeroTier
-    "com.zerotier.*"        # ZeroTier bundle
-    "*1dot1dot1dot1*"       # Cloudflare WARP
-    "*cloudflare*warp*"     # Cloudflare WARP
+    "*tailscale*"       # Tailscale
+    "io.tailscale.*"    # Tailscale bundle
+    "*zerotier*"        # ZeroTier
+    "com.zerotier.*"    # ZeroTier bundle
+    "*1dot1dot1dot1*"   # Cloudflare WARP
+    "*cloudflare*warp*" # Cloudflare WARP
 
     # Commercial VPNs
-    "*nordvpn*"             # NordVPN
-    "*expressvpn*"          # ExpressVPN
-    "*protonvpn*"           # ProtonVPN
-    "*surfshark*"           # Surfshark
-    "*windscribe*"          # Windscribe
-    "*mullvad*"             # Mullvad
+    "*nordvpn*"               # NordVPN
+    "*expressvpn*"            # ExpressVPN
+    "*protonvpn*"             # ProtonVPN
+    "*surfshark*"             # Surfshark
+    "*windscribe*"            # Windscribe
+    "*mullvad*"               # Mullvad
     "*privateinternetaccess*" # PIA
-    "net.openvpn.*"         # OpenVPN bundle IDs
+    "net.openvpn.*"           # OpenVPN bundle IDs
 
     # ============================================================================
     # Development Tools - Git & Version Control
