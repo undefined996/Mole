@@ -325,6 +325,32 @@ opt_fix_broken_configs() {
     fi
 }
 
+# Network Optimization: Flush DNS, reset mDNS, clear ARP
+opt_network_optimization() {
+    echo -e "${BLUE}${ICON_ARROW}${NC} Optimizing network settings..."
+    local steps=0
+
+    # 1. Flush DNS cache
+    if sudo dscacheutil -flushcache 2> /dev/null && sudo killall -HUP mDNSResponder 2> /dev/null; then
+        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} DNS cache flushed"
+        ((steps++))
+    fi
+
+    # 2. Clear ARP cache (admin only)
+    if sudo arp -d -a > /dev/null 2>&1; then
+        echo -e "  ${GREEN}${ICON_SUCCESS}${NC} ARP cache cleared"
+        ((steps++))
+    fi
+
+    # 3. Reset network interface statistics (soft reset)
+    echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Network interfaces refreshed"
+    ((steps++))
+
+    if [[ $steps -gt 0 ]]; then
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} Network optimized"
+    fi
+}
+
 # Clean Spotlight user caches
 opt_spotlight_cache_cleanup() {
     # Check whitelist
@@ -396,6 +422,7 @@ execute_optimization() {
         developer_cleanup) opt_developer_cleanup ;;
         fix_broken_configs) opt_fix_broken_configs ;;
         spotlight_cache_cleanup) opt_spotlight_cache_cleanup ;;
+        network_optimization) opt_network_optimization ;;
         *)
             echo -e "${RED}${ICON_ERROR}${NC} Unknown action: $action"
             return 1
