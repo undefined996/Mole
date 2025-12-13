@@ -153,7 +153,7 @@ clean_dev_mobile() {
         debug_log "Checking for unavailable Xcode simulators"
 
         if [[ "$DRY_RUN" == "true" ]]; then
-             clean_tool_cache "Xcode unavailable simulators" xcrun simctl delete unavailable
+            clean_tool_cache "Xcode unavailable simulators" xcrun simctl delete unavailable
         else
             if [[ -t 1 ]]; then
                 MOLE_SPINNER_PREFIX="  " start_inline_spinner "Checking unavailable simulators..."
@@ -315,10 +315,10 @@ clean_developer_tools() {
             safe_clean "$lock_dir"/* "Homebrew lock files"
         elif [[ -d "$lock_dir" ]]; then
             # Directory exists but not writable. Check if empty to avoid noise.
-            if [[ -n "$(ls -A "$lock_dir" 2>/dev/null)" ]]; then
-                 # Only try sudo ONCE if we really need to, or just skip to avoid spam
-                 # Decision: Skip strict system/root owned locks to avoid nag.
-                 debug_log "Skipping read-only Homebrew locks in $lock_dir"
+            if [[ -n "$(ls -A "$lock_dir" 2> /dev/null)" ]]; then
+                # Only try sudo ONCE if we really need to, or just skip to avoid spam
+                # Decision: Skip strict system/root owned locks to avoid nag.
+                debug_log "Skipping read-only Homebrew locks in $lock_dir"
             fi
         fi
     done
