@@ -41,6 +41,9 @@ temp/
 
 # AI Assistant Instructions
 .claude/
+.gemini/
+CLAUDE.md
+GEMINI.md
 .cursorrules
 
 # Go build artifacts (development)
