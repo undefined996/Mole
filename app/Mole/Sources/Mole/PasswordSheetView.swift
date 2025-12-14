@@ -42,12 +42,23 @@ struct PasswordSheetView: View {
     VStack(alignment: .leading, spacing: 14) {
       // Icon
       ZStack(alignment: .bottomTrailing) {
-        Image(nsImage: NSApp.applicationIconImage)
-          .resizable()
-          .interpolation(.high)
-          .aspectRatio(contentMode: .fit)
-          .frame(width: 48, height: 48)
-          .shadow(radius: 2)
+        if let url = Bundle.module.url(forResource: "mole", withExtension: "png"),
+          let customIcon = NSImage(contentsOf: url)
+        {
+          Image(nsImage: customIcon)
+            .resizable()
+            .interpolation(.high)
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 48, height: 48)
+            .shadow(radius: 2)
+        } else {
+          Image(nsImage: NSApp.applicationIconImage)
+            .resizable()
+            .interpolation(.high)
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 48, height: 48)
+            .shadow(radius: 2)
+        }
       }
       .padding(.leading, 6)
 
