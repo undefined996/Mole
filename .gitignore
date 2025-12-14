@@ -59,3 +59,4 @@ mole-analyze
 *.xcodeproj
 *.xcworkspace
 DerivedData/
+*.app
