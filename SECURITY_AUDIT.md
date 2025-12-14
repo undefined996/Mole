@@ -1,8 +1,8 @@
 # Mole Security Audit Report
 
-**Date:** December 12, 2025
+**Date:** December 14, 2025
 
-**Audited Version:** Current `main` branch
+**Audited Version:** Current `main` branch (V1.12.25)
 
 **Status:** Passed
 
@@ -53,7 +53,7 @@ Mole's "Smart Uninstall" and orphan detection (`lib/clean/apps.sh`) are intentio
 - **Active Uninstallation Heuristics**
     When a user explicitly selects an app for uninstallation, Mole employs advanced heuristics to find scattered remnants (e.g., "Visual Studio Code" -> `~/.vscode`, `~/Library/Application Support/VisualStudioCode`).
   - **Sanitized Name Matching**: We search for app name variations to catch non-standard folder naming.
-  - **Safety Constraints**: Fuzzy matching and sanitized name searches are **strictly disabled** for app names shorter than 4 characters to prevent false positives.
+  - **Safety Constraints**: Fuzzy matching and sanitized name searches are **strictly disabled** for app names shorter than 3 characters to prevent false positives.
   - **System Scope**: Mole scans specific system-level directories (`/Library/LaunchAgents`, etc.) for related components.
 
 - **System Integrity Protection (SIP) Awareness**
@@ -64,6 +64,12 @@ Mole's "Smart Uninstall" and orphan detection (`lib/clean/apps.sh`) are intentio
 
 - **VPN & Proxy Protection**
     Mole includes a comprehensive protection layer for VPN and Proxy applications (e.g., Shadowsocks, V2Ray, Tailscale). It protects both their application bundles and data directories from automated cleanup to prevent network configuration loss.
+
+- **AI & LLM Data Protection (New in v1.12.25)**
+    Mole now explicitly protects data for AI tools (Cursor, Claude, ChatGPT, Ollama, LM Studio, etc.). Both the automated cleaning logic (`bin/clean.sh`) and orphan detection (`lib/core/app_protection.sh`) exclude these applications to prevent loss of:
+  - Local LLM models (which can be gigabytes in size).
+  - Authentication tokens and session states.
+  - Chat history and local configurations.
 
 ## 4. Atomic Operations & Crash Safety
 
