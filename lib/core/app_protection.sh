@@ -112,28 +112,26 @@ readonly DATA_PROTECTED_BUNDLES=(
     # ============================================================================
     # AI & LLM Tools
     # ============================================================================
-    "com.todesktop.*"           # Cursor (often uses generic todesktop ID)
-    "Cursor"                    # Cursor App Support
-    "com.anthropic.claude*"     # Claude
-    "Claude"                    # Claude App Support
-    "com.openai.chat*"          # ChatGPT
-    "ChatGPT"                   # ChatGPT App Support
-    "com.ollama.ollama"         # Ollama
-    "Ollama"                    # Ollama App Support
-    "com.lmstudio.lmstudio"     # LM Studio
-    "LM Studio"                 # LM Studio App Support
-    "co.supertool.chatbox"      # Chatbox
-    "page.jan.jan"              # Jan
+    "com.todesktop.*"             # Cursor (often uses generic todesktop ID)
+    "Cursor"                      # Cursor App Support
+    "com.anthropic.claude*"       # Claude
+    "Claude"                      # Claude App Support
+    "com.openai.chat*"            # ChatGPT
+    "ChatGPT"                     # ChatGPT App Support
+    "com.ollama.ollama"           # Ollama
+    "Ollama"                      # Ollama App Support
+    "com.lmstudio.lmstudio"       # LM Studio
+    "LM Studio"                   # LM Studio App Support
+    "co.supertool.chatbox"        # Chatbox
+    "page.jan.jan"                # Jan
     "com.huggingface.huggingchat" # HuggingChat
-    "Gemini"                    # Gemini
-    "com.perplexity.Perplexity" # Perplexity
-    "com.drawthings.DrawThings" # Draw Things
+    "Gemini"                      # Gemini
+    "com.perplexity.Perplexity"   # Perplexity
+    "com.drawthings.DrawThings"   # Draw Things
     "com.divamgupta.diffusionbee" # DiffusionBee
-    "com.exafunction.windsurf"  # Windsurf
-    "com.quora.poe.electron"    # Poe
-    "chat.openai.com.*"         # OpenAI web wrappers
-
-
+    "com.exafunction.windsurf"    # Windsurf
+    "com.quora.poe.electron"      # Poe
+    "chat.openai.com.*"           # OpenAI web wrappers
 
     # ============================================================================
     # Development Tools - Database Clients
