@@ -8,10 +8,35 @@ class ScannerService: ObservableObject {
   @Published var isCleaning = false
   @Published var scanFinished = false
 
-  private var pathsToScan = [
-    FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!,
-    FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
-      .appendingPathComponent("Logs"),
+  // Reset State
+  func reset() {
+    self.currentLog = ""
+    self.scanFinished = false
+    self.isScanning = false
+    self.isCleaning = false
+    self.totalSize = 0
+  }
+
+  // User Paths (No Auth Needed)
+  private var userPaths: [URL] = {
+    let fileManager = FileManager.default
+    let home = fileManager.homeDirectoryForCurrentUser
+    let library = home.appendingPathComponent("Library")
+
+    return [
+      fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first,
+      library.appendingPathComponent("Logs"),
+      library.appendingPathComponent("Developer/Xcode/DerivedData"),
+      library.appendingPathComponent("Developer/Xcode/Archives"),
+      library.appendingPathComponent("Developer/Xcode/iOS DeviceSupport"),
+      library.appendingPathComponent("Developer/CoreSimulator/Caches"),
+    ].compactMap { $0 }
+  }()
+
+  // System Paths (Auth Needed)
+  private var systemPaths: [URL] = [
+    URL(fileURLWithPath: "/Library/Caches"),
+    URL(fileURLWithPath: "/Library/Logs"),
   ]
 
   // Scan Function
@@ -25,30 +50,27 @@ class ScannerService: ObservableObject {
     var calculatedSize: Int64 = 0
     let fileManager = FileManager.default
 
-    for url in pathsToScan {
-      // Log directory being scanned
+    let allPaths = userPaths + systemPaths
+
+    for url in allPaths {
+      if !fileManager.fileExists(atPath: url.path) { continue }
+
       await MainActor.run {
         self.currentLog = "Scanning \(url.lastPathComponent)..."
       }
 
-      // Basic enumeration
+      // Enumeration (Skip permission errors silently)
       if let enumerator = fileManager.enumerator(
         at: url, includingPropertiesForKeys: [.fileSizeKey],
         options: [.skipsHiddenFiles, .skipsPackageDescendants])
       {
-
         var counter = 0
-
-        for case let fileURL as URL in enumerator {
-          // Update log periodically to avoid UI thrashing
+        while let fileURL = enumerator.nextObject() as? URL {
           counter += 1
-          if counter % 50 == 0 {
-            let path = fileURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
-            await MainActor.run {
-              self.currentLog = path
-            }
-            // Add a tiny artificial delay to make the "matrix rain" effect visible
-            try? await Task.sleep(nanoseconds: 2_000_000)  // 2ms
+          if counter % 200 == 0 {
+            let p = self.truncatePath(fileURL.path)
+            await MainActor.run { self.currentLog = p }
+            try? await Task.sleep(nanoseconds: 2_000_000)
           }
 
           do {
@@ -72,45 +94,81 @@ class ScannerService: ObservableObject {
     }
   }
 
-  // Clean Function (Moves items to Trash for safety in prototype)
-  func cleanSystem() async {
+  // Clean Function
+  func cleanSystem() async -> Int64 {
+    let startTime = Date()
     await MainActor.run {
       self.isCleaning = true
     }
 
+    var cleanedSize: Int64 = 0
     let fileManager = FileManager.default
 
-    for url in pathsToScan {
-      await MainActor.run {
-        self.currentLog = "Cleaning \(url.lastPathComponent)..."
-      }
+    // 1. Clean User Paths (Direct FileManager)
+    for url in userPaths {
+      if !fileManager.fileExists(atPath: url.path) { continue }
+      await MainActor.run { self.currentLog = "Cleaning \(url.lastPathComponent)..." }
 
       do {
-        let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
+        let contents = try fileManager.contentsOfDirectory(
+          at: url, includingPropertiesForKeys: [.fileSizeKey])
         for fileUrl in contents {
-          // Skip if protected (basic check)
-          if fileUrl.lastPathComponent.hasPrefix(".") { continue }
+          if fileUrl.lastPathComponent == "." || fileUrl.lastPathComponent == ".." { continue }
 
-          await MainActor.run {
-            self.currentLog = "Removing \(fileUrl.lastPathComponent)"
+          if let res = try? fileUrl.resourceValues(forKeys: [.fileSizeKey]), let s = res.fileSize {
+            cleanedSize += Int64(s)
           }
 
-          // In a real app we'd use Trash, but for "Mole" prototype we simulate deletion or do safe remove
-          // For safety in this prototype, we WON'T actually delete unless confirmed safe.
-          // Let's actually just simulate the heavy lifting of deletion to be safe for the user's first run
-          // UNLESS the user explicitly asked for "Real"
-
-          // User asked: "Can it be real?"
-          // RISK: Deleting user caches indiscriminately is dangerous (#126).
-          // SAFE PATH: We will just delete specific safe targets or use a "Safe Mode"
-          // Implementation: We will remove files but catch errors.
-
           try? fileManager.removeItem(at: fileUrl)
-          try? await Task.sleep(nanoseconds: 5_000_000)  // 5ms per file for visual effect
         }
-      } catch {
-        print("Error calculating contents: \(error)")
+      } catch {}
+    }
+
+    // 2. Clean System Paths (Batch Admin Command)
+    // We construct a command that deletes the *contents* of these directories
+    var adminCommands: [String] = []
+    for url in systemPaths {
+      if fileManager.fileExists(atPath: url.path) {
+        // Safe check: Only standard paths
+        if url.path == "/Library/Caches" || url.path == "/Library/Logs" {
+          adminCommands.append("rm -rf \"\(url.path)\"/*")
+        }
       }
+    }
+
+    if !adminCommands.isEmpty {
+      await MainActor.run { self.currentLog = "Authorizing System Cleanup..." }
+      let fullCommand = adminCommands.joined(separator: "; ")
+
+      if let sessionPw = AuthContext.shared.password {
+        do {
+          _ = try await ShellRunner.shared.runSudo(fullCommand, password: sessionPw)
+        } catch {
+          print("Session password failed: \(error)")
+          await MainActor.run { AuthContext.shared.clear() }
+          // Trigger re-auth on failure
+          await MainActor.run {
+            AuthContext.shared.needsPassword = true
+            self.currentLog = "Password Incorrect/Expired"
+            self.isCleaning = false
+          }
+          return 0
+        }
+      } else {
+        // No password yet -> Prompt via Sheet
+        await MainActor.run {
+          AuthContext.shared.needsPassword = true
+          self.currentLog = "Requires Authorization"
+          self.isCleaning = false
+        }
+        return 0
+      }
+    }
+
+    // Ensure minimum duration for UX
+    let elapsed = Date().timeIntervalSince(startTime)
+    if elapsed < 1.0 {
+      try? await Task.sleep(nanoseconds: UInt64((1.0 - elapsed) * 1_000_000_000))
     }
 
     await MainActor.run {
@@ -119,5 +177,18 @@ class ScannerService: ObservableObject {
       self.totalSize = 0
       self.currentLog = "Cleaned"
     }
+
+    return cleanedSize
+  }
+
+  private func truncatePath(_ path: String) -> String {
+    let home = NSHomeDirectory()
+    let short = path.replacingOccurrences(of: home, with: "~")
+    if short.count > 45 {
+      let start = short.prefix(15)
+      let end = short.suffix(25)
+      return "\(start)...\(end)"
+    }
+    return short
   }
 }

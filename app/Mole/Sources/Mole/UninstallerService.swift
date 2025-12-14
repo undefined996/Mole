@@ -14,6 +14,11 @@ class UninstallerService: ObservableObject {
   @Published var isUninstalling = false
   @Published var currentLog = ""
 
+  func reset() {
+    self.currentLog = ""
+    self.isUninstalling = false
+  }
+
   init() {
     // Prefetch on launch
     Task {
@@ -40,13 +45,14 @@ class UninstallerService: ObservableObject {
       }
       initialApps.sort { $0.name < $1.name }
 
-      await MainActor.run {
+      await MainActor.run { [initialApps] in
         self.apps = initialApps
       }
 
       // B. Slow Path: Calculate Sizes and Fetch Icons in Background
+      let appsSnapshot = initialApps
       await withTaskGroup(of: (UUID, NSImage?, String).self) { group in
-        for app in initialApps {
+        for app in appsSnapshot {
           group.addTask { [app] in
             // Fetch Icon
             let icon = NSWorkspace.shared.icon(forFile: app.url.path)
@@ -74,37 +80,75 @@ class UninstallerService: ObservableObject {
   func uninstall(_ app: AppItem) async {
     await MainActor.run {
       self.isUninstalling = true
-      self.currentLog = "Preparing to remove \(app.name)..."
+      self.currentLog = "Analyzing \(app.name)..."
     }
 
-    let containerPath =
-      FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?
-      .appendingPathComponent("Containers").appendingPathComponent("com.example.\(app.name)")
-      .path ?? "~/Library/Containers/..."
+    let fileManager = FileManager.default
 
-    let steps = [
-      "Analyzing Bundle Structure...",
-      "Identifying App Sandbox...",
-      "Locating Application Support Files...",
-      "Finding Preferences Plist...",
-      "Scanning for Caches...",
-      "Removing \(app.name).app...",
-      "Cleaning Container: \(containerPath)...",
-      "Unlinking LaunchAgents...",
-      "Final Cleanup...",
-    ]
+    // 1. Get Bundle ID
+    var bundleID: String?
+    if let bundle = Bundle(url: app.url) {
+      bundleID = bundle.bundleIdentifier
+    }
 
-    for step in steps {
-      await MainActor.run { self.currentLog = step }
-      // Random "Work" Delay
-      let delay = UInt64.random(in: 300_000_000...800_000_000)
-      try? await Task.sleep(nanoseconds: delay)
+    // Fallback if Bundle init fails
+    if bundleID == nil {
+      let plistUrl = app.url.appendingPathComponent("Contents/Info.plist")
+      if let data = try? Data(contentsOf: plistUrl),
+        let plist = try? PropertyListSerialization.propertyList(
+          from: data, options: [], format: nil) as? [String: Any]
+      {
+        bundleID = plist["CFBundleIdentifier"] as? String
+      }
+    }
+
+    var itemsToRemove: [URL] = []
+
+    // 2. Find Related Files
+    if let bid = bundleID {
+      let home = FileManager.default.homeDirectoryForCurrentUser
+      let library = home.appendingPathComponent("Library")
+
+      // Potential Paths
+      let candidates = [
+        library.appendingPathComponent("Application Support/\(bid)"),
+        library.appendingPathComponent("Caches/\(bid)"),
+        library.appendingPathComponent("Preferences/\(bid).plist"),
+        library.appendingPathComponent("Saved Application State/\(bid).savedState"),
+        library.appendingPathComponent("Containers/\(bid)"),
+        library.appendingPathComponent("WebKit/\(bid)"),
+        library.appendingPathComponent("LaunchAgents/\(bid).plist"),
+        library.appendingPathComponent("Logs/\(bid)"),
+      ]
+
+      for url in candidates {
+        if fileManager.fileExists(atPath: url.path) {
+          itemsToRemove.append(url)
+        }
+      }
+    }
+
+    // Add App itself
+    itemsToRemove.append(app.url)
+
+    // 3. Remove Items
+    for item in itemsToRemove {
+      await MainActor.run {
+        let path = item.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+        self.currentLog = "Removing \(path)..."
+      }
+
+      do {
+        try fileManager.trashItem(at: item, resultingItemURL: nil)
+        try? await Task.sleep(nanoseconds: 100_000_000)  // 0.1s for visual feedback
+      } catch {
+        print("Failed to trash \(item.path): \(error)")
+      }
     }
 
     await MainActor.run {
       self.isUninstalling = false
       self.currentLog = "Uninstalled \(app.name)"
-      // Simulate removal from list
       if let idx = self.apps.firstIndex(of: app) {
         self.apps.remove(at: idx)
       }

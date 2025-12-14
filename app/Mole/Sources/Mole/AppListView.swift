@@ -19,6 +19,7 @@ struct AppListView: View {
             .font(.title2)
         }
         .buttonStyle(.plain)
+        .keyboardShortcut(.escape, modifiers: [])
       }
       .padding()
       .background(Color.black.opacity(0.8))
@@ -52,12 +53,12 @@ struct AppListView: View {
               Spacer()
 
               Button(action: { onSelect(app) }) {
-                Text("UNINSTALL")
+                Text("Uninstall")
                   .font(.system(size: 10, weight: .bold))
                   .foregroundStyle(.white)
                   .padding(.horizontal, 10)
                   .padding(.vertical, 6)
-                  .background(Capsule().fill(Color.blue.opacity(0.8)))
+                  .background(Capsule().fill(Color(red: 1.0, green: 0.3, blue: 0.1).opacity(0.8)))
               }
               .buttonStyle(.plain)
             }
@@ -67,7 +68,8 @@ struct AppListView: View {
             .padding(.horizontal)
           }
         }
-        .padding(.vertical)
+        .padding(.top)
+        .padding(.bottom, 40)
       }
     }
     .background(Color.black.opacity(0.95))

@@ -89,7 +89,7 @@ struct MoleSceneView: NSViewRepresentable {
     context.coordinator.parent = self
 
     guard let scene = scnView.scene,
-      let planet = scene.rootNode.childNode(withName: "molePlanet", recursively: false)
+      scene.rootNode.childNode(withName: "molePlanet", recursively: false) != nil
     else { return }
     // Only update if mode changed to prevent expensive texture reloads
     if context.coordinator.currentMode != appMode {
@@ -105,13 +105,13 @@ struct MoleSceneView: NSViewRepresentable {
 
         switch appMode {
         case .cleaner:
+          textureName = "mercury"
+          constRoughness = 0.6
+          rimColor = NSColor(calibratedRed: 0.8, green: 0.8, blue: 0.9, alpha: 1.0)
+        case .uninstaller:
           textureName = "mars"
           constRoughness = 0.9
-          rimColor = NSColor(calibratedRed: 1.0, green: 0.5, blue: 0.3, alpha: 1.0)
-        case .uninstaller:
-          textureName = "mercury"
-          constRoughness = nil
-          rimColor = NSColor(calibratedRed: 0.9, green: 0.9, blue: 1.0, alpha: 1.0)
+          rimColor = NSColor(calibratedRed: 1.0, green: 0.3, blue: 0.1, alpha: 1.0)
         case .optimizer:
           textureName = "earth"
           constRoughness = 0.4

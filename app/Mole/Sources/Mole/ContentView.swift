@@ -14,12 +14,16 @@ struct ContentView: View {
   @StateObject private var scanner = ScannerService()
   @StateObject private var uninstaller = UninstallerService()
   @StateObject private var optimizer = OptimizerService()
+  @ObservedObject var authContext = AuthContext.shared
 
-  // The requested coffee/dark brown color (Cleaner)
-  let deepBrown = Color(red: 0.17, green: 0.11, blue: 0.05)  // #2C1C0E
+  // Mercury (Cleaner) - Dark Industrial Gray
+  let mercuryColor = Color(red: 0.15, green: 0.15, blue: 0.18)
 
-  // Deep Blue for Uninstaller
-  let deepBlue = Color(red: 0.05, green: 0.1, blue: 0.2)
+  // Mars (Uninstaller) - Deep Red
+  let marsColor = Color(red: 0.25, green: 0.08, blue: 0.05)
+
+  // Earth (Optimizer) - Deep Blue
+  let earthColor = Color(red: 0.05, green: 0.1, blue: 0.25)
 
   var body: some View {
     ZStack {
@@ -27,7 +31,10 @@ struct ContentView: View {
       Color.black.ignoresSafeArea()
 
       RadialGradient(
-        gradient: Gradient(colors: [appMode == .cleaner ? deepBrown : deepBlue, .black]),
+        gradient: Gradient(colors: [
+          appMode == .cleaner ? mercuryColor : (appMode == .uninstaller ? marsColor : earthColor),
+          .black,
+        ]),
         center: .center,
         startRadius: 0,
         endRadius: 600
@@ -37,96 +44,10 @@ struct ContentView: View {
 
       // Custom Top Tab Bar
       VStack {
-        HStack(spacing: 0) {
-          // Cleaner Tab
-          Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-              appMode = .cleaner
-            }
-          }) {
-            Text("Cleaner")
-              .font(.system(size: 12, weight: .bold, design: .monospaced))
-              .foregroundStyle(appMode == .cleaner ? .black : .white.opacity(0.6))
-              .padding(.vertical, 8)
-              .padding(.horizontal, 16)
-              .background(
-                ZStack {
-                  if appMode == .cleaner {
-                    Capsule()
-                      .fill(Color.white)
-                      .matchedGeometryEffect(id: "TabHighlight", in: animationNamespace)
-                  }
-                }
-              )
-          }
-          .buttonStyle(.plain)
-          .onHover { inside in
-            if inside { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-          }
-
-          // Uninstaller Tab
-          Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-              appMode = .uninstaller
-            }
-          }) {
-            Text("Uninstaller")
-              .font(.system(size: 12, weight: .bold, design: .monospaced))
-              .foregroundStyle(appMode == .uninstaller ? .black : .white.opacity(0.6))
-              .padding(.vertical, 8)
-              .padding(.horizontal, 16)
-              .background(
-                ZStack {
-                  if appMode == .uninstaller {
-                    Capsule()
-                      .fill(Color.white)
-                      .matchedGeometryEffect(id: "TabHighlight", in: animationNamespace)
-                  }
-                }
-              )
-          }
-          .buttonStyle(.plain)
-          .onHover { inside in
-            if inside { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-          }
-
-          // Optimizer Tab
-          Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-              appMode = .optimizer
-            }
-          }) {
-            Text("Optimizer")
-              .font(.system(size: 12, weight: .bold, design: .monospaced))
-              .foregroundStyle(appMode == .optimizer ? .black : .white.opacity(0.6))
-              .padding(.vertical, 8)
-              .padding(.horizontal, 16)
-              .background(
-                ZStack {
-                  if appMode == .optimizer {
-                    Capsule()
-                      .fill(Color.white)
-                      .matchedGeometryEffect(id: "TabHighlight", in: animationNamespace)
-                  }
-                }
-              )
-          }
-          .buttonStyle(.plain)
-          .onHover { inside in
-            if inside { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-          }
-        }
-        .padding(4)
-        .background(
-          Capsule()
-            .fill(.ultraThinMaterial)
-            .opacity(0.3)
+        TopBarView(
+          appMode: $appMode, animationNamespace: animationNamespace, authContext: authContext
         )
-        .overlay(
-          Capsule()
-            .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
-        )
-        .padding(.top, 20)  // Spacing from top
+        .padding(.top, 20)
 
         Spacer()
       }
@@ -161,6 +82,9 @@ struct ContentView: View {
         }
         .opacity(showAppList ? 0.0 : 1.0)  // Hide when list is open
         .animation(.easeInOut, value: showAppList)
+        .padding(.top, 75)  // Visual centering adjustment
+
+        Spacer()  // Dynamic spacing
 
         // Status Area
         ZStack {
@@ -184,11 +108,7 @@ struct ContentView: View {
             // Action Button
             Button(action: {
               if appMode == .cleaner {
-                if scanner.scanFinished {
-                  startCleaning()
-                } else {
-                  startScanning()
-                }
+                startSmartClean()
               } else if appMode == .uninstaller {
                 handleUninstallerAction()
               } else {
@@ -204,7 +124,7 @@ struct ContentView: View {
                     .tint(.black)
                 }
 
-                Text(actionButtonLabel)
+                Text("Mole")
                   .font(.system(size: 14, weight: .bold, design: .monospaced))
               }
               .frame(minWidth: 140)
@@ -225,8 +145,7 @@ struct ContentView: View {
           }
         }
         .frame(height: 100)
-
-        Spacer()
+        .padding(.bottom, 30)  // Anchor to bottom
       }
 
       // App List Overlay
@@ -247,7 +166,6 @@ struct ContentView: View {
 
       if showCelebration {
         VStack(spacing: 8) {
-          Spacer()
           ConfettiView(colors: celebrationColors)
             .offset(y: -50)
 
@@ -263,7 +181,7 @@ struct ContentView: View {
                 .shadow(radius: 5)
             }
           }
-          .offset(y: -150)
+          .offset(y: 105)
         }
         .allowsHitTesting(false)
         .zIndex(100)
@@ -298,41 +216,46 @@ struct ContentView: View {
         }
       }
     }
+    .sheet(isPresented: $authContext.needsPassword) {
+      PasswordSheetView(onUnlock: {
+        // Unlock success implies AuthContext.password is set.
+        // Services will use it on next attempt.
+      })
+    }
     .onChange(of: appMode) {
       appState = .idle
       logs.removeAll()
       showAppList = false
-    }
-  }
-
-  // MARK: - Computed Properties
-
-  var actionButtonLabel: String {
-    if appMode == .cleaner {
-      return scanner.scanFinished ? "Clean" : "Check"
-    } else if appMode == .uninstaller {
-      return "Scan Apps"
-    } else {
-      return "Boost"
+      showCelebration = false
+      scanner.reset()
+      optimizer.reset()
+      uninstaller.reset()
     }
   }
 
   // MARK: - Actions
 
-  func startScanning() {
+  func startSmartClean() {
     withAnimation {
       appState = .scanning
       logs.removeAll()
+      showCelebration = false  // Dismiss old success
     }
 
     Task {
       await scanner.startScan()
-      let sizeMB = Double(scanner.totalSize) / 1024.0 / 1024.0
-      let sizeString =
-        sizeMB > 1024 ? String(format: "%.1f GB", sizeMB / 1024) : String(format: "%.0f MB", sizeMB)
+      try? await Task.sleep(nanoseconds: 500_000_000)
 
-      withAnimation {
-        appState = .results(size: sizeString)
+      await MainActor.run {
+        if scanner.totalSize > 0 {
+          startCleaning()
+        } else {
+          withAnimation {
+            appState = .idle
+            logs.removeAll()
+          }
+          triggerCelebration([.white], message: "Already Clean")
+        }
       }
     }
   }
@@ -341,19 +264,29 @@ struct ContentView: View {
     withAnimation {
       appState = .cleaning
       logs.removeAll()
+      showCelebration = false
     }
 
     Task {
-      await scanner.cleanSystem()
+      let cleanedBytes = await scanner.cleanSystem()
       withAnimation {
         appState = .done
       }
-      triggerCelebration([.orange, .red, .yellow, .white], message: "System Cleaned")
+
+      let mb = Double(cleanedBytes) / 1024.0 / 1024.0
+      let msg =
+        mb > 1024
+        ? String(format: "Cleaned %.1f GB", mb / 1024.0) : String(format: "Cleaned %.0f MB", mb)
+
+      triggerCelebration([.orange, .red, .yellow, .white], message: msg)
     }
   }
 
   func handleUninstallerAction() {
-    withAnimation { showAppList = true }
+    withAnimation {
+      showAppList = true
+      showCelebration = false
+    }
     Task { await uninstaller.scanApps() }
   }
 
@@ -361,6 +294,7 @@ struct ContentView: View {
     withAnimation {
       showAppList = false
       logs.removeAll()
+      showCelebration = false
     }
 
     Task {
@@ -372,6 +306,7 @@ struct ContentView: View {
   }
 
   func handleOptimizerAction() {
+    showCelebration = false  // Immediate dismiss
     Task {
       await optimizer.optimize()
       triggerCelebration([.cyan, .blue, .purple, .mint, .white], message: "Optimized")
@@ -384,6 +319,65 @@ struct ContentView: View {
     withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) { showCelebration = true }
     DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
       withAnimation { showCelebration = false }
+    }
+  }
+}
+
+struct TopBarView: View {
+  @Binding var appMode: AppMode
+  var animationNamespace: Namespace.ID
+  @ObservedObject var authContext: AuthContext
+
+  var body: some View {
+    ZStack {
+      HStack(spacing: 0) {
+        TabBarButton(mode: .cleaner, appMode: $appMode, namespace: animationNamespace)
+        TabBarButton(mode: .uninstaller, appMode: $appMode, namespace: animationNamespace)
+        TabBarButton(mode: .optimizer, appMode: $appMode, namespace: animationNamespace)
+      }
+      .padding(4)
+      .background(Capsule().fill(.ultraThinMaterial).opacity(0.3))
+    }
+  }
+}
+
+struct TabBarButton: View {
+  let mode: AppMode
+  @Binding var appMode: AppMode
+  var namespace: Namespace.ID
+
+  var title: String {
+    switch mode {
+    case .cleaner: return "clean"
+    case .uninstaller: return "uninstall"
+    case .optimizer: return "optimize"
+    }
+  }
+
+  var body: some View {
+    Button(action: {
+      withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        appMode = mode
+      }
+    }) {
+      Text(title)
+        .font(.system(size: 12, weight: .bold, design: .monospaced))
+        .foregroundStyle(appMode == mode ? .black : .white.opacity(0.6))
+        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .background(
+          ZStack {
+            if appMode == mode {
+              Capsule()
+                .fill(Color.white)
+                .matchedGeometryEffect(id: "TabHighlight", in: namespace)
+            }
+          }
+        )
+    }
+    .buttonStyle(.plain)
+    .onHover { inside in
+      if inside { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
     }
   }
 }
