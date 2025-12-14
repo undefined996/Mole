@@ -3,6 +3,8 @@ import SwiftUI
 
 struct MoleView: View {
   @Binding var state: AppState
+  @Binding var appMode: AppMode  // New binding
+  var isRunning: Bool  // Fast Spin Trigger
 
   @State private var dragVelocity = CGSize.zero
 
@@ -29,44 +31,35 @@ struct MoleView: View {
         .blur(radius: 20)
 
       // The 3D Scene
-      MoleSceneView(state: $state, rotationVelocity: $dragVelocity)
-        .frame(width: 320, height: 320) // Slightly larger frame
-        .mask(Circle()) // Clip to circle to be safe
-        .contentShape(Circle()) // Ensure interaction only happens on the circle
-        .onHover { inside in
-            if inside {
-                NSCursor.openHand.push()
-            } else {
-                NSCursor.pop()
-            }
+      MoleSceneView(
+        state: $state, rotationVelocity: $dragVelocity, activeColor: appMode.themeColor,
+        appMode: appMode,
+        isRunning: isRunning
+      )
+      .frame(width: 320, height: 320)  // Slightly larger frame
+      .mask(Circle())  // Clip to circle to be safe
+      .contentShape(Circle())  // Ensure interaction only happens on the circle
+      .onHover { inside in
+        if inside {
+          NSCursor.openHand.set()
+        } else {
+          NSCursor.arrow.set()
         }
-        .gesture(
-          DragGesture()
-            .onChanged { gesture in
-              // Pass simplified velocity/delta for the Scene to rotate
-              dragVelocity = CGSize(width: gesture.translation.width, height: gesture.translation.height)
-              NSCursor.closedHand.push() // Grabbing effect
-            }
-            .onEnded { _ in
-              dragVelocity = .zero // Resume auto-spin (handled in view)
-              NSCursor.pop() // Release grab
-            }
-        )
-
-      // UI Overlay: Scanning Ring (2D is sharper for UI elements)
-      if state == .scanning || state == .cleaning {
-        Circle()
-          .trim(from: 0.0, to: 0.75)
-          .stroke(
-            AngularGradient(
-              gradient: Gradient(colors: [.white, .cyan, .clear]),
-              center: .center
-            ),
-            style: StrokeStyle(lineWidth: 3, lineCap: .round)
-          )
-          .frame(width: 290, height: 290)
-          .rotationEffect(.degrees(Double(Date().timeIntervalSince1970) * 360))  // Simple spin
       }
+      .gesture(
+        DragGesture()
+          .onChanged { gesture in
+            // Pass simplified velocity/delta for the Scene to rotate
+            dragVelocity = CGSize(
+              width: gesture.translation.width, height: gesture.translation.height)
+            NSCursor.closedHand.set()  // Grabbing effect
+          }
+          .onEnded { _ in
+            dragVelocity = .zero  // Resume auto-spin (handled in view)
+            NSCursor.openHand.set()  // Release grab
+          }
+      )
+
     }
     .scaleEffect(state == .cleaning ? 0.95 : 1.0)
     .animation(.spring, value: state)
