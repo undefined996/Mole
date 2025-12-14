@@ -137,7 +137,9 @@ clean_sandboxed_app_caches() {
                     # Clean contents safely
                     # We know this is a user cache path, so rm -rf is acceptable here
                     # provided we keep the Cache directory itself
-                    rm -rf "${cache_dir:?}"/* 2> /dev/null || true
+                    for item in "${cache_dir:?}"/*; do
+                        safe_remove "$item" true || true
+                    done
                 fi
             fi
         fi
