@@ -144,12 +144,23 @@ class ScannerService: ObservableObject {
         do {
           _ = try await ShellRunner.shared.runSudo(fullCommand, password: sessionPw)
         } catch {
+          print("Sudo command error: \(error)")
           print("Session password failed: \(error)")
-          await MainActor.run { AuthContext.shared.clear() }
-          // Trigger re-auth on failure
+
+          if case ShellError.authenticationFailed = error {
+            await MainActor.run {
+              AuthContext.shared.clear()
+              AuthContext.shared.needsPassword = true
+              self.currentLog = "Password Incorrect/Expired"
+              self.isCleaning = false
+            }
+            return 0
+          }
+          // Ignore other errors (e.g. command execution failed)
+          // but continue the flow or handle gracefully without clearing password
+          print("Non-auth error in cleanup: \(error)")
           await MainActor.run {
-            AuthContext.shared.needsPassword = true
-            self.currentLog = "Password Incorrect/Expired"
+            self.currentLog = "Error: \(error.localizedDescription)"
             self.isCleaning = false
           }
           return 0

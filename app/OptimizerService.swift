@@ -24,11 +24,30 @@ class OptimizerService: ObservableObject {
           _ = try await ShellRunner.shared.runSudo(command, password: pw)
           return
         } catch {
-          await MainActor.run { AuthContext.shared.clear() }
+          print("Optimizer privilege error: \(error)")
+          // Only clear password if it's an authentication failure
+          if case ShellError.authenticationFailed = error {
+            await MainActor.run { AuthContext.shared.clear() }
+
+            await MainActor.run {
+              AuthContext.shared.needsPassword = true
+              self.statusMessage = "Password Incorrect"
+            }
+
+            struct AuthRequired: Error, LocalizedError {
+              var errorDescription: String? { "Authentication Failed" }
+            }
+            throw AuthRequired()
+          } else {
+            // Command failed but password likely correct.
+            // Do NOT clear password. Propagate error.
+            print("Non-auth error in optimizer: \(error)")
+            throw error
+          }
         }
       }
 
-      // If no password or failed, prompt via Custom Sheet
+      // If no password, prompt via Custom Sheet
       await MainActor.run {
         AuthContext.shared.needsPassword = true
         self.statusMessage = "Waiting for Password..."

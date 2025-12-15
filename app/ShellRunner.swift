@@ -3,11 +3,13 @@ import Foundation
 enum ShellError: Error, LocalizedError {
   case commandFailed(output: String)
   case executionError(error: Error)
+  case authenticationFailed
 
   var errorDescription: String? {
     switch self {
     case .commandFailed(let output): return output
     case .executionError(let error): return error.localizedDescription
+    case .authenticationFailed: return "Authentication failed - incorrect password"
     }
   }
 }
@@ -98,10 +100,15 @@ class ShellRunner {
         if process.terminationStatus == 0 {
           continuation.resume(returning: output)
         } else {
-          // If 1, it might be wrong password or command fail.
-          // sudo usually complains to stderr.
-          continuation.resume(
-            throwing: ShellError.commandFailed(output: errorOutput.isEmpty ? output : errorOutput))
+          // Check for password failure
+          let combined = (output + errorOutput).lowercased()
+          if combined.contains("try again") || combined.contains("incorrect") {
+            continuation.resume(throwing: ShellError.authenticationFailed)
+          } else {
+            continuation.resume(
+              throwing: ShellError.commandFailed(output: errorOutput.isEmpty ? output : errorOutput)
+            )
+          }
         }
       }
 
@@ -116,5 +123,12 @@ class ShellRunner {
         continuation.resume(throwing: ShellError.executionError(error: error))
       }
     }
+  }
+
+  /// Escapes a string for safe use in bash commands
+  private func bashEscape(_ str: String) -> String {
+    // Use single quotes and escape any single quotes within the string
+    let escaped = str.replacingOccurrences(of: "'", with: "'\"'\"'")
+    return "'\(escaped)'"
   }
 }

@@ -165,7 +165,7 @@ struct MoleSceneView: NSViewRepresentable {
       // Slower, majestic rotation
       // Auto Rotation Speed
       // Slower, majestic rotation normally. Fast when working.
-      let baseRotation = parent.isRunning ? 0.05 : 0.002
+      let baseRotation = parent.isRunning ? 0.12 : 0.006
 
       // Drag Influence
       let dragInfluence = Double(parent.rotationVelocity.width) * 0.0005
