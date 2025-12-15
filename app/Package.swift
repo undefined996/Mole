@@ -12,6 +12,8 @@ let package = Package(
   targets: [
     .executableTarget(
       name: "Mole",
+      path: ".",
+      exclude: ["Package.swift", "package.sh"],
       resources: [
         .process("Resources")
       ]

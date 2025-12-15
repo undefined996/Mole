@@ -119,12 +119,7 @@ struct MoleSceneView: NSViewRepresentable {
         }
 
         // Load Texture (Support PNG and JPG)
-        var finalImage: NSImage?
-        if let url = Bundle.module.url(forResource: textureName, withExtension: "png") {
-          finalImage = NSImage(contentsOf: url)
-        } else if let url = Bundle.module.url(forResource: textureName, withExtension: "jpg") {
-          finalImage = NSImage(contentsOf: url)
-        }
+        let finalImage = Bundle.module.image(forResource: textureName)
 
         if let image = finalImage {
           material.diffuse.contents = image

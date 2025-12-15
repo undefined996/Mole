@@ -11,8 +11,9 @@ Thumbs.db
 *~
 *.swp
 *.swo
-.vscode/
 .idea/
+.vscode/*.code-workspace
+.vscode/settings.json
 
 # Logs
 *.log

@@ -6,7 +6,7 @@ APP_NAME="Mole"
 # Get the actual build path dynamically
 BUILD_PATH="$(swift build -c release --show-bin-path)/$APP_NAME"
 APP_BUNDLE="$APP_NAME.app"
-ICON_SOURCE="Sources/Mole/Resources/mole.png"
+ICON_SOURCE="Resources/mole.icns"
 
 echo "🚀 Building Release Binary..."
 swift build -c release
@@ -46,29 +46,8 @@ cat <<EOF > "$APP_BUNDLE/Contents/Info.plist"
 EOF
 
 if [ -f "$ICON_SOURCE" ]; then
-    echo "🎨 Generating App Icon from $ICON_SOURCE..."
-    ICONSET="Mole.iconset"
-    mkdir -p "$ICONSET"
-
-    # Resize images for standard icon sizes
-    sips -z 16 16     "$ICON_SOURCE" --out "$ICONSET/icon_16x16.png" > /dev/null
-    sips -z 32 32     "$ICON_SOURCE" --out "$ICONSET/icon_16x16@2x.png" > /dev/null
-    sips -z 32 32     "$ICON_SOURCE" --out "$ICONSET/icon_32x32.png" > /dev/null
-    sips -z 64 64     "$ICON_SOURCE" --out "$ICONSET/icon_32x32@2x.png" > /dev/null
-    sips -z 128 128   "$ICON_SOURCE" --out "$ICONSET/icon_128x128.png" > /dev/null
-    sips -z 256 256   "$ICON_SOURCE" --out "$ICONSET/icon_128x128@2x.png" > /dev/null
-    sips -z 256 256   "$ICON_SOURCE" --out "$ICONSET/icon_256x256.png" > /dev/null
-    sips -z 512 512   "$ICON_SOURCE" --out "$ICONSET/icon_256x256@2x.png" > /dev/null
-    sips -z 512 512   "$ICON_SOURCE" --out "$ICONSET/icon_512x512.png" > /dev/null
-    sips -z 1024 1024 "$ICON_SOURCE" --out "$ICONSET/icon_512x512@2x.png" > /dev/null
-
-    # Convert to icns
-    iconutil -c icns "$ICONSET"
-    mv "Mole.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
-
-    # Clean up
-    rm -rf "$ICONSET"
-
+    echo "🎨 Copying App Icon from $ICON_SOURCE..."
+    cp "$ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
     echo "✅ App Icon set successfully."
 else
     echo "⚠️ Icon file not found at $ICON_SOURCE. App will use default icon."

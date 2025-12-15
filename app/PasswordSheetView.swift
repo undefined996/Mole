@@ -42,10 +42,8 @@ struct PasswordSheetView: View {
     VStack(alignment: .leading, spacing: 14) {
       // Icon
       ZStack(alignment: .bottomTrailing) {
-        if let url = Bundle.module.url(forResource: "mole", withExtension: "png"),
-          let customIcon = NSImage(contentsOf: url)
-        {
-          Image(nsImage: customIcon)
+        if let icon = Bundle.module.image(forResource: "mole") {
+          Image(nsImage: icon)
             .resizable()
             .interpolation(.high)
             .aspectRatio(contentMode: .fit)
